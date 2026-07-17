@@ -12,7 +12,26 @@ const config = defineConfig({
     process.env.NODE_ENV === 'development' && devtools(),
     tsconfigPaths({ projects: ['./tsconfig.json'] }),
     tailwindcss(),
-    tanstackStart(),
+    tanstackStart({
+      // Static prerender: the landing page is content-only, so we ship plain
+      // HTML from dist/client instead of running the SSR server in production.
+      // Any static host/CDN serves it with no serverless function required.
+      prerender: {
+        enabled: true,
+        crawlLinks: true,
+        autoSubfolderIndex: true,
+      },
+      pages: [
+        { path: '/' },
+        { path: '/about' },
+        { path: '/services' },
+        { path: '/pricing' },
+        { path: '/book-order' },
+        { path: '/my-orders' },
+        { path: '/login' },
+        { path: '/register' },
+      ],
+    }),
     viteReact(),
   ].filter(Boolean),
 })
