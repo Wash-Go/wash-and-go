@@ -2,16 +2,6 @@
 
 React frontend application built with TanStack Router, Vite, and TailwindCSS.
 
-> **Migration status:** This incomplete customer-web prototype was migrated
-> from the legacy `ClydeQue/Wash-Go` repository on 2026-07-17. The canonical
-> source is now `Wash-Go/wash-and-go/frontend`. Do not make new changes in the
-> legacy repository.
-
-This application is preserved for its implemented routes, components, and
-assets. ADR-002 classifies it as an archived reference prototype: reusable
-content and design ideas may be moved into the onboarding site or React Native
-apps, but this application is not deployed as a Wash & Go product surface.
-
 ## Folder Structure
 
 ```
@@ -70,9 +60,6 @@ npm run preview
 # Run tests
 npm run test
 
-# Run strict TypeScript checks
-npm run type-check
-
 # Lint code
 npm run lint
 
@@ -87,8 +74,3 @@ npm run format
 - **Vite** - Build tool
 - **TailwindCSS v4** - Styling
 - **TypeScript** - Type safety
-
-## Runtime
-
-Use Node.js `22.13.0` or newer. Several current TanStack, Vite, and ESLint
-dependencies do not support Node `22.11.0`.

@@ -1,6 +1,9 @@
 # macOS
 .DS_Store
 
+# Archive dumps (extract into docs/ then keep only extracted folder)
+docs/*.zip
+
 # Nestjs specific
 /dist
 /node_modules

@@ -2,9 +2,6 @@
   "name": "wash-and-go-frontend",
   "private": true,
   "type": "module",
-  "engines": {
-    "node": ">=22.13.0"
-  },
   "imports": {
     "#/*": "./src/*"
   },
@@ -13,7 +10,6 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "type-check": "tsc --noEmit",
     "lint": "eslint",
     "format": "prettier --check .",
     "check": "prettier --write . && eslint --fix"

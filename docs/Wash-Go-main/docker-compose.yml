@@ -1,0 +1,36 @@
+# /docker-compose.yml
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: wash_and_go_db
+      POSTGRES_USER: dev_user
+      POSTGRES_PASSWORD: dev_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./backend
+    # This command initializes the project if it doesn't exist
+    command: >
+      sh -c "if [ ! -f manage.py ]; then
+               django-admin startproject core .
+             fi &&
+             python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - ./backend:/Wash-Go
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgres://dev_user:dev_password@db:5432/wash_and_go_db
+      - SECRET_KEY=your-temporary-dev-secret-key
+      - DEBUG=1
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
