@@ -23,13 +23,10 @@ const config = defineConfig({
       },
       pages: [
         { path: '/' },
-        { path: '/about' },
         { path: '/services' },
         { path: '/pricing' },
         { path: '/book-order' },
         { path: '/my-orders' },
-        { path: '/login' },
-        { path: '/register' },
       ],
     }),
     viteReact(),

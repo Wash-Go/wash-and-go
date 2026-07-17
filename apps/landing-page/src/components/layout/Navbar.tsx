@@ -1,17 +1,23 @@
 import { Link } from '@tanstack/react-router'
 import brandingLogo from '../../assets/images/logos/branding.svg'
-import notificationIcon from '../../assets/images/icons/notification.svg'
-import profileIcon from '../../assets/images/icons/profile.svg'
+
+const NAV_LINKS = [
+  { to: '/', label: 'Home' },
+  { to: '/services', label: 'Services' },
+  { to: '/book-order', label: 'How It Works' },
+  { to: '/my-orders', label: 'Tracking' },
+  { to: '/pricing', label: 'Pricing' },
+] as const
 
 export function Navbar() {
   return (
-    <header className="sticky top-0 z-1000 z-50 w-full border-b border-gray-100 bg-white">
+    <header className="sticky top-0 z-50 w-full border-b border-gray-100 bg-white">
       <nav className="w-full px-4 py-4 sm:px-6 lg:px-8">
         <div className="grid w-full grid-cols-[auto_1fr_auto] items-center">
           {/* LEFT - Logo */}
           <Link
             to="/"
-            className="flex items-center space-x-2 justify-self-start hover:opacity-80 transition-opacity"
+            className="flex items-center space-x-2 justify-self-start transition-opacity hover:opacity-80"
           >
             <img
               src={brandingLogo}
@@ -24,117 +30,43 @@ export function Navbar() {
           </Link>
 
           {/* CENTER - Navigation */}
-          <div className="hidden md:flex items-center bg-[#EEEEEE] rounded-4xl p-1.5 justify-center gap-1 justify-self-center">
-            <Link
-              to="/"
-              className="font-['Montserrat'] text-sm font-medium rounded-full transition-colors"
-              activeProps={{
-                className:
-                  "font-['Montserrat'] text-sm font-medium px-8 py-2.5 rounded-full transition-colors bg-[#D07A29] text-white",
-              }}
-              inactiveProps={{
-                className:
-                  "font-['Montserrat'] text-sm font-medium px-5 py-2.5 rounded-full transition-colors text-gray-700 hover:bg-gray-100",
-              }}
-            >
-              Home
-            </Link>
-
-            <Link
-              to="/services"
-              className="font-['Montserrat'] text-sm font-medium rounded-full transition-colors"
-              activeProps={{
-                className:
-                  "font-['Montserrat'] text-sm font-medium px-5 py-2.5 rounded-full transition-colors bg-[#D07A29] text-white",
-              }}
-              inactiveProps={{
-                className:
-                  "font-['Montserrat'] text-sm font-medium px-5 py-2.5 rounded-full transition-colors text-gray-700 hover:bg-gray-100",
-              }}
-            >
-              Services
-            </Link>
-
-            <Link
-              to="/book-order"
-              className="font-['Montserrat'] text-sm font-medium  rounded-full transition-colors"
-              activeProps={{
-                className:
-                  "font-['Montserrat'] text-sm font-medium px-5 py-2.5 rounded-full transition-colors bg-[#D07A29] text-white",
-              }}
-              inactiveProps={{
-                className:
-                  "font-['Montserrat'] text-sm font-medium px-5 py-2.5 rounded-full transition-colors text-gray-700 hover:bg-gray-100",
-              }}
-            >
-              Book Order
-            </Link>
-
-            <Link
-              to="/my-orders"
-              className="font-['Montserrat'] text-sm font-medium rounded-full transition-colors"
-              activeProps={{
-                className:
-                  "font-['Montserrat'] text-sm font-medium px-5 py-2.5 rounded-full transition-colors bg-[#D07A29] text-white",
-              }}
-              inactiveProps={{
-                className:
-                  "font-['Montserrat'] text-sm font-medium px-5 py-2.5 rounded-full transition-colors text-gray-700 hover:bg-gray-100",
-              }}
-            >
-              My Orders
-            </Link>
-
-            <Link
-              to="/pricing"
-              className="font-['Montserrat'] text-sm font-medium rounded-full transition-colors"
-              activeProps={{
-                className:
-                  "font-['Montserrat'] text-sm font-medium px-5 py-2.5 rounded-full transition-colors bg-[#D07A29] text-white",
-              }}
-              inactiveProps={{
-                className:
-                  "font-['Montserrat'] text-sm font-medium px-5 py-2.5 rounded-full transition-colors text-gray-700 hover:bg-gray-100",
-              }}
-            >
-              Pricing
-            </Link>
+          <div className="hidden items-center justify-center gap-1 justify-self-center rounded-4xl bg-[#EEEEEE] p-1.5 md:flex">
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                className="font-['Montserrat'] text-sm font-medium rounded-full transition-colors"
+                activeProps={{
+                  className:
+                    "font-['Montserrat'] text-sm font-medium px-5 py-2.5 rounded-full transition-colors bg-[#D07A29] text-white",
+                }}
+                inactiveProps={{
+                  className:
+                    "font-['Montserrat'] text-sm font-medium px-5 py-2.5 rounded-full transition-colors text-gray-700 hover:bg-gray-100",
+                }}
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
 
-          {/* RIGHT - User */}
-          <div className="hidden md:flex items-center gap-6 justify-self-end">
-            <button
-              className="text-gray-600 hover:text-gray-900 transition-colors"
-              aria-label="Notifications"
+          {/* RIGHT - App CTA (public site is onboarding-only; no auth here) */}
+          <div className="hidden items-center justify-self-end md:flex">
+            <a
+              href="#get-the-app"
+              className="rounded-full bg-[#3D5975] px-6 py-2.5 font-['Montserrat'] text-sm font-semibold text-white transition-colors hover:bg-[#334c63]"
             >
-              <img
-                src={notificationIcon}
-                alt="Notifications"
-                className="w-4.5 h-4.75"
-              />
-            </button>
-
-            <div className="w-px h-6 bg-gray-300"></div>
-
-            <button
-              className="text-gray-600 hover:text-gray-900 transition-colors"
-              aria-label="Profile"
-            >
-              <img src={profileIcon} alt="Profile" className="w-4.5 h-4.5" />
-            </button>
-
-            <span className="font-['Montserrat'] text-sm font-medium text-gray-900">
-              Welcome, Clyde!
-            </span>
+              Get the App
+            </a>
           </div>
 
           {/* MOBILE MENU */}
           <button
-            className="justify-self-end md:hidden p-2 text-gray-700 hover:text-blue-600"
+            className="justify-self-end p-2 text-gray-700 hover:text-blue-600 md:hidden"
             aria-label="Open menu"
           >
             <svg
-              className="w-6 h-6"
+              className="h-6 w-6"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"

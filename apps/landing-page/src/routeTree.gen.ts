@@ -10,22 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ServicesRouteImport } from './routes/services'
-import { Route as RegisterRouteImport } from './routes/register'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as MyOrdersRouteImport } from './routes/my-orders'
-import { Route as LoginRouteImport } from './routes/login'
 import { Route as BookOrderRouteImport } from './routes/book-order'
-import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 
 const ServicesRoute = ServicesRouteImport.update({
   id: '/services',
   path: '/services',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RegisterRoute = RegisterRouteImport.update({
-  id: '/register',
-  path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PricingRoute = PricingRouteImport.update({
@@ -38,19 +30,9 @@ const MyOrdersRoute = MyOrdersRouteImport.update({
   path: '/my-orders',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const BookOrderRoute = BookOrderRouteImport.update({
   id: '/book-order',
   path: '/book-order',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AboutRoute = AboutRouteImport.update({
-  id: '/about',
-  path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -61,76 +43,39 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
   '/book-order': typeof BookOrderRoute
-  '/login': typeof LoginRoute
   '/my-orders': typeof MyOrdersRoute
   '/pricing': typeof PricingRoute
-  '/register': typeof RegisterRoute
   '/services': typeof ServicesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
   '/book-order': typeof BookOrderRoute
-  '/login': typeof LoginRoute
   '/my-orders': typeof MyOrdersRoute
   '/pricing': typeof PricingRoute
-  '/register': typeof RegisterRoute
   '/services': typeof ServicesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
   '/book-order': typeof BookOrderRoute
-  '/login': typeof LoginRoute
   '/my-orders': typeof MyOrdersRoute
   '/pricing': typeof PricingRoute
-  '/register': typeof RegisterRoute
   '/services': typeof ServicesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/about'
-    | '/book-order'
-    | '/login'
-    | '/my-orders'
-    | '/pricing'
-    | '/register'
-    | '/services'
+  fullPaths: '/' | '/book-order' | '/my-orders' | '/pricing' | '/services'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/about'
-    | '/book-order'
-    | '/login'
-    | '/my-orders'
-    | '/pricing'
-    | '/register'
-    | '/services'
-  id:
-    | '__root__'
-    | '/'
-    | '/about'
-    | '/book-order'
-    | '/login'
-    | '/my-orders'
-    | '/pricing'
-    | '/register'
-    | '/services'
+  to: '/' | '/book-order' | '/my-orders' | '/pricing' | '/services'
+  id: '__root__' | '/' | '/book-order' | '/my-orders' | '/pricing' | '/services'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AboutRoute: typeof AboutRoute
   BookOrderRoute: typeof BookOrderRoute
-  LoginRoute: typeof LoginRoute
   MyOrdersRoute: typeof MyOrdersRoute
   PricingRoute: typeof PricingRoute
-  RegisterRoute: typeof RegisterRoute
   ServicesRoute: typeof ServicesRoute
 }
 
@@ -141,13 +86,6 @@ declare module '@tanstack/react-router' {
       path: '/services'
       fullPath: '/services'
       preLoaderRoute: typeof ServicesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/register': {
-      id: '/register'
-      path: '/register'
-      fullPath: '/register'
-      preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pricing': {
@@ -164,25 +102,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MyOrdersRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/book-order': {
       id: '/book-order'
       path: '/book-order'
       fullPath: '/book-order'
       preLoaderRoute: typeof BookOrderRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -197,12 +121,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AboutRoute: AboutRoute,
   BookOrderRoute: BookOrderRoute,
-  LoginRoute: LoginRoute,
   MyOrdersRoute: MyOrdersRoute,
   PricingRoute: PricingRoute,
-  RegisterRoute: RegisterRoute,
   ServicesRoute: ServicesRoute,
 }
 export const routeTree = rootRouteImport
