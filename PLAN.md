@@ -1,32 +1,37 @@
 # Wash & Go — Build Plan
 
-Status: **stack locked** as of this revision. NestJS chosen over Django after full debate. See §1
-decision record; §8 records the tradeoff the team accepted.
+Status: **core platform direction revised 2026-07-17**. ADR-002 supersedes the
+earlier Flutter, public-dashboard, and Google Maps choices. NestJS remains the
+backend pick; mobile is React Native/Expo, public web is onboarding-only, and
+TomTom is the maps provider. Backend organization, repository boundaries, the
+UI API paradigm, and conditional Nginx use are **proposed only** in ADR-003 and
+do not become implementation requirements until that ADR is accepted.
 
 ---
 
 ## 0. Locked decisions
 
-| Layer | Pick |
-|---|---|
-| Backend | **NestJS + Fastify adapter + TypeScript** |
-| ORM | **Prisma** (Postgres driver, `Decimal` for money) |
-| Database | **PostgreSQL 16** (canonical, single source of truth) |
-| Realtime | **NestJS `@WebSocketGateway` + Socket.io + Redis adapter**; Postgres canonical |
-| Web dashboard | **Next.js (App Router) + TypeScript + TanStack Query + Vercel** |
-| Mobile | **Flutter** (customer + rider) |
-| Auth | **Firebase Auth (OTP) → NestJS-issued JWT** |
-| Admin surface | **Role-gated `/admin/*` routes inside the Next.js shop dashboard** (single app, role-scoped) |
-| Maps | **Google Maps Platform** |
-| Payments | **PayMongo only** at launch (fronts GCash/Maya/cards/QR Ph) |
-| Background jobs | **BullMQ + Redis** |
-| Hosting | **Deferred** — decide at deploy time (see §1.11 for candidates; leaning DigitalOcean or self-hosted for DB) |
+| Layer           | Pick                                                                                                        |
+| --------------- | ----------------------------------------------------------------------------------------------------------- |
+| Backend         | **NestJS + Fastify adapter + TypeScript**                                                                   |
+| ORM             | **Prisma** (Postgres driver, `Decimal` for money)                                                           |
+| Database        | **PostgreSQL 16** (canonical, single source of truth)                                                       |
+| Realtime        | **NestJS `@WebSocketGateway` + Socket.io + Redis adapter**; Postgres canonical                              |
+| Public web      | **Existing Next.js `landing-page/`**, onboarding only                                                       |
+| Mobile          | **React Native + Expo development builds + Expo Router + TypeScript** (separate customer + rider apps)      |
+| Auth            | **Firebase Auth (OTP) → NestJS-issued JWT**                                                                 |
+| Operations      | **Manual pilot workflow, then a separate private ops console when justified**                               |
+| Maps            | **TomTom behind backend adapters; MapLibre renderer pending device proof**                                  |
+| Payments        | **PayMongo only** at launch (fronts GCash/Maya/cards/QR Ph)                                                 |
+| Background jobs | **BullMQ + Redis**                                                                                          |
+| Hosting         | **Deferred** — decide at deploy time (see §1.11 for candidates; leaning DigitalOcean or self-hosted for DB) |
 
 Team acceptance: NestJS learning curve is real (~1 week to productive, 3-4 weeks to fluent). Team
 accepted the ramp cost because switching frameworks mid-build is materially worse than paying
 the syntax tax now. Full argument in §8.
 
 Ambiguities still open, called out in §7:
+
 - Cadence values (weekly / biweekly / monthly?)
 - Voucher TTL (proposing 90 days)
 - Pickup window semantics (customer-picked vs zone-defined)
@@ -43,6 +48,7 @@ Ambiguities still open, called out in §7:
 Short form per layer: **pick · alternative · why**.
 
 ### 1.1 Backend — NestJS + Fastify adapter + TypeScript
+
 - **Alternative rejected:** Django + django-ninja.
 - **Why:** WS ergonomics (single-runtime `@WebSocketGateway` with shared DI vs Django Channels'
   separate consumer classes); tighter fit with API-first + separate SPA deploy; growth into TS;
@@ -51,29 +57,33 @@ Short form per layer: **pick · alternative · why**.
   lead (~1 week to productive). See §8 for full debate.
 
 ### 1.2 Realtime — NestJS `@WebSocketGateway` + Socket.io + Redis adapter
+
 - **Alternative rejected:** raw `ws` adapter (leaner, no rooms).
 - **Why:** Socket.io gives rooms, ack, auto-reconnect, fallback to long-poll — features we'd
   otherwise build. `@socket.io/redis-adapter` for horizontal fan-out when we scale past one node.
   Same process as HTTP routes; guards + DI shared. Postgres remains canonical; all state written
   through service methods, gateway only emits.
 
-### 1.3 Web dashboard — Next.js (App Router) + TypeScript + Vercel
-- **Alternative rejected:** Vite + React SPA (architecturally cleaner as pure API client but
-  team is more familiar with Next.js — familiarity beats purity for shop-UI velocity).
-- **Why:** File-based routing, huge ecosystem, zero-config Vercel deploy, middleware for
-  route-level auth guards, muscle memory across the team. Server components stay unused — Nest
-  owns all mutations, Next.js is a pure client for JSON API calls with `Authorization: Bearer
-  <jwt>` in an httpOnly cookie. Stack: App Router + TypeScript + TanStack Query (server state) +
-  Zod (runtime validation). Types generated from Nest's Swagger via `openapi-typescript` in CI.
-  Same app hosts shop UI and admin UI, split by role guard in middleware.
+### 1.3 Public web — onboarding-only Next.js site
 
-### 1.4 Mobile — Flutter
-- **Alternative:** React Native.
-- **Why:** Two apps × two platforms, one codebase each. First-class Google Maps plugin.
-  Background location + camera (QR) + offline queue well-supported. Team familiarity weighted
-  heavily; flip only if the mobile dev is React Native native.
+- **Alternative rejected:** customer booking/tracking and shop/admin routes on the public site.
+- **Why:** the website's job is discovery, coverage checking, onboarding/application intake,
+  consent, and app-download handoff. Keeping order and operational workflows out reduces public
+  attack surface and prevents the team from maintaining duplicate mobile/web customer products.
+  `landing-page/` is canonical; `frontend/` is an archived reference. A future internal console is
+  a separate authenticated deployable, host, analytics boundary, and release lifecycle.
+
+### 1.4 Mobile — React Native + Expo
+
+- **Alternative rejected:** Flutter and a single role-switched app.
+- **Why:** React Native keeps TypeScript across API contracts, web, backend, and shared packages.
+  Expo development builds support the native modules required for maps, camera, notifications,
+  secure storage, and background location. Separate customer and rider binaries keep permissions,
+  release cadence, analytics, and store messaging clear while sharing `api-client`, `domain`, `ui`,
+  and `maps` packages. Expo Go is not the production development runtime.
 
 ### 1.5 ORM — Prisma
+
 - **Alternative rejected:** TypeORM (Nest's original default; migrations weaker), Drizzle
   (lighter, less mature migration story), MikroORM (data-mapper, steeper curve).
 - **Why:** Best DX in the TS ecosystem, schema-first, `Decimal` maps to Postgres `numeric`
@@ -81,8 +91,9 @@ Short form per layer: **pick · alternative · why**.
   wraps `PrismaClient` into a NestJS provider — standard idiom.
 
 ### 1.6 Auth — Firebase Auth (OTP) → NestJS-issued JWT
+
 - **Alternative:** full custom via Semaphore (PH SMS gateway).
-- **Why:** SMS OTP is a solved problem with Firebase — Flutter SDK is polished, retry / rate
+- **Why:** SMS OTP is a solved problem with Firebase — React Native integration is available, retry / rate
   limit / brute-force protection built in, free tier ample for launch. Flow: client sends Firebase
   ID token to `POST /auth/session`; NestJS verifies via Firebase Admin SDK, upserts the Postgres
   `User`, mints a NestJS-signed JWT. Firebase is an identity provider only — user state, roles,
@@ -90,25 +101,34 @@ Short form per layer: **pick · alternative · why**.
 - **Escape hatch:** switching to Semaphore later means swapping OTP send/verify, keeping the same
   user table, one-time re-enrollment.
 
-### 1.7 Maps — Google Maps Platform
-- **Alternative:** Mapbox.
-- **Why:** Best POI and geocoding coverage in Zamboanga. Watch Distance Matrix cost in dispatch;
-  cache results heavily.
+### 1.7 Maps — TomTom through a backend provider boundary
+
+- **Alternatives rejected for MVP:** Google Maps, provider calls directly from clients, and a
+  TomTom Web SDK map embedded in a production WebView.
+- **Why:** TomTom supplies search, reverse geocoding, route, matrix, waypoint optimization, and map
+  display services. NestJS proxies privileged calls, normalizes results, applies service-zone
+  validation, caches stable work, and records route decisions. Mobile rendering starts with a
+  MapLibre + TomTom tiles proof of concept on real Android/iOS devices. If embedded turn-by-turn is
+  later validated, evaluate a native bridge to TomTom's Android/iOS Navigation SDK; MVP opens the
+  rider's chosen navigation app.
 
 ### 1.8 Payments — PayMongo only at launch
+
 - **Alternative:** PayMongo + direct GCash/Maya rails.
 - **Why:** PayMongo fronts GCash + Maya + cards + QR Ph in one integration, one webhook contract,
   one reconciliation file. Direct rails only justified when take-rate becomes a material margin
   drag (revisit around ~₱1M GMV/month).
 
-### 1.9 Admin — role-gated `/admin/*` routes inside the Next.js dashboard
-- **Alternative:** standalone `apps/admin/` Next.js app.
-- **Why:** Same auth, same build, same deploy, same design system. `/admin/*` routes gated by
-  Next.js middleware checking `roles: ["ADMIN"]` on the JWT claim. If admin UI grows into a very
-  different UX (ops team full-time users), split later — cheap to extract a route tree into its
-  own Next.js app.
+### 1.9 Operations — manual pilot, then private console
+
+- **Alternative rejected:** role-gated operational routes in the public onboarding deployment.
+- **Why:** early volume should first validate the real shop/admin workflow. Documented manual
+  procedures and narrow backend tooling avoid prematurely building a large dashboard. When volume,
+  error rate, or reconciliation risk crosses an agreed threshold, add `apps/ops-console/` as a
+  separate private deployable with strict role/ownership controls.
 
 ### 1.10 Background jobs — BullMQ + Redis
+
 - **Alternative:** BullMQ Pro (paid features), agenda (older), Temporal (heavier, overkill).
 - **Why:** De-facto Node standard, first-class NestJS integration via `@nestjs/bullmq`, retries +
   backoff + repeatable jobs (for schedule occurrence generation + remittance batch cron) all
@@ -117,6 +137,7 @@ Short form per layer: **pick · alternative · why**.
 ### 1.11 Hosting — deferred
 
 Not locking hosting until we're closer to deploy. Preferences noted from team feedback:
+
 - Render dropped from consideration (poor prior experience).
 - Neon dropped (perceived slow at PH-region latency).
 - Leaning toward **DigitalOcean** (App Platform for API, managed Postgres, managed Redis) or
@@ -124,16 +145,18 @@ Not locking hosting until we're closer to deploy. Preferences noted from team fe
 
 Candidate matrix to evaluate at deploy time:
 
-| Component | Options to consider |
-|---|---|
-| Nest API + BullMQ worker | DigitalOcean App Platform · Fly.io · self-hosted VPS (Droplet, Hetzner) |
-| Postgres | DO Managed Postgres · self-hosted on DO Droplet (Docker + backups) · Supabase (if we want a DB service back) |
-| Redis (BullMQ + Socket.io adapter) | DO Managed Redis · self-hosted alongside Postgres · Upstash if we need serverless |
-| Next.js dashboard | Vercel · DO App Platform · self-hosted Node on Droplet |
-| Object storage (QR proof, receipts) | Cloudflare R2 · DO Spaces · S3 |
-| CDN / edge | Cloudflare (regardless of origin host) |
+| Component                           | Options to consider                                                                                          |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Nest API + BullMQ worker            | DigitalOcean App Platform · Fly.io · self-hosted VPS (Droplet, Hetzner)                                      |
+| Postgres                            | DO Managed Postgres · self-hosted on DO Droplet (Docker + backups) · Supabase (if we want a DB service back) |
+| Redis (BullMQ + Socket.io adapter)  | DO Managed Redis · self-hosted alongside Postgres · Upstash if we need serverless                            |
+| Next.js onboarding website          | Vercel · DO App Platform · self-hosted Node on Droplet                                                       |
+| Private ops console (deferred)      | Separate authenticated deployment; provider decided when scoped                                              |
+| Object storage (QR proof, receipts) | Cloudflare R2 · DO Spaces · S3                                                                               |
+| CDN / edge                          | Cloudflare (regardless of origin host)                                                                       |
 
 Decision drivers when we lock:
+
 - PH-region latency (Singapore or Sydney region matters — most managed DBs are US default)
 - Cost at launch scale (self-host = ~$20/mo, managed = ~$60-150/mo)
 - Ops burden (self-host = you own backups, patching, monitoring)
@@ -604,13 +627,21 @@ model Notification {
 
 ---
 
-## 3. Backend Module Map — NestJS
+## 3. Backend Module Map — NestJS (proposal)
 
-One Nest module per bounded context. Modules own their Prisma delegates and expose services via
-typed provider tokens — no reaching into other modules' repositories directly.
+**Status: Proposed.** This section is a working implementation sketch, not an
+accepted mandate. ADR-003 owns the proposed modular-monolith, repository, API,
+and optional Nginx decisions. Validate one vertical slice before accepting it.
+
+The proposed shape uses one Nest module per meaningful business domain. Each
+module may contain `domain/`, `dto/`, `repositories/`, `services/`, and
+`controllers/`. Controllers and workers call services; services call
+repositories; only repositories access Prisma for domain persistence. Modules
+export public services or facades, not repositories. Do not create a module per
+table or move business rules into `common/`.
 
 ```
-apps/api/src/
+backend/src/
   main.ts                       // bootstrap: Fastify, CORS, global pipes, WS adapter
   app.module.ts
   common/                       // decorators, filters, pipes, money helpers, event bus
@@ -654,22 +685,22 @@ quote (booking), weigh-in (pickup), settlement (delivery / dispute resolution).
 
 ```ts
 // pricing/pricing.types.ts
-import { Decimal } from '@prisma/client/runtime/library';
+import { Decimal } from "@prisma/client/runtime/library";
 
 export type PricingInput = {
-  tier: 'TIER_1_SCHEDULED' | 'TIER_2_EXPRESS';
-  weightKg: Decimal;                       // final weighed kg
+  tier: "TIER_1_SCHEDULED" | "TIER_2_EXPRESS";
+  weightKg: Decimal; // final weighed kg
   shopService: {
     ratePhp: Decimal;
-    billingUnit: 'PER_KG' | 'PER_PIECE' | 'FLAT';
-    quantity: Decimal;                     // pieces or 1 for FLAT
+    billingUnit: "PER_KG" | "PER_PIECE" | "FLAT";
+    quantity: Decimal; // pieces or 1 for FLAT
   };
-  shopCommissionPct: Decimal;              // e.g. new Decimal('12.00')
-  deliveryFeePhp: Decimal;                 // Tier 1: 40; Tier 2: resolved 65-80
-  serviceFeePhp: Decimal;                  // 7 by default
+  shopCommissionPct: Decimal; // e.g. new Decimal('12.00')
+  deliveryFeePhp: Decimal; // Tier 1: 40; Tier 2: resolved 65-80
+  serviceFeePhp: Decimal; // 7 by default
   discounts: {
-    creditsAppliedPhp: Decimal;            // capped by wallet balance
-    voucherKind?: 'SCHEDULED_DELIVERY_FREE';
+    creditsAppliedPhp: Decimal; // capped by wallet balance
+    voucherKind?: "SCHEDULED_DELIVERY_FREE";
   };
 };
 
@@ -679,22 +710,25 @@ export type PricingOutput = {
   washValuePhp: Decimal;
   commissionPhp: Decimal;
   shopRemittancePhp: Decimal;
-  deliveryFeePhp: Decimal;                 // zeroed if voucher applied and eligible
+  deliveryFeePhp: Decimal; // zeroed if voucher applied and eligible
   serviceFeePhp: Decimal;
-  discountPhp: Decimal;                    // credits + voucher value
-  customerTotalPhp: Decimal;               // wash + delivery + service - discount, floored at 0
-  platformGrossPhp: Decimal;               // commission + delivery + service (pre processing cost)
+  discountPhp: Decimal; // credits + voucher value
+  customerTotalPhp: Decimal; // wash + delivery + service - discount, floored at 0
+  platformGrossPhp: Decimal; // commission + delivery + service (pre processing cost)
   breakdown: LineItem[];
 };
 
 // pricing/pricing.service.ts
 @Injectable()
 export class PricingService {
-  priceOrder(input: PricingInput): PricingOutput { /* ... */ }
+  priceOrder(input: PricingInput): PricingOutput {
+    /* ... */
+  }
 }
 ```
 
 Rules:
+
 - All Decimal, no floats. Round to 2 dp at each line item, not only at the end.
 - Voucher `SCHEDULED_DELIVERY_FREE` zeros `deliveryFeePhp`, only for Tier 1. Enforce eligibility
   at redemption time; engine trusts input.
@@ -745,6 +779,7 @@ automated bank transfer at launch — KYB overhead too high.
 ### 3.3 Dispatch — Tier 1 batch, Tier 2 express
 
 **Tier 1 (scheduled batch):**
+
 - BullMQ repeatable at T-60min per pickup window: ensure a `Run` exists for
   `(zoneId, runDate, slot)`.
 - `dispatch.assignOrderToRun(order)`:
@@ -754,9 +789,10 @@ automated bank transfer at launch — KYB overhead too high.
 - No capacity → emit `ZoneCapacityBreached` → create `ZoneCapacityFlag`; order queues for next slot.
 
 **Tier 2 (express):**
+
 - `dispatch.dispatchExpress(order)`:
   - fan push to on-duty `RiderProfile` with `vehicle.kind == PARTNER_MOTORCYCLE` within N km via
-    Google Distance Matrix (cached per zone edge)
+    TomTom routing or matrix distance (cached per zone edge)
   - first-accept wins; 60s timeout; re-fan up to 3 times
 - No `Run` for Tier 2; single-stop record sits on the order.
 
@@ -773,13 +809,16 @@ automated bank transfer at launch — KYB overhead too high.
 
 ```ts
 // realtime/orders.gateway.ts
-@WebSocketGateway({ namespace: '/rt', cors: true })
+@WebSocketGateway({ namespace: "/rt", cors: true })
 @UseGuards(WsJwtGuard)
 export class OrdersGateway {
   @WebSocketServer() server: Server;
 
-  @SubscribeMessage('order:subscribe')
-  subscribeToOrder(@MessageBody() orderId: string, @ConnectedSocket() client: Socket) {
+  @SubscribeMessage("order:subscribe")
+  subscribeToOrder(
+    @MessageBody() orderId: string,
+    @ConnectedSocket() client: Socket,
+  ) {
     // authorization already applied by WsJwtGuard; scope by user or ADMIN role
     client.join(`order:${orderId}`);
   }
@@ -793,18 +832,24 @@ scale-out without sticky sessions on the LB.
 
 ---
 
-## 4. API Surface (contract sketch)
+## 4. API Surface (REST contract sketch)
+
+**Status: Proposed transport shape.** The operations below describe the needed
+business capabilities. ADR-003 proposes REST/OpenAPI for MVP clients; GraphQL
+remains an alternative and has not been adopted.
 
 All endpoints authenticated except `/auth/*`. Bearer JWT from `POST /auth/session`. All money
 returned as strings ("125.00"), never floats. All timestamps ISO-8601 UTC. `WS` = Socket.io event
 via the `/rt` namespace.
 
 ### 4.1 Auth (shared)
+
 - `POST /auth/session` — exchange Firebase ID token for backend JWT
 - `POST /auth/refresh`
 - `POST /auth/logout`
 
 ### 4.2 Customer app
+
 - `GET  /me`
 - `GET|POST|PATCH /me/addresses[/:id]`
 - `GET  /zones/resolve?lat=&lng=`
@@ -821,6 +866,7 @@ via the `/rt` namespace.
 - WS: `order:subscribe { orderId }`, `run:location-subscribe { runId }`
 
 ### 4.3 Rider app
+
 - `GET  /me/run/today` — assigned run + ordered stops
 - `POST /me/duty` `{ onDuty: bool }`
 - `POST /me/location` — periodic ping (also emitted via WS on the reverse channel)
@@ -831,7 +877,8 @@ via the `/rt` namespace.
 - `POST /me/express/accept` — Tier 2 dispatch response
 - WS: `dispatch:offers`, `run:updates`
 
-### 4.4 Shop dashboard (Next.js App Router, client-heavy)
+### 4.4 Private shop operations API (manual tooling first; console deferred)
+
 - `GET  /shop/orders?status=`
 - `POST /shop/orders/:id/weigh` — set `weightKg` + `shopService` (triggers pricing recompute)
 - `POST /shop/orders/:id/status` — AT_SHOP → PROCESSING → READY_FOR_RETURN
@@ -841,7 +888,8 @@ via the `/rt` namespace.
 - `GET  /shop/members` · `POST /shop/members/invite`
 - WS: `shop:orders-inbound`
 
-### 4.5 Admin (role-gated inside the same Next.js dashboard)
+### 4.5 Private admin API (not exposed by the public onboarding website)
+
 - `GET|POST|PATCH /admin/zones` (polygon editor)
 - `GET  /admin/zones/:id/capacity` — utilization time series, active flags
 - `POST /admin/zones/:id/flags/:flagId/resolve`
@@ -869,14 +917,14 @@ Ranked by "what could quietly cost us four weeks."
    `credits × voucher × weight × commission%`. Weekly reconciliation report from day one.
 2. **Recurring-schedule semantics.** Spec is thin (open Q7). Pause / skip / holiday / DST /
    address change / cadence change are all real. Occurrence-materialization model above handles
-   most at row level; the *rules* need product input.
+   most at row level; the _rules_ need product input.
 3. **Socket.io scale-out.** Single-node is fine at launch. When we go multi-node we must have
    `@socket.io/redis-adapter` configured or messages drop between nodes. Design in from day one;
    run one node.
 4. **QR handoff under bad signal.** Rider apps in Zamboanga will lose signal. Short-lived signed
    JWTs verify offline; server dedup on consumption. Sync-when-online flow is a solid week.
 5. **PayMongo webhook idempotency.** Webhooks retry. Dedup by `@@unique([provider,
-   providerReference])` (already in schema). Ledger-style writes only; never mutate `Transaction`.
+providerReference])` (already in schema). Ledger-style writes only; never mutate `Transaction`.
 6. **Zone capacity flagging.** Real analytics + polygon-editor feature. Ship dumb version at
    launch (>80% util → flag), improve later.
 7. **Cash payment mix.** Target ≥80% digital = 20% cash. Cash reconciliation between rider
@@ -906,7 +954,7 @@ Ranked by "what could quietly cost us four weeks."
 - **"Zone subdivision evaluation"** — polygon editor + utilization time-series + suggestion UI.
   Two weeks unless we ship the dumb version.
 - **"Route optimization"** — see §5.2.
-- **"Credits + vouchers + pricing engine integration"** — accounting easy, redemption *ordering*
+- **"Credits + vouchers + pricing engine integration"** — accounting easy, redemption _ordering_
   (credits before voucher, voucher only for delivery, credits capped at balance, refunds reverse
   the ledger) is where bugs live. One dedicated week.
 - **"Recurring schedule with pause/skip/holiday"** — occurrence generator + calendar semantics.
@@ -923,32 +971,40 @@ Goal: **thin end-to-end Tier 1 flow to real customers** as fast as possible. Eve
 feature flag; each phase ends with a demo-able flow. First week absorbs some of the NestJS ramp
 cost.
 
-### Phase 0 — Foundation (Week 1)
-- Monorepo layout: `apps/api/` (NestJS), `apps/web/` (Next.js App Router), `apps/customer/`
-  (Flutter), `apps/rider/` (Flutter), `packages/api-types/` (generated TS types from Swagger).
-- CI (GitHub Actions): lint, type-check, prisma migrate check, jest, Playwright smoke on web.
+### Phase 0 — Platform proof and foundation (Weeks 1–2)
+
+- Monorepo layout: `backend/` (NestJS), `landing-page/` (onboarding),
+  `apps/customer-mobile/`, `apps/rider-mobile/`, `packages/api-client/`, `packages/domain/`,
+  `packages/ui/`, and `packages/maps/`.
+- Expo development builds on a real Android and iOS device. Do not make Expo Go the runtime gate.
+- CI: lint, type-check, Prisma migration check, Jest, onboarding-web smoke, and mobile unit/smoke tests.
 - Hosting: **deferred** (see §1.11). For local dev + phase 0 CI use Dockerized Postgres + Redis;
   pick production host at end of Phase 1 when we have real latency data.
 - NestJS project: `main.ts` with Fastify adapter, global ValidationPipe, Swagger, WsIoAdapter.
 - Prisma init with the schema in §2 (all models, no logic yet); first migration to local Docker Postgres (hosting deferred per §1.11).
 - Firebase Admin SDK wired; `POST /auth/session` verifies Firebase token, mints Nest JWT.
 - JwtAuthGuard + RolesGuard + `@Roles(...)` decorator; smoke-tested with a `GET /me`.
-- Empty deploys of API, web SPA, and both Flutter apps.
+- TomTom spike: at least 30 representative Zamboanga addresses, 10 routes, coverage-polygon
+  validation, and a MapLibre/TomTom render with correct attribution on Android and iOS.
+- Empty deploy of the API and onboarding site; installable internal builds of both Expo apps.
 
 ### Phase 1 — Tier 1 happy path (Weeks 2–4)
+
 - Data: seed one zone, one shop, one rider, three services (via a `prisma db seed` script).
-- Customer app (Flutter): OTP sign-in, one-time order booking form (address, date, service,
+- Customer app (React Native/Expo): OTP sign-in, one-time order booking form (address, date, service,
   weight estimate).
 - Backend: `POST /orders` (Tier 1 only), zone resolution, `dispatch.assignOrderToRun`,
   auto-create Run if none, pricing engine v1 (flat rates from `ShopService`), OrderEvent log.
-- Shop dashboard (Next.js): today's inbound orders, weigh action, status transitions
-  AT_SHOP → READY_FOR_RETURN.
-- Rider app (Flutter): today's Run, ordered stop list, hard-coded transitions (no QR yet).
+- Pilot shop operations: documented private/manual intake, weigh action, and status transitions
+  AT_SHOP → READY_FOR_RETURN using narrow authenticated tooling.
+- Rider app (React Native/Expo): today's Run, ordered stop list, route context, external-navigation
+  deep link, and hard-coded transitions (no QR yet).
 - Cash payment only. `RemittanceLine` written on DELIVERED.
 - **Demo criterion:** real order flows from a customer phone through a real Piaggio to a real
-  shop and back; shop dashboard shows the queue; internal admin sees the ledger.
+  shop and back; private operations can inspect the queue and ledger without exposing public routes.
 
 ### Phase 2 — Payments + realtime + QR (Weeks 5–7)
+
 - PayMongo integration (GCash + Maya + card + QR Ph) + webhook idempotency + Transaction ledger.
 - Socket.io gateway: `order:subscribe`, `shop:orders-inbound`, `run:location-subscribe`.
 - QR mint + `POST /orders/:id/handoff` at all four handoff points.
@@ -956,20 +1012,24 @@ cost.
 - Rider location pings + realtime location broadcast to the subscribing customer.
 
 ### Phase 3 — Recurring schedules + occurrence generation (Weeks 8–9)
+
 - Schedule CRUD in customer app.
 - Nightly BullMQ repeatable materializes `ScheduleOccurrence` rows for next N days.
 - Pause / skip / cancel semantics.
 - Notification 12h before pickup.
 
 ### Phase 4 — Shop config + remittance batching (Weeks 10–11)
-- Per-shop `ShopService` editor in shop dashboard.
+
+- Decide whether pilot volume requires `apps/ops-console/`; if so, build only the private
+  `ShopService`, remittance, exception, and audit views supported by observed workflows.
 - Weekly `RemittanceBatch` BullMQ repeatable.
 - Admin UI (bare) with "mark batch paid" action + transfer reference input.
 - Shop earnings view (paid / unpaid / current-period).
 
-### Phase 5 — Zones + admin polish (Weeks 12–14)
-- Role-gated `/admin/*` routes inside the Next.js dashboard (middleware auth guard).
-- Zone polygon editor (react-leaflet).
+### Phase 5 — Zones + private operations (Weeks 12–14, conditional)
+
+- Separate authenticated `apps/ops-console/` only if Phase 4's operational trigger is met.
+- Zone polygon editor using a renderer compatible with the accepted TomTom display approach.
 - Capacity flag list + resolution actions.
 - Rider + vehicle onboarding forms.
 - Dumb utilization flag (>80% triggers).
@@ -977,11 +1037,13 @@ cost.
   Django admin.
 
 ### Phase 6 — Tier 2 express (Weeks 15–16)
+
 - Express order flag on booking flow.
 - `dispatch.dispatchExpress` fan-out to on-duty partner riders via WS.
 - Tier 2 fee resolution + pricing-engine branch.
 
 ### Phase 7 — Credits + vouchers (Weeks 17–18)
+
 - Credit packs list + purchase flow (PayMongo).
 - Wallet ledger + balance view.
 - Voucher issuance on pack purchase.
@@ -990,6 +1052,7 @@ cost.
 - Reconciliation report: issued value vs. redeemed value (admin dashboard tile).
 
 ### Phase 8 — Optimizations (Weeks 19+)
+
 - Route optimization: revisit when data justifies (§5.2).
 - Zone subdivision suggestion tooling.
 - Cash-mix reconciliation dashboard.
@@ -1042,6 +1105,7 @@ The team debated Django + django-ninja against NestJS + Fastify at length. Djang
    NestJS + Fastify has 5-10× throughput headroom for future expansion without re-platforming.
 
 **What we accept in return:**
+
 - 4-6 weeks of custom admin UI work in React that Django admin would have given for free.
 - 1-2 week ramp cost for the Django-strong lead learning NestJS conventions (decorators, modules,
   DI, DTOs).
@@ -1057,6 +1121,7 @@ Six items accepted from `/plan-ceo-review` SELECTIVE EXPANSION pass. Full record
 `~/.gstack/projects/Banyel3-wash-and-go/ceo-plans/2026-07-01-wash-and-go-mvp.md`.
 
 ### 9.1 Rate limiting (Phase 0)
+
 - **Package:** `@nestjs/throttler` with Redis storage adapter (shared with BullMQ + Socket.io)
 - **Applied to:**
   - `/auth/session` — 5 req/min per IP, 20 req/hour per phone
@@ -1069,6 +1134,7 @@ Six items accepted from `/plan-ceo-review` SELECTIVE EXPANSION pass. Full record
 - **429 response:** JSON `{error, retryAfter}`, `Retry-After` header
 
 ### 9.2 Observability (Phase 0)
+
 - **Logging:** `nestjs-pino` with request-id middleware. JSON structured logs. Every service method logs entry + exit + error with `{ orderId, userId, tier, amount, ... }` structured fields.
 - **Metrics:** `@willsoto/nestjs-prometheus`. Baseline metrics per module:
   - HTTP: `http_requests_total{route,method,status}`, `http_request_duration_seconds`
@@ -1086,6 +1152,7 @@ Six items accepted from `/plan-ceo-review` SELECTIVE EXPANSION pass. Full record
 - **Runbooks:** written per alert before Phase 5.
 
 ### 9.3 Idempotency keys on POST endpoints
+
 - **Contract:** all mutating POST endpoints require `Idempotency-Key: <uuid>` header from client
 - **Server:** Redis SET NX with 24h TTL keyed on `idempotency:{userId}:{key}`. On hit, return cached response. On miss, execute + cache response.
 - **Applied to:**
@@ -1100,6 +1167,7 @@ Six items accepted from `/plan-ceo-review` SELECTIVE EXPANSION pass. Full record
 - **Middleware:** custom `@Idempotent()` decorator + interceptor in `common/`
 
 ### 9.4 xstate for OrderStatus
+
 - **Package:** `xstate` v5 (no server orchestration; used as pure state guard)
 - **Machine:** one machine per `Order`, materialized from `OrderStatus` on load
 - **Transitions allowed:**
@@ -1119,11 +1187,13 @@ Six items accepted from `/plan-ceo-review` SELECTIVE EXPANSION pass. Full record
 - **Effect:** state changes emit `OrderStatusChanged` event + write `OrderEvent` row atomically
 
 ### 9.5 Rider location batching (Phase 2)
-- **Client (Flutter):** ring buffer of 5 pings. When full or 75s elapsed (whichever first), POST `/me/location/batch` with array. On network fail, retry with exponential backoff, buffer up to 50 pings before dropping oldest.
+
+- **Client (React Native):** durable ordered buffer of 5 pings. When full or 75s elapsed (whichever first), POST `/me/location/batch` with an idempotency key. On network fail, retry with exponential backoff, buffer up to 50 pings before dropping oldest.
 - **Server:** single Prisma `createMany` insert. Emit only the LATEST ping through WS (customer doesn't need every point, only fresh position).
 - **DB:** append-only `RiderLocationPing { riderId, lat, lng, capturedAt, receivedAt }`. Simple `id, riderId, capturedAt` compound index. Migrate to TimescaleDB hypertable in Phase 8 if retention becomes an issue.
 
 ### 9.6 B2B/corporate trajectory (doc-only)
+
 Extending §5 phased plan:
 
 - **Phase 9+ (post-MVP):** Corporate accounts — offices, dorms, condo buildings.
@@ -1137,20 +1207,20 @@ Extending §5 phased plan:
 
 Updating §5.1 with the accepted mitigations:
 
-| Risk | Old rank | Now |
-|---|---|---|
-| Pricing + remittance correctness | 1 | 1 (unchanged; observability + tests amplify catchability) |
-| Recurring-schedule semantics | 2 | 2 (unchanged) |
-| Socket.io scale-out | 3 | 3 (unchanged) |
-| QR handoff under bad signal | 4 | 4 (unchanged) |
-| PayMongo webhook idempotency | 5 | Retired (idempotency 9.3 + `providerReference` unique = solved) |
-| Zone capacity flagging | 6 | 5 |
-| Cash payment mix | 7 | 6 |
-| NestJS learning curve | 8 | 7 |
-| **NEW: OTP/payment abuse** | — | Retired (9.1 rate limiting) |
-| **NEW: Silent money bugs** | — | Retired (9.2 observability + wallet-issued-vs-redeemed alert) |
-| **NEW: Double-submit / retry dup** | — | Retired (9.3 idempotency) |
-| **NEW: Illegal Order status transitions** | — | Retired (9.4 xstate + row locks per §10.11) |
+| Risk                                      | Old rank | Now                                                             |
+| ----------------------------------------- | -------- | --------------------------------------------------------------- |
+| Pricing + remittance correctness          | 1        | 1 (unchanged; observability + tests amplify catchability)       |
+| Recurring-schedule semantics              | 2        | 2 (unchanged)                                                   |
+| Socket.io scale-out                       | 3        | 3 (unchanged)                                                   |
+| QR handoff under bad signal               | 4        | 4 (unchanged)                                                   |
+| PayMongo webhook idempotency              | 5        | Retired (idempotency 9.3 + `providerReference` unique = solved) |
+| Zone capacity flagging                    | 6        | 5                                                               |
+| Cash payment mix                          | 7        | 6                                                               |
+| NestJS learning curve                     | 8        | 7                                                               |
+| **NEW: OTP/payment abuse**                | —        | Retired (9.1 rate limiting)                                     |
+| **NEW: Silent money bugs**                | —        | Retired (9.2 observability + wallet-issued-vs-redeemed alert)   |
+| **NEW: Double-submit / retry dup**        | —        | Retired (9.3 idempotency)                                       |
+| **NEW: Illegal Order status transitions** | —        | Retired (9.4 xstate + row locks per §10.11)                     |
 
 ---
 
@@ -1160,7 +1230,7 @@ Codex `/plan-ceo-review` outside-voice pass returned 17 findings (6 P1, 8 P2, 3 
 decisions on the 4 highest-impact ambiguities are captured here; the rest are auto-fixes to
 the plan.
 
-### 10.1 Auth contract — BFF proxy in Next.js *(user decision)*
+### 10.1 Auth contract — BFF proxy in Next.js _(user decision)_
 
 **Fix for P1 #1** (my earlier plan contradicted itself — "httpOnly cookie" and
 "Authorization: Bearer <jwt>" cannot both be true from browser JS).
@@ -1178,15 +1248,16 @@ Browser  ──httpOnly cookie──▶  Next.js route handler (BFF)  ──Bear
   `httpOnly + Secure + SameSite=Lax` cookie.
 - All browser data fetching goes through Next.js route handlers under `/api/*`. Route
   handler reads cookie, calls Nest with `Authorization: Bearer <jwt>`, streams response back.
-- Flutter apps use `Authorization: Bearer` directly (secure token storage via
-  `flutter_secure_storage`).
+- React Native apps use `Authorization: Bearer` directly with platform-secure
+  credential storage exposed through an audited native module.
 - CSRF: Next.js route handlers verify `Origin`/`Referer` header + a double-submit token on
   mutating requests.
 
 Cost: Next.js becomes a thin proxy (as I originally rejected). Accepted trade — XSS safety
+
 > "no Node runtime in front."
 
-### 10.2 Payment timing — Pay at weigh-in confirmation *(user decision)*
+### 10.2 Payment timing — Pay at weigh-in confirmation _(user decision)_
 
 **Fix for P1 #2.** Locked flow:
 
@@ -1208,12 +1279,12 @@ requires manual review (bag already handled).
 booking, skip payment intent, collect at delivery. Deferred until real cash-mix data
 justifies building custody workflow (see §10.4).
 
-### 10.3 MVP scope — Approach A (phased plan retained) *(user decision)*
+### 10.3 MVP scope — Approach A (phased plan retained) _(user decision)_
 
 **No change** to §6 phased plan. Team keeps 11-week Tier 1 build. Concierge MVP rejected —
 throwaway cost > 4-week validation win.
 
-### 10.4 Cash handling — deferred *(user decision, spec-anchored)*
+### 10.4 Cash handling — deferred _(user decision, spec-anchored)_
 
 Spec §9 targets ≥80% digital; cash is a 20% edge case. With pay-at-weigh-in (§10.2), cash
 is opt-in only. **Deferred:** cash custody + rider remittance + shortage tracking until
@@ -1221,7 +1292,7 @@ real launch data shows the cash mix > 10%. Interim: cash orders flagged in Djang
 manually reconciled weekly. New tracking metric: `orders_paid_cash_ratio` — trigger
 building custody workflow when > 10% sustained.
 
-### 10.5 QR handoff → first-class `Handoff` table *(auto-fix P1 #4)*
+### 10.5 QR handoff → first-class `Handoff` table _(auto-fix P1 #4)_
 
 Previous schema had one `qrToken` on `RunStop`; plan needs up to 4 handoffs per order
 (pickup, drop-at-shop, pickup-from-shop, deliver). Fix — new model:
@@ -1259,7 +1330,7 @@ inside a `SELECT FOR UPDATE` (§10.11). Offline: tokens signed with a longer 24h
 Tier 1 scheduled runs (route pre-fetched at run start), rider syncs on reconnect, server
 dedups by nonce.
 
-### 10.6 Return logistics modeled *(auto-fix P2 #8)*
+### 10.6 Return logistics modeled _(auto-fix P2 #8)_
 
 New relationships on `Order`:
 
@@ -1279,7 +1350,7 @@ Return run assigned by dispatcher when `Order.status = READY_FOR_RETURN` — sam
 tier-aware algorithm as pickup dispatch. Failed return (customer unavailable) → status
 stays `OUT_FOR_RETURN`, attempt count++, next-day retry auto-scheduled.
 
-### 10.7 Deterministic shop assignment *(auto-fix P2 #9)*
+### 10.7 Deterministic shop assignment _(auto-fix P2 #9)_
 
 Promote from open-question to `dispatch.services.assignShopToOrder(order)`:
 
@@ -1296,7 +1367,7 @@ Promote from open-question to `dispatch.services.assignShopToOrder(order)`:
 
 Deterministic + logged. No tie-break ambiguity.
 
-### 10.8 Firebase App Check *(auto-fix P2 #10)*
+### 10.8 Firebase App Check _(auto-fix P2 #10)_
 
 Rate limiting `/auth/session` doesn't stop SMS abuse (Firebase sends OTP before Nest is
 touched). Add:
@@ -1307,7 +1378,7 @@ touched). Add:
   (100/day/IP default).
 - Nest still throttles `/auth/session` for the token-exchange endpoint (session-mint abuse).
 
-### 10.9 DB-backed idempotency for money ops *(auto-fix P2 #11)*
+### 10.9 DB-backed idempotency for money ops _(auto-fix P2 #11)_
 
 Redis-only idempotency insufficient for financial writes (eviction, restart). Split:
 
@@ -1331,7 +1402,7 @@ model IdempotencyKey {
 
 Middleware routes to DB or Redis based on `@Idempotent({ durable: true })` decorator flag.
 
-### 10.10 Ops-minimum split from admin-polish *(auto-fix P3 #17)*
+### 10.10 Ops-minimum split from admin-polish _(auto-fix P3 #17)_
 
 Split Phase 5 into two phases:
 
@@ -1343,7 +1414,7 @@ Split Phase 5 into two phases:
 - **Phase 5 (Weeks 12-14):** Admin polish — polygon editor, capacity dashboards, dispute
   workflow UI, remittance batch review. Same `/admin/*` codebase, richer UX.
 
-### 10.11 Order status concurrency *(auto-fix P2 #12)*
+### 10.11 Order status concurrency _(auto-fix P2 #12)_
 
 xstate guards illegal transitions but not concurrent transitions. Fix:
 
@@ -1353,7 +1424,7 @@ xstate guards illegal transitions but not concurrent transitions. Fix:
   xstate. If new state invalid, throws `ConflictingOrderState` → 409.
 - Same pattern for `CreditWallet.balance_php` updates (money-safe increments).
 
-### 10.12 Shop membership guard *(auto-fix P2 #13)*
+### 10.12 Shop membership guard _(auto-fix P2 #13)_
 
 Role in JWT is not enough — a shop staff user may belong to multiple shops. New guard:
 
@@ -1375,7 +1446,7 @@ the guard checks that too.
 Role staleness: JWT includes `tokenVersion`; wallet/roles change bumps it, next verify
 rejects old token, client refreshes.
 
-### 10.13 Run schema — multi-vehicle per zone *(auto-fix P2 #7)*
+### 10.13 Run schema — multi-vehicle per zone _(auto-fix P2 #7)_
 
 Change:
 
@@ -1390,7 +1461,7 @@ model Run {
 Adding a vehicle to a zone now creates a second `Run` row for the same `(zone, date, slot)`,
 different `vehicleId`. Dispatcher fills the least-loaded run first.
 
-### 10.14 Credits legal gate *(auto-fix P1 #6)*
+### 10.14 Credits legal gate _(auto-fix P1 #6)_
 
 Prepaid stored value with bonuses + vouchers may fall under BSP Circular 649 (electronic
 money) or DTI consumer protection. Before Phase 7 ships:
@@ -1402,7 +1473,7 @@ money) or DTI consumer protection. Before Phase 7 ships:
 Add explicit blocker to phased plan: "Phase 7 does not ship without legal + accounting
 sign-off."
 
-### 10.15 Observability scope narrowed *(auto-fix P3 #15)*
+### 10.15 Observability scope narrowed _(auto-fix P3 #15)_
 
 Revise §9.2:
 
@@ -1413,17 +1484,20 @@ Revise §9.2:
 - **New rule:** location data (rider pings) NEVER logged, only counted in metric
   (`rider_pings_total{zoneId}`) — PII/legal.
 
-### 10.16 Flutter API contract *(auto-fix P3 #16)*
+### 10.16 React Native API contract _(proposed by ADR-003)_
 
-Add Dart client codegen alongside TS:
+If ADR-003 is accepted, generate one TypeScript client from the NestJS OpenAPI
+schema:
 
-- CI runs `openapi-generator-cli generate -i /api-docs-json -g dart-dio -o packages/api-dart`
-- Both mobile apps import types + a typed HTTP client from `packages/api-dart`.
+- CI runs `openapi-typescript` plus the accepted request-client generator into `packages/api-client`.
+- Both mobile apps and permitted website onboarding calls import types and a typed HTTP client from
+  `packages/api-client`; role-specific feature packages still remain separate.
 - Contract drift = compile break in mobile builds, not runtime bug.
 
 ### 10.17 Return-of-decisions
 
 Cross-model consensus with codex on:
+
 - Auth contract needed fix (accepted BFF proxy)
 - Payment timing needed lock (accepted pay-at-weigh-in)
 - QR handoff model wrong (fixed §10.5)
@@ -1483,10 +1557,10 @@ Findings from `/plan-eng-review` beyond CEO + codex passes. Auto-absorbed per us
 
 ### 11.2 Code quality
 
-- **C1 — PrismaModule global singleton.** `@Global() PrismaModule` in `apps/api/src/prisma/`.
+- **C1 — PrismaModule global singleton.** `@Global() PrismaModule` in `backend/src/prisma/`.
   `PrismaService` extends `PrismaClient`, `onModuleInit` calls `$connect`. Documented as Phase 0
   step.
-- **C2 — Money helper enforced at lint.** `apps/api/src/common/money/money.ts` — wrappers
+- **C2 — Money helper enforced at lint.** `backend/src/common/money/money.ts` — wrappers
   `add(a, b)`, `sub(a, b)`, `mul(a, b)`, `pct(value, pctDecimal)`. Custom ESLint rule
   `no-decimal-arithmetic` bans `+`/`-`/`*` on `Decimal`-typed operands. Alt: use `Prisma.Decimal`
   namespace utilities exclusively.
@@ -1505,13 +1579,15 @@ Coverage diagram in eng-review test plan artifact
 `~/.gstack/projects/Banyel3-wash-and-go/ban-main-eng-review-test-plan-*.md`.
 
 **68 test gaps identified (0% coverage, pre-implementation).** Test framework: **Jest** +
-`@nestjs/testing` for unit/integration, **Playwright** for Next.js E2E, **Flutter integration_test**
-for mobile. Add `fast-check` (property-based) for pricing engine + wallet math.
+`@nestjs/testing` for unit/integration, **Playwright** for onboarding/private-console E2E, and
+**Jest + React Native Testing Library with Android/iOS smoke builds** for mobile. Add `fast-check`
+(property-based) for pricing engine + wallet math.
 
 **Test infra tasks (Phase 0):**
+
 - Jest + ts-jest configured with Nest testing module
 - Playwright bootstrapped against local Docker Postgres + Redis
-- Flutter integration_test on both apps with fake backend server
+- React Native Testing Library on both apps plus Detox or Maestro device flows after the proof phase
 - CI runs unit + integration on every PR; E2E on merge to main
 - Coverage gate: 80% line coverage on `pricing/`, `remittance/`, `credits/` (money paths)
 
@@ -1527,18 +1603,18 @@ for mobile. Add `fast-check` (property-based) for pricing engine + wallet math.
 - **P3 — Row lock vs optimistic concurrency.** `SELECT FOR UPDATE` reserved for hot money paths
   (`CreditWallet.balance_php`, `Order.status`). Cooler paths (`Schedule.updated_at`,
   `Shop.commissionPct`) use `version` column optimistic concurrency to reduce lock queueing.
-- **P4 — Distance Matrix Redis cache.** Key: `distance:{lat1round4},{lng1round4}:{lat2round4},{lng2round4}`
+- **P4 — TomTom route/matrix Redis cache.** Key: `distance:{lat1round4},{lng1round4}:{lat2round4},{lng2round4}:{optionsHash}`
   (round to 4dp = ~10m precision). TTL 30 days. Warm known zone-shop pairs at zone creation.
 - **P5 — Socket.io Redis adapter throughput.** Note in §5.1: single Redis becomes bottleneck at
   ~50k concurrent connections. Not launch problem. Revisit at multi-city scale.
 
-### 11.5 Distribution (Flutter apps)
+### 11.5 Distribution (React Native/Expo apps)
 
 Not addressed in prior sections. Add Phase 4-5:
 
-- **iOS:** Fastlane pipeline → TestFlight beta → App Store submission workflow
-- **Android:** Fastlane → Play Store internal track → open beta → production
-- **CI:** GitHub Actions builds signed IPA/APK on tag push, uploads to stores
+- **iOS:** EAS Build/Submit → TestFlight beta → App Store submission workflow
+- **Android:** EAS Build/Submit → Play internal track → open beta → production
+- **CI:** GitHub Actions triggers signed EAS builds on release tags and promotes deliberately
 - **Feature flags:** consider **LaunchDarkly**, **Unleash** (self-host), or **Prisma-backed**
   simple flag table — decision deferred to Phase 4
 
@@ -1546,49 +1622,51 @@ Not addressed in prior sections. Add Phase 4-5:
 
 **Dependency table (module-level):**
 
-| Step | Modules touched | Depends on |
-|---|---|---|
-| Phase 0 foundation | `apps/api/*`, `apps/web/*`, both `apps/*` Flutter, `packages/api-types/` | — |
-| Auth module | `apps/api/src/modules/auth/`, `apps/web/middleware.ts` | Phase 0 |
-| Users + Addresses | `apps/api/src/modules/users/`, Flutter customer app | Auth |
-| Zones + Shops seed | `apps/api/src/modules/zones/`, `.../shops/`, admin routes | Phase 0 |
-| Pricing engine + tests | `apps/api/src/modules/pricing/`, `common/money/` | Phase 0 |
-| Orders + dispatch | `apps/api/src/modules/orders/`, `.../dispatch/`, `.../routing/` | Users, Zones, Shops |
-| Rider app happy path | `apps/rider/*` | Orders |
-| Shop dashboard | `apps/web/src/app/shop/*` | Orders |
-| Realtime (Phase 2) | `apps/api/src/modules/realtime/` + client hooks in all 3 apps | Orders |
-| Payments | `apps/api/src/modules/payments/` + PayMongo integration | Orders |
-| QR handoff | `apps/api/src/modules/qr/`, `.../handoff/` | Orders |
+| Step                   | Modules touched                                                    | Depends on           |
+| ---------------------- | ------------------------------------------------------------------ | -------------------- |
+| Phase 0 foundation     | `backend/*`, both mobile apps, onboarding web, shared packages     | —                    |
+| Auth module            | `backend/src/modules/auth/`, both mobile session layers            | Phase 0              |
+| Users + Addresses      | `backend/src/modules/users/`, customer mobile app, TomTom adapter  | Auth                 |
+| Zones + Shops seed     | `backend/src/modules/zones/`, `.../shops/`, private operations API | Phase 0              |
+| Pricing engine + tests | `backend/src/modules/pricing/`, `common/money/`                    | Phase 0              |
+| Orders + dispatch      | `backend/src/modules/orders/`, `.../dispatch/`, `.../routing/`     | Users, Zones, Shops  |
+| Rider app happy path   | `apps/rider-mobile/*`                                              | Orders, MapsProvider |
+| Private ops tooling    | manual/narrow tooling, then conditional `apps/ops-console/*`       | Orders               |
+| Realtime (Phase 2)     | `backend/src/modules/realtime/` + mobile hooks                     | Orders               |
+| Payments               | `backend/src/modules/payments/` + PayMongo integration             | Orders               |
+| QR handoff             | `backend/src/modules/qr/`, `.../handoff/`                          | Orders               |
 
 **Parallel lanes:**
-- **Lane A (backend money):** Pricing engine + tests → Payments → Remittance (all `apps/api/`, sequential within lane)
+
+- **Lane A (backend money):** Pricing engine + tests → Payments → Remittance (all `backend/`, sequential within lane)
 - **Lane B (backend logistics):** Orders → Dispatch → Realtime → QR (sequential within lane, but starts after Users + Zones seeded)
-- **Lane C (customer Flutter):** Auth screens → Booking flow → Order tracking (parallel to backend once contracts defined via OpenAPI schema)
-- **Lane D (rider Flutter):** independent of C; needs backend Orders module ready
-- **Lane E (shop dashboard):** independent of C/D; needs backend Orders module ready
+- **Lane C (customer React Native):** Auth → Address/booking → Order tracking
+- **Lane D (rider React Native):** Runs → Routes → QR/offline queue; needs Orders + MapsProvider
+- **Lane E (operations):** manual procedure first; private console only after its trigger is met
 
 **Execution order (post Phase 0 + Auth + core models):**
+
 1. Lane A + Lane B in parallel (backend split by domain)
 2. Lanes C + D + E launch as soon as their required backend endpoints have Zod DTOs merged
 3. Realtime (in Lane B) synced across C/D/E via generated types
 
-**Conflict flags:** Lane A + Lane B both touch `apps/api/src/prisma/schema.prisma`. Coordinate
+**Conflict flags:** Lane A + Lane B both touch `backend/src/prisma/schema.prisma`. Coordinate
 schema migrations via one dev owning `prisma/migrations/` per phase.
 
 ### 11.7 Failure modes registry
 
-| Codepath | Failure mode | Rescued? | Test? | User sees | Logged? |
-|---|---|---|---|---|---|
-| `PricingService.priceOrder` | Decimal arithmetic overflow | N (impossible with 12,2) | Y | — | N |
-| `PricingService.priceOrder` | Voucher applied to wrong tier | Y (validation) | Y | 400 | Y |
-| `RemittanceService.recordFor` | Duplicate call same orderId | Y (unique) | Y | idempotent 200 | Y |
-| `PayMongoService.webhookHandler` | Signature mismatch | Y (HMAC verify) | Y | 401 | Y |
-| `PayMongoService.webhookHandler` | DB write fails after PayMongo success | Y (Prisma tx rolls back → 500 → PayMongo retries) | Y | — | Y |
-| `QrService.verifyAndConsume` | Token replay | Y (consumedAt check) | Y | 409 | Y |
-| `DispatchService.assignOrderToRun` | Zone at capacity | Y (flag + queue) | Y | order stays queued, customer sees "confirmed for tomorrow's slot" | Y |
-| `CreditsService.redeem` | Balance underflow | Y (row lock + check) | Y | 400 | Y |
-| `Firebase Admin verifyIdToken` | Token expired | Y (401 to client) | Y | forced re-OTP | Y |
-| `Socket.io fanout` | Redis disconnect | N (message dropped) | Y | — silent | Y (**CRITICAL GAP** — customer sees no live update; add reconnect + resub) |
+| Codepath                           | Failure mode                          | Rescued?                                          | Test? | User sees                                                         | Logged?                                                                    |
+| ---------------------------------- | ------------------------------------- | ------------------------------------------------- | ----- | ----------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `PricingService.priceOrder`        | Decimal arithmetic overflow           | N (impossible with 12,2)                          | Y     | —                                                                 | N                                                                          |
+| `PricingService.priceOrder`        | Voucher applied to wrong tier         | Y (validation)                                    | Y     | 400                                                               | Y                                                                          |
+| `RemittanceService.recordFor`      | Duplicate call same orderId           | Y (unique)                                        | Y     | idempotent 200                                                    | Y                                                                          |
+| `PayMongoService.webhookHandler`   | Signature mismatch                    | Y (HMAC verify)                                   | Y     | 401                                                               | Y                                                                          |
+| `PayMongoService.webhookHandler`   | DB write fails after PayMongo success | Y (Prisma tx rolls back → 500 → PayMongo retries) | Y     | —                                                                 | Y                                                                          |
+| `QrService.verifyAndConsume`       | Token replay                          | Y (consumedAt check)                              | Y     | 409                                                               | Y                                                                          |
+| `DispatchService.assignOrderToRun` | Zone at capacity                      | Y (flag + queue)                                  | Y     | order stays queued, customer sees "confirmed for tomorrow's slot" | Y                                                                          |
+| `CreditsService.redeem`            | Balance underflow                     | Y (row lock + check)                              | Y     | 400                                                               | Y                                                                          |
+| `Firebase Admin verifyIdToken`     | Token expired                         | Y (401 to client)                                 | Y     | forced re-OTP                                                     | Y                                                                          |
+| `Socket.io fanout`                 | Redis disconnect                      | N (message dropped)                               | Y     | — silent                                                          | Y (**CRITICAL GAP** — customer sees no live update; add reconnect + resub) |
 
 **Critical gap:** WS Redis fanout dropped messages during Redis restart. Mitigation: client polls
 `GET /orders/:id` every 30s as fallback while WS is down. Add Phase 2.
@@ -1607,6 +1685,7 @@ schema migrations via one dev owning `prisma/migrations/` per phase.
 ### 11.9 What already exists
 
 Greenfield — nothing to reuse internally. External libs the plan should not rebuild:
+
 - `@nestjs/throttler` (rate limiting §9.1)
 - `nestjs-pino` + `@willsoto/nestjs-prometheus` (observability §9.2)
 - `xstate` v5 (state machine §9.4)
@@ -1614,17 +1693,18 @@ Greenfield — nothing to reuse internally. External libs the plan should not re
 - `socket.io` + `@socket.io/redis-adapter` (realtime)
 - `firebase-admin` (auth verify)
 - `paymongo` official SDK
-- `@googlemaps/google-maps-services-js` (Distance Matrix)
+- TomTom Search, Reverse Geocoding, Routing, Matrix, Waypoint Optimization, and Map Display APIs
+- MapLibre React Native candidate renderer, subject to the Phase 0 proof gate
 - `nestjs-zod` (validation §11.2 C3)
 - `fast-check` (property-based tests)
 - `openapi-typescript` (web codegen)
-- `openapi-generator-cli` with dart-dio (mobile codegen §10.16)
+- `openapi-typescript`-based TypeScript client generation for web and mobile (§10.16)
 
 ## 12. Codex Eng Review Findings
 
 Second codex pass on §11 found 7 P1s I missed. Absorbed inline.
 
-### 12.1 Outbox pattern for durable events *(fixes P1 #1)*
+### 12.1 Outbox pattern for durable events _(fixes P1 #1)_
 
 `EventEmitter2` is in-process, not durable. Fix:
 
@@ -1646,7 +1726,7 @@ model OutboxEvent {
 - Separate BullMQ processor `outbox.processor.ts` reads `WHERE publishedAt IS NULL ORDER BY createdAt LIMIT 100 FOR UPDATE SKIP LOCKED`, publishes to Socket.io + BullMQ downstream, sets `publishedAt`, and on failure bumps `attempts` for retry.
 - `EventEmitter2` still used for in-process fanout inside a request (fast path); durable is Outbox.
 
-### 12.2 Dispatch race lock *(fixes P1 #2)*
+### 12.2 Dispatch race lock _(fixes P1 #2)_
 
 `assignOrderToRun` currently races (`stops.count < capacity` non-atomic). Fix:
 
@@ -1668,7 +1748,7 @@ async assignOrderToRun(orderId: string) {
 
 Advisory lock releases at tx end. No `RunStop` unique-constraint 409s.
 
-### 12.3 Remittance batch uniqueness *(fixes P1 #3)*
+### 12.3 Remittance batch uniqueness _(fixes P1 #3)_
 
 Two workers can double-batch. Fix:
 
@@ -1681,7 +1761,7 @@ model RemittanceBatch {
 
 Plus `closeBatch()` uses `FOR UPDATE SKIP LOCKED` on lines and pg_advisory_xact_lock on `(shopId, periodStart)`. Duplicate call = 23505 unique violation → caught as `AlreadyBatched` idempotent 200.
 
-### 12.4 Idempotency state machine *(fixes P1 #4)*
+### 12.4 Idempotency state machine _(fixes P1 #4)_
 
 Explicit spec:
 
@@ -1702,7 +1782,7 @@ Explicit spec:
 
 Middleware decorator `@Idempotent({ durable: true, ttl: '24h' })` implements this state machine.
 
-### 12.5 Phase 1 contradiction *(fixes P1 #5)*
+### 12.5 Phase 1 contradiction _(fixes P1 #5)_
 
 Phase 1 cannot ship "cash only" if §10.2 locked pay-at-weigh-in as the primary flow. Two-part fix:
 
@@ -1710,10 +1790,11 @@ Phase 1 cannot ship "cash only" if §10.2 locked pay-at-weigh-in as the primary 
 - **Phase 2 (Weeks 5-7):** Adds cards, Maya, QR Ph + realtime + QR handoff (was Phase 2 anyway).
 
 Updates §6:
+
 - Phase 1 gains: PayMongo GCash integration, PaymentIntent create on `AT_SHOP`, webhook receiver, Transaction ledger, wallet reconciliation basics
 - Phase 2 loses: PayMongo GCash (already done) but keeps everything else + adds other rails
 
-### 12.6 Payment due sweeper *(fixes P1 #6)*
+### 12.6 Payment due sweeper _(fixes P1 #6)_
 
 Add fields + BullMQ repeatable:
 
@@ -1727,12 +1808,13 @@ model Order {
 ```
 
 BullMQ repeatable job every 5 min: query `Order WHERE status=AT_SHOP AND paymentDueAt < NOW() AND paidAt IS NULL`, escalate per rules:
+
 - +15 min unpaid: push notification to customer
 - +30 min: SMS to customer
 - +60 min: notify shop
 - +4 hours: transition to DISPUTED
 
-### 12.7 QR handoff stage order validation *(fixes P1 #7)*
+### 12.7 QR handoff stage order validation _(fixes P1 #7)_
 
 Nonce dedup insufficient. Server also validates:
 
@@ -1752,6 +1834,7 @@ async verifyAndConsume(token: string) {
 ```
 
 `STAGE_PRECEDES` map:
+
 - `PICKUP_FROM_CUSTOMER` requires `ASSIGNED_TO_RUN`
 - `DROPOFF_AT_SHOP` requires `PICKED_UP`
 - `PICKUP_FROM_SHOP` requires `READY_FOR_RETURN`
@@ -1779,16 +1862,19 @@ Offline handoffs sync to server → server checks current Order state + past han
 
 ## GSTACK REVIEW REPORT
 
-| Review | Trigger | Why | Runs | Status | Findings |
-|--------|---------|-----|------|--------|----------|
-| CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | issues_open | 6 proposals, 6 accepted, 5 deferred (SELECTIVE_EXPANSION) |
-| Codex Review | `/codex review` | Independent 2nd opinion | 2 | issues_found | 37 total findings (17 CEO pass, 20 eng pass) — all absorbed |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | issues_open | 17 issues (7 arch, 4 code, 5 perf, 1 distribution) + 68 test gaps identified |
-| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | pending — UI scope detected, recommend running |
-| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | pending |
+| Review        | Trigger               | Why                             | Runs | Status       | Findings                                                                     |
+| ------------- | --------------------- | ------------------------------- | ---- | ------------ | ---------------------------------------------------------------------------- |
+| CEO Review    | `/plan-ceo-review`    | Scope & strategy                | 1    | issues_open  | 6 proposals, 6 accepted, 5 deferred (SELECTIVE_EXPANSION)                    |
+| Codex Review  | `/codex review`       | Independent 2nd opinion         | 2    | issues_found | 37 total findings (17 CEO pass, 20 eng pass) — all absorbed                  |
+| Eng Review    | `/plan-eng-review`    | Architecture & tests (required) | 1    | issues_open  | 17 issues (7 arch, 4 code, 5 perf, 1 distribution) + 68 test gaps identified |
+| Design Review | `/plan-design-review` | UI/UX gaps                      | 0    | —            | pending — UI scope detected, recommend running                               |
+| DX Review     | `/plan-devex-review`  | Developer experience gaps       | 0    | —            | pending                                                                      |
 
-- **CODEX:** 37 findings absorbed across two passes — auth contract, payment timing, QR handoff model, DB idempotency, row locks, App Check, ops-min split, shop assignment determinism, return logistics, run schema fix, Flutter codegen, credits legal gate (pass 1); outbox pattern, dispatch race lock, remittance batch uniqueness, idempotency state machine, Phase 1 payment contradiction, payment-due sweeper, QR stage order validation, index sweep, WS auth cache, Redis split (pass 2).
+- **CODEX:** prior findings remain absorbed; ADR-002 later revised Flutter codegen, dashboard topology,
+  and Google Maps assumptions without changing the backend correctness findings.
 - **CROSS-MODEL:** high overlap on concurrency + idempotency + transaction boundaries. Codex caught real bugs in first-cut solutions Claude proposed (outbox not truly durable, dispatch race, batch double-close, idempotency incomplete under retry). All resolved in §12. Multi-currency cosmetic finding accepted — reversed §11.1 A7.
-- **VERDICT:** CEO + ENG CLEARED — ready to implement. Recommend `/plan-design-review` before Flutter+Next.js UI work begins.
+- **VERDICT:** backend review remains useful; run a new mobile/map proof review before implementation
+  because ADR-002 materially changes the client and geo architecture.
 
-NO UNRESOLVED DECISIONS
+NO UNRESOLVED CORE STACK DECISIONS. FIELD PROOF GATES AND BUSINESS-RULE
+QUESTIONS REMAIN EXPLICITLY OPEN.

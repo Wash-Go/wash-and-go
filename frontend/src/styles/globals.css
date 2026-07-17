@@ -1,0 +1,61 @@
+@import 'tailwindcss';
+@plugin "@tailwindcss/typography";
+
+/* Local Fonts */
+@font-face {
+  font-family: 'Montserrat';
+  src: url('../assets/fonts/montserrat-regular-variable.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Montserrat';
+  src: url('../assets/fonts/montserrat-italic-variable.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Unbounded';
+  src: url('../assets/fonts/unbounded-variable.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: 'Montserrat', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Unbounded', ui-sans-serif, system-ui, sans-serif;
+}
+
+html,
+body {
+  min-height: 100vh;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.hero-image-shell {
+  position: relative;
+}
+
+.hero-image-shell::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  z-index: 10;
+  width: min(36rem, calc(100% - 3rem));
+  height: 5.75rem;
+  transform: translateX(-50%);
+  background: #f4f4f5;
+  border-bottom-left-radius: 9999px;
+  border-bottom-right-radius: 9999px;
+}

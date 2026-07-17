@@ -1,6 +1,6 @@
 # Wash & Go — Technical Spec
 
-> Source: *Wash & Go — AZUL Hub Pre-Acceleration Application*. This file extracts only the
+> Source: _Wash & Go — AZUL Hub Pre-Acceleration Application_. This file extracts only the
 > product/engineering content. Market sizing, financial projections, ROI, competitive analysis,
 > SMART objectives, marketing/channel strategy, references, and certification pages are omitted
 > because they do not drive the build.
@@ -14,7 +14,7 @@ one-time laundry pickups on a structured daily schedule; the platform coordinate
 collection, partner-shop processing, and doorstep return.
 
 The platform does **not** perform the wash — that value passes through to partner shops. The product
-*is* the coordination layer: scheduling, daily route planning, partner-shop assignment, and dispatch.
+_is_ the coordination layer: scheduling, daily route planning, partner-shop assignment, and dispatch.
 
 **Design principle:** all business logic — pricing, route dispatch, commission calculation,
 scheduling, payment validation — lives **exclusively in the backend API**. Clients are thin.
@@ -23,46 +23,52 @@ scheduling, payment validation — lives **exclusively in the backend API**. Cli
 
 ## 2. Surfaces
 
-| Surface | Tech | Purpose |
-|---|---|---|
-| Customer app | Flutter (iOS + Android) | Schedule recurring/one-time pickups, real-time order tracking, digital payment (GCash/Maya), buy Laundry Credits |
-| Rider app | Flutter | Daily route dispatch, navigation, order confirmation via QR scan, earnings tracking |
-| Shop dashboard | Next.js (browser, no install) | View incoming scheduled orders, update processing status, track earnings |
-| Admin dashboard | *(unspecced — see Open Questions)* | Zone/fleet management, capacity-ceiling flags, route config, expansion evaluation |
+The source application described Flutter and a shop dashboard. ADR-002 records
+the accepted product-channel revision below.
 
-> Note: the admin dashboard appears in the ops-cost section and the Year-0 Gantt but is **absent from
-> the product-platform table**. Its scope needs to be defined — standalone surface vs. a role-gated
-> section of the shop dashboard.
+| Surface                   | Tech                                | Purpose                                                                                                             |
+| ------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Public onboarding website | Next.js                             | Explain the service, check coverage, collect customer/shop/rider onboarding, consent, and hand off to the apps      |
+| Customer app              | React Native + Expo (iOS + Android) | Schedule pickups, track orders, pay, and manage Laundry Credits                                                     |
+| Rider app                 | React Native + Expo                 | Receive runs, view route context, scan QR handoffs, share location, and track earnings                              |
+| Private operations        | Deferred separate deployable        | Shop processing, exceptions, zone/fleet controls, reconciliation, and administration when pilot volume justifies it |
+
+> The public website must not expose booking, payment, order tracking, dispatch,
+> shop processing, or administration. Pilot operations begin with explicit
+> manual procedures; a private console is a separate product and deployment.
 
 ---
 
-## 3. Stack (proposed in the application — nothing locked)
+## 3. Stack
 
-This is the stack the application document names. Treat all of it as a starting proposal to debate
-during planning, not a settled decision — including the backend framework itself. The application
-proposes NestJS, but whether that (vs. e.g. Fastify/Express, a Django/FastAPI Python backend, Go,
-or something else) is the right fit for this problem and this team is an open call to make on the
-first planning pass. The only genuinely fixed shapes are the *surface topology*: a single backend
-that owns all business logic, a web dashboard for shops, and mobile apps for customers and riders —
-the frameworks behind each are all up for review.
+The AZUL application was the initial proposal. The accepted architecture is
+recorded in `PLAN.md` and ADR-002; this table distinguishes accepted decisions
+from deferred proof-of-concept choices.
 
-| Layer | Application's proposal | Status |
-|---|---|---|
-| Backend API | NestJS (all business logic; single source of truth) | open |
-| Web dashboard | Next.js (shop dashboard) | open |
-| Mobile apps | Flutter (customer + rider) | open |
-| ORM | Prisma | open |
-| System of record | PostgreSQL | open |
-| Real-time | Firestore (order/rider status live updates) | open |
-| Auth | Firebase Auth | open |
-| Maps / geo | Google Maps (zone mapping + route optimization) | open |
-| Payments | PayMongo, GCash, Maya | open (PayMongo can front GCash/Maya) |
+| Layer                | Accepted direction                                                       | Status                          |
+| -------------------- | ------------------------------------------------------------------------ | ------------------------------- |
+| Backend API          | NestJS + Fastify; backend owns business truth                            | locked                          |
+| Public website       | Existing Next.js `landing-page/`; onboarding only                        | locked                          |
+| Mobile apps          | React Native + Expo development builds; customer and rider apps          | locked                          |
+| Private operations   | Separate authenticated deployable when operationally required            | deferred                        |
+| ORM                  | Prisma                                                                   | locked                          |
+| System of record     | PostgreSQL                                                               | locked                          |
+| Real-time            | Socket.io with Redis fan-out; PostgreSQL remains canonical               | locked                          |
+| Auth                 | Firebase Auth identity exchanged for backend session/JWT                 | locked                          |
+| Maps / geo           | TomTom via backend adapters; MapLibre display spike before renderer lock | provider locked; renderer spike |
+| Payments             | PayMongo fronts supported launch rails                                   | locked                          |
+| Backend organization | Modular monolith with service/repository boundaries                      | **proposed in ADR-003**         |
+| UI API paradigm      | REST plus OpenAPI-generated TypeScript client; GraphQL remains an option | **proposed in ADR-003**         |
+| Self-hosted edge     | Nginx only if the selected VPS deployment needs a managed reverse proxy  | **proposed in ADR-003**         |
 
-**Open architectural boundary:** if PostgreSQL + Firestore both stay, PostgreSQL should be
-canonical and Firestore a live-view/push layer — but the exact split (what is written to which,
-sync direction, source of truth on conflict) is **not defined in the source** and must be decided
-before building. This dual-store design is itself worth challenging: a single Postgres store with a
-push mechanism may be simpler for a small team. Do not let both stores own the same truth.
+Firestore is not a second business-data store. PostgreSQL is canonical; Redis
+and Socket.io provide ephemeral delivery and fan-out. TomTom results are
+normalized behind a `MapsProvider` interface and important route decisions are
+persisted for auditability.
+
+The three proposal rows do not become build requirements until ADR-003 is
+accepted. The plain-language business behavior is summarized in
+`docs/startup-grind/01-product/BUSINESS_RULES_PROPOSED.md`.
 
 ---
 
@@ -87,12 +93,12 @@ Inferred entities (source describes behavior, not a schema — this is a startin
 
 ## 5. Logistics: two-tier model
 
-| | Tier 1 — Scheduled Piaggio Batch (default) | Tier 2 — Express Motorcycle (exception) |
-|---|---|---|
-| Vehicle | Platform-owned Piaggio Ape Cargo, one per zone | Partner-owned motorcycle, dynamic dispatch |
-| Handles | All recurring + scheduled orders | Urgent / same-day / light-load (≤5 kg) |
-| Capacity | ~10 bags per run, multiple scheduled runs/day | On-demand |
-| Delivery fee | ₱40 | ₱65–₱80 |
+|              | Tier 1 — Scheduled Piaggio Batch (default)     | Tier 2 — Express Motorcycle (exception)    |
+| ------------ | ---------------------------------------------- | ------------------------------------------ |
+| Vehicle      | Platform-owned Piaggio Ape Cargo, one per zone | Partner-owned motorcycle, dynamic dispatch |
+| Handles      | All recurring + scheduled orders               | Urgent / same-day / light-load (≤5 kg)     |
+| Capacity     | ~10 bags per run, multiple scheduled runs/day  | On-demand                                  |
+| Delivery fee | ₱40                                            | ₱65–₱80                                    |
 
 **Zone capacity logic:** a zone's daily ceiling = `runs_per_day × bags_per_run`. When a zone nears
 its ceiling, the admin surface flags it for subdivision and triggers evaluation for an added Piaggio.
@@ -106,14 +112,14 @@ process.
 
 Representative order = 6 kg × ₱25/kg = ₱150 wash value.
 
-| Component | Value | Flow |
-|---|---|---|
-| Wash value | ₱25/kg × weight | Billed to customer, pass-through |
-| Shop remittance | 88% of wash value | Paid to shop |
-| Commission | 12% of wash value | Platform revenue |
-| Delivery fee | ₱40 (Tier 1) / ₱65–80 (Tier 2) | Platform revenue, checkout line item |
-| Service fee | ₱7 flat | Platform revenue, covers processing |
-| Payment processing | ~4.5% of customer bill (~₱9) | Variable cost |
+| Component          | Value                          | Flow                                 |
+| ------------------ | ------------------------------ | ------------------------------------ |
+| Wash value         | ₱25/kg × weight                | Billed to customer, pass-through     |
+| Shop remittance    | 88% of wash value              | Paid to shop                         |
+| Commission         | 12% of wash value              | Platform revenue                     |
+| Delivery fee       | ₱40 (Tier 1) / ₱65–80 (Tier 2) | Platform revenue, checkout line item |
+| Service fee        | ₱7 flat                        | Platform revenue, covers processing  |
+| Payment processing | ~4.5% of customer bill (~₱9)   | Variable cost                        |
 
 The engine must compute: customer total (`wash + delivery + service`), platform gross
 (`commission + delivery + service`), and shop remittance — per order, per tier.
@@ -125,12 +131,12 @@ The engine must compute: customer total (`wash + delivery + service`), platform 
 Prepaid packs granting bonus credits + delivery vouchers. This is a real accounting subsystem:
 issued value, bonus liability, voucher redemption, and balance tracking.
 
-| Pack | Bonus | Credits received | Vouchers |
-|---|---|---|---|
-| ₱250 | 5% | ₱262.50 | — |
-| ₱500 | 10% | ₱550.00 | 1 scheduled delivery |
-| ₱1,000 | 15% | ₱1,150.00 | 2 scheduled deliveries |
-| ₱2,000 | 20% | ₱2,400.00 | 5 scheduled deliveries |
+| Pack   | Bonus | Credits received | Vouchers               |
+| ------ | ----- | ---------------- | ---------------------- |
+| ₱250   | 5%    | ₱262.50          | —                      |
+| ₱500   | 10%   | ₱550.00          | 1 scheduled delivery   |
+| ₱1,000 | 15%   | ₱1,150.00        | 2 scheduled deliveries |
+| ₱2,000 | 20%   | ₱2,400.00        | 5 scheduled deliveries |
 
 Redemption logic (credits and vouchers applied at checkout) must reconcile against the pricing
 engine in §6.
@@ -139,13 +145,13 @@ engine in §6.
 
 ## 8. Service catalogue (Zamboanga rates, for pricing config)
 
-| Service | Rate |
-|---|---|
-| Wash, dry & fold | ₱25/kg avg (₱22–30) |
-| Wash, dry & fold (8 kg) | ₱180–200 |
-| Wash + iron | ₱220–280 / 8 kg |
-| Dry cleaning (garment) | ₱80–150 / piece |
-| Wedding gown | ₱500–1,200 / piece |
+| Service                 | Rate                |
+| ----------------------- | ------------------- |
+| Wash, dry & fold        | ₱25/kg avg (₱22–30) |
+| Wash, dry & fold (8 kg) | ₱180–200            |
+| Wash + iron             | ₱220–280 / 8 kg     |
+| Dry cleaning (garment)  | ₱80–150 / piece     |
+| Wedding gown            | ₱500–1,200 / piece  |
 
 Rates should be data-driven (per-shop, per-service config) rather than hardcoded — supplier/shop
 rate capture is a known variable.
@@ -168,14 +174,10 @@ at premium fee → direct-to-shop priority processing → express return.
 
 ## 10. Open questions (resolve before building)
 
-1. **Stack review (everything open)** — the entire stack in §3 is the application's proposal, not a
-   locked decision. This includes the backend framework itself: NestJS is proposed, but Fastify,
-   Express, a Python (Django/FastAPI) or Go backend, etc. are all fair to debate for fit with this
-   problem and this team. Only the surface topology (one backend, one web dashboard, mobile apps) is
-   fixed; the frameworks are not.
-2. **PostgreSQL ↔ Firestore boundary** — whether to keep both at all; if kept, what is canonical,
-   what is push-only, and the sync model.
-3. **Admin dashboard** — standalone 4th surface or role-gated Next.js routes in the shop dashboard.
+1. **TomTom field validation** — numeric pass threshold for Zamboanga address
+   search, reverse geocoding, and route accuracy after a representative test set exists.
+2. **Map renderer** — raster or vector TomTom display through MapLibre after Android/iOS proof.
+3. **Private operations trigger** — volume/error threshold that justifies a separate ops console.
 4. **"Route optimization" scope** — true optimization (VRP-style) vs. an ordered stop list. Large
    effort delta.
 5. **Surface ownership** — which founder-dev builds which surface (lead dev owns backend + integrations).
