@@ -1,11 +1,31 @@
 # Wash & Go — Build Plan
 
-Status: **core platform direction revised 2026-07-17**. ADR-002 supersedes the
-earlier Flutter, public-dashboard, and Google Maps choices. NestJS remains the
-backend pick; mobile is React Native/Expo, public web is onboarding-only, and
-TomTom is the maps provider. Backend organization, repository boundaries, the
-UI API paradigm, and conditional Nginx use are **proposed only** in ADR-003 and
-do not become implementation requirements until that ADR is accepted.
+Status: **core platform direction revised 2026-07-17; debate session same day
+resolved surfaces, sequencing, and backend-pattern parameters — all marked
+PENDING CEO APPROVAL.** ADR-002 supersedes the earlier Flutter,
+public-dashboard, and Google Maps choices. NestJS remains the backend pick;
+mobile is two React Native/Expo apps, and TomTom is the maps provider.
+
+Governance: three founders. Clyde authored ADR-001/002/003 and the
+startup-grind docs; Ban accepted the 2026-07-17 debate decisions below; the CEO
+holds final approval. Nothing in the debate outcomes is an implementation
+mandate until the CEO signs off and ADR-003 is amended + accepted.
+
+Debate outcomes (2026-07-17, Ban-accepted, CEO approval pending):
+
+| # | Decision |
+| --- | --- |
+| Repo shape | `apps/{customer-mobile, rider-mobile, admin-dashboard, laundry-portal, api, landing-page}/` + `packages/{api-client, domain, ui, maps}/` + `infrastructure/` — pnpm monorepo |
+| Mobile | Two separate RN/Expo apps (customer + rider), per ADR-002 as written |
+| Web stack | TanStack everywhere: Start (SSR) for `landing-page`, Router SPAs for `laundry-portal` + `admin-dashboard`. Amends ADR-002's Next.js wording |
+| Shop surface | `laundry-portal` ships Phase 1-2 — pay-at-weigh-in flow requires shop weight entry; supersedes ADR-002's no-shop-surface stance |
+| Admin surface | `admin-dashboard` scaffolded day 1, built Phase 4+ |
+| Sequencing | **Express-first build, dual-service launch** — express courier slice weeks 2-4 exercises the full money path; scheduled batch engine weeks 5-9; public launch when both live |
+| ADR-003 params | Pragmatic repository rule (repos mandatory for orders/payments/credits/remittance/dispatch, whitelisted domains may inject Prisma directly); explicit tx param for cross-domain transactions; express slice = ADR acceptance gate |
+| Express capacity | `Shop.expressSlotsPerDay` + booked-count check inside dispatch tx; capacity-window table deferred |
+| TomTom proof gate | Owner deferred to founder sync (still blocking maps work) |
+| D10 Maps provider | **OPEN — needs final founder decision.** TomTom (ADR-002) vs Google Maps. Leaning **Google** — free tier covers pilot (mobile display free, 10k/SKU/mo calls), known-good Zamboanga data, kills the unowned proof gate + MapLibre spike. Either way the vendor sits behind the MapsProvider backend boundary, so a later swap stays feasible |
+| D11 Auth | **Locked:** v1 **fully utilizes Firebase Auth** — OTP, sessions, and per-request ID-token verification via the Admin SDK guard; roles/state stay in Postgres. The **NestJS-native auth stack** (own JWT mint + refresh + tokenVersion revocation) is built in parallel, feature-flagged OFF and unused in v1. Both behind one `AuthGuard` seam; dormant path CI-tested every build; switch = config flip |
 
 ---
 
@@ -17,10 +37,11 @@ do not become implementation requirements until that ADR is accepted.
 | ORM             | **Prisma** (Postgres driver, `Decimal` for money)                                                           |
 | Database        | **PostgreSQL 16** (canonical, single source of truth)                                                       |
 | Realtime        | **NestJS `@WebSocketGateway` + Socket.io + Redis adapter**; Postgres canonical                              |
-| Public web      | **Existing Next.js `landing-page/`**, onboarding only                                                       |
+| Public web      | **`apps/landing-page/` — TanStack Start (SSR), onboarding only** (debate D2.1/D3; amends ADR-002 Next.js wording — PENDING CEO) |
+| Shop web        | **`apps/laundry-portal/` — TanStack Router SPA, ships Phase 1-2** (debate D2.3 — weigh entry gates payment flow — PENDING CEO)  |
+| Admin web       | **`apps/admin-dashboard/` — TanStack Router SPA, scaffolded day 1, built Phase 4+** (debate D2.3 — PENDING CEO)                 |
 | Mobile          | **React Native + Expo development builds + Expo Router + TypeScript** (separate customer + rider apps)      |
 | Auth            | **Firebase Auth (OTP) → NestJS-issued JWT**                                                                 |
-| Operations      | **Manual pilot workflow, then a separate private ops console when justified**                               |
 | Maps            | **TomTom behind backend adapters; MapLibre renderer pending device proof**                                  |
 | Payments        | **PayMongo only** at launch (fronts GCash/Maya/cards/QR Ph)                                                 |
 | Background jobs | **BullMQ + Redis**                                                                                          |
@@ -38,7 +59,7 @@ Ambiguities still open, called out in §7:
 - Rider ↔ vehicle relationship (1:1 profile vs per-run)
 - Shop tie-break when multiple partner shops sit in one zone
 - Service fee ₱7 per order vs per bag
-- Tier 1 delivery ₱40 flat vs distance-tiered inside zone
+- Scheduled delivery ₱40 flat vs distance-tiered inside zone
 - Cash reconciliation ownership at handoff
 
 ---
@@ -64,14 +85,19 @@ Short form per layer: **pick · alternative · why**.
   Same process as HTTP routes; guards + DI shared. Postgres remains canonical; all state written
   through service methods, gateway only emits.
 
-### 1.3 Public web — onboarding-only Next.js site
+### 1.3 Web surfaces — TanStack everywhere, three apps (debate D2/D3, PENDING CEO)
 
-- **Alternative rejected:** customer booking/tracking and shop/admin routes on the public site.
-- **Why:** the website's job is discovery, coverage checking, onboarding/application intake,
-  consent, and app-download handoff. Keeping order and operational workflows out reduces public
-  attack surface and prevents the team from maintaining duplicate mobile/web customer products.
-  `landing-page/` is canonical; `frontend/` is an archived reference. A future internal console is
-  a separate authenticated deployable, host, analytics boundary, and release lifecycle.
+- **Alternatives rejected:** Next.js resurrection (rework of live design system, deleted
+  scaffold); mixed stacks (double conventions for a 3-dev team); operational routes on the
+  public site.
+- **Why:** one web framework family across all three surfaces. `apps/landing-page/` (TanStack
+  Start, SSR) stays onboarding-only — discovery, coverage checking, application intake, consent,
+  app-download handoff; its prototype product routes (`login`, `book-order`, `my-orders`) get
+  stripped or repurposed into onboarding CTAs. `apps/laundry-portal/` (TanStack Router SPA) is
+  the shop surface — weigh entry, status transitions, earnings — required early because the
+  pay-at-weigh-in flow (§10.2) has no data-entry point without it. `apps/admin-dashboard/`
+  (TanStack Router SPA) is scaffolded day 1, built Phase 4+. Public and private surfaces keep
+  separate hosts, auth policies, analytics boundaries, and release lifecycles.
 
 ### 1.4 Mobile — React Native + Expo
 
@@ -90,27 +116,41 @@ Short form per layer: **pick · alternative · why**.
   (money-safe), migrations are boring and reliable, generated client is fully typed. `PrismaModule`
   wraps `PrismaClient` into a NestJS provider — standard idiom.
 
-### 1.6 Auth — Firebase Auth (OTP) → NestJS-issued JWT
+### 1.6 Auth — v1 fully on Firebase Auth; NestJS-native auth built dormant (D11, locked 2026-07-17)
 
-- **Alternative:** full custom via Semaphore (PH SMS gateway).
-- **Why:** SMS OTP is a solved problem with Firebase — React Native integration is available, retry / rate
-  limit / brute-force protection built in, free tier ample for launch. Flow: client sends Firebase
-  ID token to `POST /auth/session`; NestJS verifies via Firebase Admin SDK, upserts the Postgres
-  `User`, mints a NestJS-signed JWT. Firebase is an identity provider only — user state, roles,
-  and everything else lives in Postgres.
-- **Escape hatch:** switching to Semaphore later means swapping OTP send/verify, keeping the same
-  user table, one-time re-enrollment.
+- **v1 launch path — Firebase everything:** SMS OTP, session management, and token refresh all
+  Firebase. Clients attach the Firebase ID token to every API request; a NestJS guard verifies it
+  via the Admin SDK (cached JWKS, in-process). On first sign-in the backend upserts the Postgres
+  `User` keyed by `firebaseUid`. Roles and all business state stay in Postgres — the guard
+  resolves roles from the DB (or mirrored custom claims) after verification. No NestJS-minted JWT
+  in v1.
+- **Parallel NestJS-native auth (built, unused in v1):** the backend's own session stack — JWT
+  mint on `POST /auth/session`, refresh rotation, `tokenVersion` instant revocation — developed
+  alongside but **feature-flagged OFF.** Both paths sit behind one `AuthGuard` seam so the switch
+  is a config flip. Guardrails against dormant-code rot: CI integration-tests the native path
+  every build; one smoke test per release. Insurance against Firebase pricing/quota/policy
+  surprises without a rebuild.
+- **Trade accepted in v1:** per-request Firebase verification (fast — local JWKS signature check)
+  and Firebase-owned revocation semantics, in exchange for zero session infrastructure to operate
+  at launch.
 
-### 1.7 Maps — TomTom through a backend provider boundary
+### 1.7 Maps — provider OPEN (D10, needs final founder decision); MapsProvider boundary locked
 
-- **Alternatives rejected for MVP:** Google Maps, provider calls directly from clients, and a
-  TomTom Web SDK map embedded in a production WebView.
-- **Why:** TomTom supplies search, reverse geocoding, route, matrix, waypoint optimization, and map
-  display services. NestJS proxies privileged calls, normalizes results, applies service-zone
-  validation, caches stable work, and records route decisions. Mobile rendering starts with a
-  MapLibre + TomTom tiles proof of concept on real Android/iOS devices. If embedded turn-by-turn is
-  later validated, evaluate a native bridge to TomTom's Android/iOS Navigation SDK; MVP opens the
-  rider's chosen navigation app.
+- **Locked regardless of vendor:** all privileged geo calls (search, geocoding, reverse geocoding,
+  routing, matrix, optimization) go through a NestJS `MapsProvider` adapter. NestJS normalizes
+  results, applies service-zone validation, caches stable work, records route decisions. Clients
+  never hold privileged keys. MVP navigation = deep-link to the rider's navigation app.
+- **Option A — Google Maps (current lean):** known-good Zamboanga/PH data (barangay-level
+  geocoding, POI coverage), mobile map display free via SDK, pilot volume fits the 10k/SKU/month
+  free calls. Kills the unowned TomTom proof gate + the MapLibre device spike — unblocks Phase 0
+  maps work. ToS constraints: Google data must display on Google maps; cache only lat/lng +
+  place_id long-term. `react-native-maps` with Google provider.
+- **Option B — TomTom (ADR-002 as written):** cheaper at scale, display-freedom (MapLibre works
+  with TomTom data). Requires the 30-address/10-route Zamboanga coverage proof + MapLibre
+  Android/iOS spike first — both currently unowned and blocking.
+- **Decision rule:** founders pick at the next sync. If Google: record ADR amendment + a defined
+  TomTom revisit trigger (e.g. sustained Google spend threshold or second-city expansion). If
+  TomTom: assign the proof-gate owner immediately — it blocks Phase 0.
 
 ### 1.8 Payments — PayMongo only at launch
 
@@ -260,7 +300,8 @@ model Shop {
   zoneId         String?
   zone           Zone?     @relation(fields: [zoneId], references: [id])
   active         Boolean   @default(true)
-  commissionPct  Decimal   @default(12.00) @db.Decimal(5,2) // per-shop override, default 12%
+  commissionPct  Decimal   @default(12.00) @db.Decimal(5,2) // per-shop override, default 12% — PENDING founder rate card
+  expressSlotsPerDay Int   @default(0) // reserved express queue capacity (Logistics v1.1); booked count checked inside dispatch tx
   createdAt      DateTime  @default(now())
 
   members        ShopMember[]
@@ -374,7 +415,7 @@ model ScheduleOccurrence {
 }
 
 // ---------- Orders ----------
-enum OrderTier { TIER_1_SCHEDULED TIER_2_EXPRESS }
+enum ServiceType { SCHEDULED EXPRESS }
 enum OrderStatus {
   BOOKED
   ASSIGNED_TO_RUN
@@ -396,7 +437,7 @@ model Order {
   customer            User          @relation("CustomerOrders", fields: [customerId], references: [id])
   scheduleId          String?
   schedule            Schedule?     @relation(fields: [scheduleId], references: [id])
-  tier                OrderTier
+  serviceType         ServiceType
   status              OrderStatus   @default(BOOKED)
 
   pickupAddressId     String
@@ -666,7 +707,7 @@ backend/src/
     fleet/                      // Vehicle + RiderProfile + location upload
     scheduling/                 // Schedule CRUD + ScheduleOccurrence generator (BullMQ repeatable)
     orders/                     // Order lifecycle state machine (xstate or hand-rolled)
-    dispatch/                   // Tier-1 batching + Tier-2 fanout
+    dispatch/                   // Scheduled batching + Express fanout
     routing/                    // ordered-stop optimizer (MVP: nearest-neighbor)
     pricing/                    // pure engine, no I/O (§3.1)
     remittance/                 // ledger + weekly batch (§3.2)
@@ -688,7 +729,7 @@ quote (booking), weigh-in (pickup), settlement (delivery / dispute resolution).
 import { Decimal } from "@prisma/client/runtime/library";
 
 export type PricingInput = {
-  tier: "TIER_1_SCHEDULED" | "TIER_2_EXPRESS";
+  serviceType: "SCHEDULED" | "EXPRESS";
   weightKg: Decimal; // final weighed kg
   shopService: {
     ratePhp: Decimal;
@@ -696,7 +737,7 @@ export type PricingInput = {
     quantity: Decimal; // pieces or 1 for FLAT
   };
   shopCommissionPct: Decimal; // e.g. new Decimal('12.00')
-  deliveryFeePhp: Decimal; // Tier 1: 40; Tier 2: resolved 65-80
+  deliveryFeePhp: Decimal; // Scheduled: 40; Express: resolved 65-80
   serviceFeePhp: Decimal; // 7 by default
   discounts: {
     creditsAppliedPhp: Decimal; // capped by wallet balance
@@ -730,7 +771,7 @@ export class PricingService {
 Rules:
 
 - All Decimal, no floats. Round to 2 dp at each line item, not only at the end.
-- Voucher `SCHEDULED_DELIVERY_FREE` zeros `deliveryFeePhp`, only for Tier 1. Enforce eligibility
+- Voucher `SCHEDULED_DELIVERY_FREE` zeros `deliveryFeePhp`, only for Scheduled service. Enforce eligibility
   at redemption time; engine trusts input.
 - Credits reduce `customerTotalPhp` after other line items; capped so total ≥ 0.
 - Payment processing cost (~4.5%) is NOT part of customer total — booked later as an ADJUSTMENT
@@ -776,9 +817,9 @@ Shop payouts (bank/eWallet transfer) are **external** at launch. Batch tracks in
 marks paid from the admin UI with the transfer reference, which sets `paidAt` + `reference`. No
 automated bank transfer at launch — KYB overhead too high.
 
-### 3.3 Dispatch — Tier 1 batch, Tier 2 express
+### 3.3 Dispatch — Scheduled batch, Express service
 
-**Tier 1 (scheduled batch):**
+**Scheduled (Piaggio batch):**
 
 - BullMQ repeatable at T-60min per pickup window: ensure a `Run` exists for
   `(zoneId, runDate, slot)`.
@@ -788,13 +829,13 @@ automated bank transfer at launch — KYB overhead too high.
   - transition `Order.status = ASSIGNED_TO_RUN`
 - No capacity → emit `ZoneCapacityBreached` → create `ZoneCapacityFlag`; order queues for next slot.
 
-**Tier 2 (express):**
+**Express (partner motorcycle):**
 
 - `dispatch.dispatchExpress(order)`:
   - fan push to on-duty `RiderProfile` with `vehicle.kind == PARTNER_MOTORCYCLE` within N km via
     TomTom routing or matrix distance (cached per zone edge)
   - first-accept wins; 60s timeout; re-fan up to 3 times
-- No `Run` for Tier 2; single-stop record sits on the order.
+- No `Run` for Express; single-stop record sits on the order.
 
 ### 3.4 QR verification
 
@@ -856,7 +897,7 @@ via the `/rt` namespace.
 - `GET  /shops/services?zoneId=`
 - `POST /schedules` · `GET /schedules` · `PATCH /schedules/:id` (pause/skip/cancel)
 - `GET  /schedules/:id/occurrences?from=&to=`
-- `POST /orders` — one-shot order (Tier 1 or Tier 2)
+- `POST /orders` — one-shot order (Express or Scheduled)
 - `GET  /orders?status=` · `GET /orders/:id` · `POST /orders/:id/cancel`
 - `GET  /wallet` · `GET /wallet/transactions`
 - `GET  /credit-packs` · `POST /credit-packs/:id/purchase`
@@ -874,10 +915,10 @@ via the `/rt` namespace.
 - `POST /runs/:id/stops/:stopId/arrive`
 - `POST /orders/:id/handoff` — QR-verified transition
 - `GET  /me/earnings?from=&to=`
-- `POST /me/express/accept` — Tier 2 dispatch response
+- `POST /me/express/accept` — express dispatch response
 - WS: `dispatch:offers`, `run:updates`
 
-### 4.4 Private shop operations API (manual tooling first; console deferred)
+### 4.4 Laundry-portal API (shop-facing web app, ships Phase 1-2 per debate D2.3)
 
 - `GET  /shop/orders?status=`
 - `POST /shop/orders/:id/weigh` — set `weightKg` + `shopService` (triggers pricing recompute)
@@ -938,7 +979,7 @@ providerReference])` (already in schema). Ledger-style writes only; never mutate
 
 **Recommendation: ordered stop list at launch. No VRP solver.**
 
-- Tier 1 runs = one vehicle per zone, ≤10 stops, geographically compact by definition.
+- Scheduled runs = one vehicle per zone, ≤10 stops, geographically compact by definition.
   Nearest-neighbor from the shop or manual reorder in the rider app captures ~90% of a proper
   VRP's value.
 - Real VRP (OR-Tools or Vroom) is 2–4 weeks tuning + tests + visualization at this scale, and
@@ -967,96 +1008,107 @@ providerReference])` (already in schema). Ledger-style writes only; never mutate
 
 ## 6. Phased Build Plan
 
-Goal: **thin end-to-end Tier 1 flow to real customers** as fast as possible. Every phase behind a
-feature flag; each phase ends with a demo-able flow. First week absorbs some of the NestJS ramp
-cost.
+Goal (revised 2026-07-17 debate, D4): **express-first build, dual-service launch.** The express
+courier flow is the thin slice that exercises the entire money path (booking → dispatch → weigh →
+pay → return → remit) without the scheduled engine's batching machinery. Scheduled lands second on
+proven plumbing. Public launch when both services work. PENDING CEO APPROVAL.
 
 ### Phase 0 — Platform proof and foundation (Weeks 1–2)
 
-- Monorepo layout: `backend/` (NestJS), `landing-page/` (onboarding),
-  `apps/customer-mobile/`, `apps/rider-mobile/`, `packages/api-client/`, `packages/domain/`,
-  `packages/ui/`, and `packages/maps/`.
+- Monorepo scaffold per debate: `apps/{customer-mobile, rider-mobile, admin-dashboard,
+  laundry-portal, api, landing-page}/` + `packages/{api-client, domain, ui, maps}/` +
+  `infrastructure/`. pnpm workspaces. `admin-dashboard/` is a placeholder folder only (built
+  Phase 4+).
 - Expo development builds on a real Android and iOS device. Do not make Expo Go the runtime gate.
-- CI: lint, type-check, Prisma migration check, Jest, onboarding-web smoke, and mobile unit/smoke tests.
-- Hosting: **deferred** (see §1.11). For local dev + phase 0 CI use Dockerized Postgres + Redis;
-  pick production host at end of Phase 1 when we have real latency data.
-- NestJS project: `main.ts` with Fastify adapter, global ValidationPipe, Swagger, WsIoAdapter.
-- Prisma init with the schema in §2 (all models, no logic yet); first migration to local Docker Postgres (hosting deferred per §1.11).
+- CI: lint, type-check, Prisma migration check, Jest, landing-page smoke, and mobile unit/smoke tests.
+- Hosting: **deferred** (see §1.11). Local dev + CI use Dockerized Postgres + Redis
+  (`infrastructure/`); pick production host at end of Phase 1 with real latency data.
+- NestJS project (`apps/api/`): `main.ts` with Fastify adapter, global ValidationPipe, Swagger,
+  WsIoAdapter.
+- Prisma init with the schema in §2 (all models incl. `Shop.expressSlotsPerDay`, no logic yet);
+  first migration to local Docker Postgres.
 - Firebase Admin SDK wired; `POST /auth/session` verifies Firebase token, mints Nest JWT.
 - JwtAuthGuard + RolesGuard + `@Roles(...)` decorator; smoke-tested with a `GET /me`.
 - TomTom spike: at least 30 representative Zamboanga addresses, 10 routes, coverage-polygon
   validation, and a MapLibre/TomTom render with correct attribution on Android and iOS.
-- Empty deploy of the API and onboarding site; installable internal builds of both Expo apps.
+  **Blocked on gate owner (D8 — founder sync).**
+- Empty deploy of the API and landing-page; installable internal builds of both Expo apps.
 
-### Phase 1 — Tier 1 happy path (Weeks 2–4)
+### Phase 1 — Express-LITE vertical slice (Weeks 2–4) — ADR-003 acceptance gate
 
-- Data: seed one zone, one shop, one rider, three services (via a `prisma db seed` script).
-- Customer app (React Native/Expo): OTP sign-in, one-time order booking form (address, date, service,
-  weight estimate).
-- Backend: `POST /orders` (Tier 1 only), zone resolution, `dispatch.assignOrderToRun`,
-  auto-create Run if none, pricing engine v1 (flat rates from `ShopService`), OrderEvent log.
-- Pilot shop operations: documented private/manual intake, weigh action, and status transitions
-  AT_SHOP → READY_FOR_RETURN using narrow authenticated tooling.
-- Rider app (React Native/Expo): today's Run, ordered stop list, route context, external-navigation
-  deep link, and hard-coded transitions (no QR yet).
-- Cash payment only. `RemittanceLine` written on DELIVERED.
-- **Demo criterion:** real order flows from a customer phone through a real Piaggio to a real
-  shop and back; private operations can inspect the queue and ledger without exposing public routes.
+Descoped per outside-voice re-cost (debate D9): **manual dispatch, no auto fan-out, no QR, no
+realtime, no PayMongo in this slice.** Those stay in Phases 2-3 where they were already priced.
+
+- Week-1 prerequisites (named, not smuggled): one coverage polygon + point-in-polygon check
+  (minimal zone, not the batching engine); **rider pay model decided at founder sync** —
+  blocking, riders can't be recruited without it.
+- Data: seed one coverage area, two shops (with `expressSlotsPerDay`), two partner riders,
+  three services (`prisma db seed`).
+- Customer app: OTP sign-in, express booking (address → coverage check → service pick →
+  weight estimate → book).
+- Backend (`apps/api/`), built against the ADR-003 pattern (controller → service → repository,
+  explicit tx param): `POST /orders` (Express), capacity check inside the dispatch transaction
+  (advisory lock; Asia/Manila day boundary — see §13 findings), **manual rider assignment**
+  (ops action, no offer state machine), pricing engine v1, OrderEvent log.
+- Laundry-portal v0 (TanStack SPA): shop login, order queue, **weigh entry** (triggers price
+  recompute), status transitions AT_SHOP → PROCESSING → READY_FOR_RETURN, and the **assign-rider
+  button** (manual dispatch surface).
+- Rider app: assigned express job (both legs: pickup→shop, shop→customer as separate
+  assignments), route context, external-navigation deep link, pickup/deliver transitions.
+- Cash payment recorded manually this phase. `RemittanceLine` written on DELIVERED.
+- **Demo criterion:** a real express order flows phone → manually-assigned rider → shop (weighed
+  in the portal) → back to the customer; ledger inspectable. **Then: review module boundaries +
+  tx handling against ADR-003, amend + flip it Proposed → Accepted (with CEO sign-off).**
 
 ### Phase 2 — Payments + realtime + QR (Weeks 5–7)
 
-- PayMongo integration (GCash + Maya + card + QR Ph) + webhook idempotency + Transaction ledger.
+- PayMongo integration (GCash + Maya + card + QR Ph) + webhook idempotency + Transaction ledger;
+  pay-at-weigh-in flow live (§10.2) — portal weigh entry triggers PaymentIntent.
 - Socket.io gateway: `order:subscribe`, `shop:orders-inbound`, `run:location-subscribe`.
 - QR mint + `POST /orders/:id/handoff` at all four handoff points.
 - Push notifications (FCM) for status changes (BullMQ-backed).
 - Rider location pings + realtime location broadcast to the subscribing customer.
 
-### Phase 3 — Recurring schedules + occurrence generation (Weeks 8–9)
+### Phase 3 — Scheduled service engine (Weeks 5–9, overlaps Phase 2)
 
-- Schedule CRUD in customer app.
-- Nightly BullMQ repeatable materializes `ScheduleOccurrence` rows for next N days.
-- Pause / skip / cancel semantics.
-- Notification 12h before pickup.
+- Zones + polygons + capacity ceilings; zone resolution on booking.
+- Run batching: `dispatch.assignOrderToRun`, auto-create Run per (zone, date, slot, vehicle),
+  stop sequencing (nearest-neighbor), Piaggio fleet records.
+- Recurring schedules: Schedule CRUD in customer app, nightly BullMQ occurrence
+  materialization, pause / skip / cancel, T-12h reminder notification.
+- Rider app: today's Run with ordered stop list.
+- **Dual-service launch gate at end of this phase:** both express + scheduled demoable.
 
-### Phase 4 — Shop config + remittance batching (Weeks 10–11)
+### Phase 4 — Shop config + remittance batching + admin-dashboard start (Weeks 10–11)
 
-- Decide whether pilot volume requires `apps/ops-console/`; if so, build only the private
-  `ShopService`, remittance, exception, and audit views supported by observed workflows.
+- Laundry-portal: `ShopService` price editor, earnings view (paid / unpaid / current-period).
 - Weekly `RemittanceBatch` BullMQ repeatable.
-- Admin UI (bare) with "mark batch paid" action + transfer reference input.
-- Shop earnings view (paid / unpaid / current-period).
+- `apps/admin-dashboard/` first build: "mark batch paid" action + transfer reference input,
+  order exception views.
 
-### Phase 5 — Zones + private operations (Weeks 12–14, conditional)
+### Phase 5 — Zones tooling + admin build-out (Weeks 12–14)
 
-- Separate authenticated `apps/ops-console/` only if Phase 4's operational trigger is met.
-- Zone polygon editor using a renderer compatible with the accepted TomTom display approach.
-- Capacity flag list + resolution actions.
-- Rider + vehicle onboarding forms.
-- Dumb utilization flag (>80% triggers).
-- Extra week vs the Django plan — reflects the custom admin UI we're building instead of
-  Django admin.
+- Admin-dashboard: zone polygon editor (renderer per accepted TomTom display approach),
+  capacity flag list + resolution actions, rider + vehicle onboarding forms,
+  dumb utilization flag (>80% triggers).
 
-### Phase 6 — Tier 2 express (Weeks 15–16)
+### Phase 6 — Credits + vouchers (Weeks 15–16)
 
-- Express order flag on booking flow.
-- `dispatch.dispatchExpress` fan-out to on-duty partner riders via WS.
-- Tier 2 fee resolution + pricing-engine branch.
-
-### Phase 7 — Credits + vouchers (Weeks 17–18)
-
-- Credit packs list + purchase flow (PayMongo).
+- Credit packs list + purchase flow (PayMongo). **Blocked on credits legal review (§10.14).**
 - Wallet ledger + balance view.
 - Voucher issuance on pack purchase.
 - Pricing-engine integration: credits → `discountPhp`, voucher → `deliveryFeePhp = 0` for
-  Tier 1.
-- Reconciliation report: issued value vs. redeemed value (admin dashboard tile).
+  Scheduled.
+- Reconciliation report: issued value vs. redeemed value (admin-dashboard tile).
 
-### Phase 8 — Optimizations (Weeks 19+)
+### Phase 7 — Optimizations (Weeks 17+)
 
 - Route optimization: revisit when data justifies (§5.2).
 - Zone subdivision suggestion tooling.
 - Cash-mix reconciliation dashboard.
 - TimescaleDB extension for `RiderLocationPing` history if retention becomes an issue.
+- Capacity-window table upgrade (from `expressSlotsPerDay` columns) when scheduled volume
+  justifies per-window modeling.
 
 ---
 
@@ -1068,7 +1120,7 @@ cost.
 - Rider ↔ vehicle relationship (fixed vs. per-run assignment).
 - Shop tie-break when multiple partner shops sit in one zone.
 - Service fee (₱7): per order or per bag?
-- Tier 1 fee: flat ₱40 regardless of distance within zone, or distance-tiered?
+- Scheduled delivery fee: flat ₱40 regardless of distance within zone, or distance-tiered?
 - Shop payout automation — deferred; manual mark-paid at launch confirmed?
 
 ---
@@ -1275,13 +1327,13 @@ Cost: Next.js becomes a thin proxy (as I originally rejected). Accepted trade �
 escalates every 30 min for 4 hours, then order enters DISPUTED. Cancellation after weigh-in
 requires manual review (bag already handled).
 
-**Cash orders (Tier 1 only, opt-in):** if customer selected `paymentMethod = CASH` at
+**Cash orders (Scheduled only, opt-in):** if customer selected `paymentMethod = CASH` at
 booking, skip payment intent, collect at delivery. Deferred until real cash-mix data
 justifies building custody workflow (see §10.4).
 
 ### 10.3 MVP scope — Approach A (phased plan retained) _(user decision)_
 
-**No change** to §6 phased plan. Team keeps 11-week Tier 1 build. Concierge MVP rejected —
+**No change** to §6 phased plan. Team keeps 11-week scheduled-service build. Concierge MVP rejected —
 throwaway cost > 4-week validation win.
 
 ### 10.4 Cash handling — deferred _(user decision, spec-anchored)_
@@ -1327,7 +1379,7 @@ model Handoff {
 Remove `qrToken` field from `RunStop`. `POST /orders/:id/handoff` verifies signed JWT +
 looks up `Handoff` by nonce + checks `consumedAt IS NULL` + writes `consumedAt = now()`
 inside a `SELECT FOR UPDATE` (§10.11). Offline: tokens signed with a longer 24h TTL for
-Tier 1 scheduled runs (route pre-fetched at run start), rider syncs on reconnect, server
+scheduled-service runs (route pre-fetched at run start), rider syncs on reconnect, server
 dedups by nonce.
 
 ### 10.6 Return logistics modeled _(auto-fix P2 #8)_
@@ -1860,21 +1912,87 @@ Offline handoffs sync to server → server checks current Order state + past han
 - **PayMongo fixtures:** recorded webhook payloads (success, failure, replay, out-of-order) in `test/fixtures/paymongo/`.
 - **Multi-currency:** kept as cosmetic — user hasn't asked for it, spec says PHP-only. §11.1 A7 downgraded from "add currency column" to "note for future migration" — reversed decision. Money field names stay `washValuePhp` etc.
 
+---
+
+## 13. Debate-session outside-voice findings (2026-07-17, Claude subagent)
+
+Codex quota exhausted; independent Claude subagent reviewed the debate decisions. 15 findings.
+D9 (express-lite descope) resolved the sequencing cluster. Remaining absorbed as work items:
+
+### 13.1 Absorbed into plan (fix during scaffold/Phase 1)
+
+- **QR/handoff schema drift (P1-1):** §2 schema still carries `RunStop.qrToken`; §10.5 already
+  replaced it with the first-class `Handoff` table (4 stages, nonce, consumedAt) which works for
+  express (no Run needed). Fix: apply §10.5 to §2 — drop `qrToken` from `RunStop`, add `Handoff`
+  model to the canonical schema block.
+- **Pay-at-weigh state machine (P1-2):** add `AWAITING_PAYMENT` to `OrderStatus` between weigh and
+  PROCESSING for digital orders (Phase 2, when PayMongo lands). Cash orders bypass to PROCESSING
+  and settle at delivery. `paymentDueAt` + sweeper already specced in §12.6. Unpaid-order
+  escalation policy = founder decision (BUSINESS_RULES item 4).
+- **Capacity check hardening (P2-6):** `expressSlotsPerDay` count uses Asia/Manila calendar-day
+  boundary (`created_at AT TIME ZONE 'Asia/Manila'`), pg advisory lock keyed on `(shopId, date)`
+  inside the dispatch tx (COUNT-then-insert races otherwise), CANCELLED orders excluded from the
+  count (frees slots). Rider availability is the true express constraint — revisit when
+  auto-dispatch lands in Phase 2-3.
+- **Express return leg (P2-7):** express = two dispatch cycles (pickup→shop, shop→customer).
+  Express-lite handles both as manual assignments; the Phase 2-3 auto-dispatch design must fan
+  out the return leg with its own handoffs + fee attribution.
+- **Monorepo mechanics (P2-9):** scaffold checklist — pin all `@tanstack/*` versions (kill
+  `latest`), add `pnpm-workspace.yaml`, delete npm `package-lock.json`, align React version
+  across Expo + web (Expo SDK pins win), `node-linker=hoisted` or Metro symlink config for RN in
+  pnpm, extend `onlyBuiltDependencies` for Prisma/esbuild.
+- **packages/ui honesty (P2-10):** it is design tokens + two renderer-specific component sets
+  (web/Tailwind vs RN/nativewind), not one shared component library. Structure it as
+  `packages/ui/{tokens, web, native}` from day 1.
+
+### 13.2 Founder-sync agenda (blocking items, owners needed)
+
+1. CEO approval of all 2026-07-17 debate decisions (D2-D9)
+2. **Rider pay model** — per-leg vs per-order fee split for express's two legs; blocks rider
+   recruitment (P1-4). Earnings schema (rider payout table) follows the decision.
+3. TomTom proof gate owner (P3-13) — blocks maps work; no fallback provider named if the proof fails
+4. Rate card (12% commission, ₱40/₱65-80 delivery, ₱7 service fee, credits/vouchers)
+5. Unpaid-order escalation + cash reconciliation ownership (P1-2 tail)
+6. Refund/cancel/dispute flows scoping (P2-8) — REFUND_OUT + DISPUTED exist in enums with zero
+   endpoints; founders currently the manual fallback
+7. Rider + shop onboarding operational flow (P2-12) — KYC, agreements, rate capture, portal
+   training; intake surface is being replatformed simultaneously
+
+### 13.3 Documentation debt (P1-5, P3-15)
+
+- **ADR-004 required:** records surface supersessions (TanStack everywhere, laundry-portal early,
+  admin-dashboard phase-gated, Next.js dropped, repo shape) with per-founder approval status.
+  Until written + CEO-approved, ADR-002 remains authoritative-as-written and spec.md §2-3 +
+  FRONTEND_SURFACES.md are stale.
+- **ADR-003 amendment required before acceptance:** the pragmatic repository whitelist (D5.1)
+  contradicts ADR-003 clause 3 as written ("Services must not inject PrismaService"). Amend text
+  first, then run the express-lite slice as the acceptance gate, then flip status. Gate
+  circularity note (P3-15): the slice builds under Proposed rules by definition — acceptable,
+  because the gate's purpose is boundary review after real code, not enforcement during.
+
 ## GSTACK REVIEW REPORT
 
-| Review        | Trigger               | Why                             | Runs | Status       | Findings                                                                     |
-| ------------- | --------------------- | ------------------------------- | ---- | ------------ | ---------------------------------------------------------------------------- |
-| CEO Review    | `/plan-ceo-review`    | Scope & strategy                | 1    | issues_open  | 6 proposals, 6 accepted, 5 deferred (SELECTIVE_EXPANSION)                    |
-| Codex Review  | `/codex review`       | Independent 2nd opinion         | 2    | issues_found | 37 total findings (17 CEO pass, 20 eng pass) — all absorbed                  |
-| Eng Review    | `/plan-eng-review`    | Architecture & tests (required) | 1    | issues_open  | 17 issues (7 arch, 4 code, 5 perf, 1 distribution) + 68 test gaps identified |
-| Design Review | `/plan-design-review` | UI/UX gaps                      | 0    | —            | pending — UI scope detected, recommend running                               |
-| DX Review     | `/plan-devex-review`  | Developer experience gaps       | 0    | —            | pending                                                                      |
+| Review        | Trigger               | Why                             | Runs | Status       | Findings                                                                                      |
+| ------------- | --------------------- | ------------------------------- | ---- | ------------ | ---------------------------------------------------------------------------------------------- |
+| CEO Review    | `/plan-ceo-review`    | Scope & strategy                | 1    | issues_open  | 6 proposals, 6 accepted, 5 deferred (SELECTIVE_EXPANSION)                                      |
+| Codex Review  | `/codex review`       | Independent 2nd opinion         | 2    | issues_found | 37 findings (17 CEO pass, 20 eng pass) — absorbed. Codex quota exhausted 2026-07-17            |
+| Eng Review    | `/plan-eng-review`    | Architecture & tests (required) | 2    | issues_open  | Run 2 (debate mode): 12 decisions locked D2-D9, 15 outside-voice findings absorbed §13         |
+| Design Review | `/plan-design-review` | UI/UX gaps                      | 0    | —            | pending — UI scope detected, recommend running                                                 |
+| DX Review     | `/plan-devex-review`  | Developer experience gaps       | 0    | —            | pending                                                                                        |
 
-- **CODEX:** prior findings remain absorbed; ADR-002 later revised Flutter codegen, dashboard topology,
-  and Google Maps assumptions without changing the backend correctness findings.
-- **CROSS-MODEL:** high overlap on concurrency + idempotency + transaction boundaries. Codex caught real bugs in first-cut solutions Claude proposed (outbox not truly durable, dispatch race, batch double-close, idempotency incomplete under retry). All resolved in §12. Multi-currency cosmetic finding accepted — reversed §11.1 A7.
-- **VERDICT:** backend review remains useful; run a new mobile/map proof review before implementation
-  because ADR-002 materially changes the client and geo architecture.
+- **CODEX:** prior 37 findings remain absorbed (§9-§12). Quota exhausted for debate run; Claude
+  subagent served as outside voice (15 findings, §13).
+- **CROSS-MODEL:** debate-run outside voice challenged the express-first cost estimate and won —
+  slice descoped to express-lite (D9). Schema drift (RunStop.qrToken vs §10.5 Handoff), capacity
+  race, return-leg dispatch, rider pay gap, monorepo React-skew all absorbed as work items §13.1.
+  Doc-governance finding (silent ADR-002 supersession) accepted → ADR-004 required §13.3.
+- **VERDICT:** ENG debate CLEARED at engineering level — every decision D2-D9 recorded with
+  rationale; ALL decisions PENDING CEO APPROVAL per 3-founder governance (Clyde docs-author
+  review + CEO sign-off outstanding). Run `/plan-design-review` before portal/landing UI work.
 
-NO UNRESOLVED CORE STACK DECISIONS. FIELD PROOF GATES AND BUSINESS-RULE
-QUESTIONS REMAIN EXPLICITLY OPEN.
+**UNRESOLVED DECISIONS:**
+- CEO approval of debate decisions D2-D9 + D11 (surfaces, sequencing, ADR-003 params, dormant custom auth)
+- **D10 Maps provider: TomTom vs Google Maps — final founder decision.** Leaning Google (free tier at pilot, known-good Zamboanga data, kills the unowned proof gate). If TomTom: assign proof-gate owner immediately
+- Rider pay model (blocks rider recruitment + earnings schema — founder sync)
+- Rate card: 12% commission, ₱40/₱65-80 delivery, ₱7 service fee, credits/vouchers (CEO)
+- Unpaid-order escalation policy + cash reconciliation ownership (founder sync)

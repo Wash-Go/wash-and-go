@@ -1,0 +1,186 @@
+// Weekend-MVP subset of the full PLAN.md §2 schema.
+// Full schema (zones, runs, schedules, credits, remittance batches, handoffs)
+// lands with its phases — do not add tables the current phase doesn't use.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CUSTOMER
+  RIDER
+  SHOP_OWNER
+  SHOP_STAFF
+  ADMIN
+}
+
+enum ServiceType {
+  SCHEDULED
+  EXPRESS
+}
+
+enum OrderStatus {
+  BOOKED
+  ASSIGNED
+  PICKED_UP
+  AT_SHOP
+  PROCESSING
+  READY_FOR_RETURN
+  OUT_FOR_RETURN
+  DELIVERED
+  CANCELLED
+}
+
+enum BillingUnit {
+  PER_KG
+  PER_PIECE
+  FLAT
+}
+
+model User {
+  id          String    @id @default(cuid())
+  firebaseUid String    @unique
+  phone       String    @unique
+  displayName String
+  roles       UserRole[]
+  createdAt   DateTime  @default(now())
+  disabledAt  DateTime?
+
+  orders          Order[]      @relation("CustomerOrders")
+  assignedOrders  Order[]      @relation("RiderOrders")
+  shopMemberships ShopMember[]
+  orderEvents     OrderEvent[]
+}
+
+model Shop {
+  id                 String   @id @default(cuid())
+  name               String
+  address            String
+  lat                Decimal  @db.Decimal(9, 6)
+  lng                Decimal  @db.Decimal(9, 6)
+  active             Boolean  @default(true)
+  // PENDING founder rate card — 12% is the planning assumption
+  commissionPct      Decimal  @default(12.00) @db.Decimal(5, 2)
+  // Reserved express queue capacity (Logistics v1.1). Count check runs inside
+  // the dispatch tx with a pg advisory lock keyed (shopId, Asia/Manila date).
+  expressSlotsPerDay Int      @default(0)
+  createdAt          DateTime @default(now())
+
+  members  ShopMember[]
+  services ShopService[]
+  orders   Order[]
+}
+
+model ShopMember {
+  id     String @id @default(cuid())
+  shopId String
+  userId String
+  role   String // "OWNER" | "STAFF"
+  shop   Shop   @relation(fields: [shopId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([shopId, userId])
+}
+
+model ServiceCatalogItem {
+  id          String        @id @default(cuid())
+  code        String        @unique // "WDF", "WDF_IRON", "DRY_CLEAN"
+  name        String
+  billingUnit BillingUnit
+  shopPrices  ShopService[]
+}
+
+model ShopService {
+  id              String             @id @default(cuid())
+  shopId          String
+  serviceId       String
+  ratePhp         Decimal            @db.Decimal(10, 2)
+  turnaroundHours Int
+  active          Boolean            @default(true)
+  shop            Shop               @relation(fields: [shopId], references: [id])
+  service         ServiceCatalogItem @relation(fields: [serviceId], references: [id])
+  orders          Order[]
+
+  @@unique([shopId, serviceId])
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  code        String      @unique // "WG-2026-000001" via global sequence
+  customerId  String
+  customer    User        @relation("CustomerOrders", fields: [customerId], references: [id])
+  serviceType ServiceType
+  status      OrderStatus @default(BOOKED)
+
+  // MVP: free-text address + hardcoded coverage check. Zones land with the
+  // scheduled engine (maps vendor D10 still open).
+  pickupAddress String
+  pickupLat     Decimal? @db.Decimal(9, 6)
+  pickupLng     Decimal? @db.Decimal(9, 6)
+
+  shopId        String?
+  shop          Shop?        @relation(fields: [shopId], references: [id])
+  shopServiceId String?
+  shopService   ShopService? @relation(fields: [shopServiceId], references: [id])
+
+  // Manual dispatch at MVP: ops assigns a rider user in the portal.
+  assignedRiderId String?
+  assignedRider   User?   @relation("RiderOrders", fields: [assignedRiderId], references: [id])
+
+  weightEstimateKg Decimal? @db.Decimal(6, 2)
+  weightKg         Decimal? @db.Decimal(6, 2) // set at weigh-in; triggers price recompute
+
+  // Price breakdown — computed by the pricing engine, never by clients.
+  washValuePhp      Decimal @default(0) @db.Decimal(10, 2)
+  deliveryFeePhp    Decimal @default(0) @db.Decimal(10, 2)
+  serviceFeePhp     Decimal @default(0) @db.Decimal(10, 2)
+  commissionPhp     Decimal @default(0) @db.Decimal(10, 2)
+  shopRemittancePhp Decimal @default(0) @db.Decimal(10, 2)
+  customerTotalPhp  Decimal @default(0) @db.Decimal(10, 2)
+
+  // MVP: cash recorded manually. PayMongo lands Phase 2.
+  paidCashAt DateTime?
+
+  createdAt   DateTime  @default(now())
+  deliveredAt DateTime?
+
+  events         OrderEvent[]
+  remittanceLine RemittanceLine?
+
+  @@index([status, createdAt])
+  @@index([shopId, status])
+  @@index([customerId, createdAt(sort: Desc)])
+}
+
+model OrderEvent {
+  id          String      @id @default(cuid())
+  orderId     String
+  order       Order       @relation(fields: [orderId], references: [id])
+  status      OrderStatus
+  actorUserId String?
+  actor       User?       @relation(fields: [actorUserId], references: [id])
+  meta        Json?
+  createdAt   DateTime    @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+// One row per DELIVERED order — idempotent via unique(orderId).
+// Batching + payouts land Phase 4.
+model RemittanceLine {
+  id             String   @id @default(cuid())
+  orderId        String   @unique
+  order          Order    @relation(fields: [orderId], references: [id])
+  shopId         String
+  washValuePhp   Decimal  @db.Decimal(10, 2)
+  commissionPhp  Decimal  @db.Decimal(10, 2)
+  payoutPhp      Decimal  @db.Decimal(10, 2)
+  createdAt      DateTime @default(now())
+
+  @@index([shopId, createdAt])
+}
