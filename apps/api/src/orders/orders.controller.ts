@@ -21,6 +21,7 @@ import { OrdersService } from './orders.service';
 import {
   AssignRiderDto,
   CreateOrderDto,
+  PreviewOrderDto,
   TransitionDto,
   WeighDto,
 } from './dto/orders.dto';
@@ -36,6 +37,13 @@ import {
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly orders: OrdersService) {}
+
+  @Post('preview')
+  @Roles('CUSTOMER')
+  @ApiOperation({ summary: 'Price a prospective order (no write)' })
+  preview(@Body() dto: PreviewOrderDto) {
+    return this.orders.previewOrder(dto);
+  }
 
   @Post()
   @Roles('CUSTOMER')

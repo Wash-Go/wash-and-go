@@ -35,6 +35,18 @@ export class CreateOrderDto {
   weightEstimateKg!: number;
 }
 
+export class PreviewOrderDto {
+  @ApiProperty({ example: 'shopsvc_abc123', description: 'ShopService id (shop + service + rate)' })
+  @IsString()
+  @IsNotEmpty()
+  shopServiceId!: string;
+
+  @ApiProperty({ example: 6, description: 'Estimated kg (from the load-size bucket)' })
+  @IsPositive()
+  @Max(100)
+  weightKg!: number;
+}
+
 export class AssignRiderDto {
   @ApiProperty({ example: 'usr_rider1' })
   @IsString()

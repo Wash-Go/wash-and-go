@@ -1,0 +1,62 @@
+import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+
+/*
+ * Catalog read (ADR-003 direct-Prisma whitelist — no repository needed). The
+ * customer app calls this to discover shops + their services before booking.
+ * The response is SHAPED: internal margin fields (commissionPct,
+ * expressSlotsPerDay) are never sent to the client.
+ */
+export interface ShopServiceView {
+  id: string; // ShopService id (what POST /orders needs)
+  code: string;
+  name: string;
+  ratePhp: Prisma.Decimal;
+  turnaroundHours: number;
+}
+
+export interface ShopView {
+  id: string;
+  name: string;
+  address: string;
+  lat: Prisma.Decimal;
+  lng: Prisma.Decimal;
+  services: ShopServiceView[];
+}
+
+@Injectable()
+export class ShopsService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  // Single query with a nested include — no N+1 (perf P2).
+  async listActiveWithServices(): Promise<ShopView[]> {
+    const shops = await this.prisma.shop.findMany({
+      where: { active: true },
+      orderBy: { name: 'asc' },
+      include: {
+        services: {
+          where: { active: true },
+          include: { service: true },
+        },
+      },
+    });
+
+    return shops.map((s) => ({
+      id: s.id,
+      name: s.name,
+      address: s.address,
+      lat: s.lat,
+      lng: s.lng,
+      // commissionPct + expressSlotsPerDay deliberately omitted — margin data
+      // stays server-side.
+      services: s.services.map((ss) => ({
+        id: ss.id,
+        code: ss.service.code,
+        name: ss.service.name,
+        ratePhp: ss.ratePhp,
+        turnaroundHours: ss.turnaroundHours,
+      })),
+    }));
+  }
+}

@@ -20,6 +20,7 @@ import {
 import {
   AssignRiderDto,
   CreateOrderDto,
+  PreviewOrderDto,
   TransitionDto,
   WeighDto,
 } from './dto/orders.dto';
@@ -57,6 +58,24 @@ export class OrdersService {
       if (e instanceof PricingError) throw new BadRequestException(e.message);
       throw e;
     }
+  }
+
+  // POST /orders/preview — read-only price estimate before booking (eng review
+  // D3). Reuses the same engine as create, so the preview total always matches
+  // what the order will be priced at for identical inputs. No write, no coverage
+  // check (no location yet at preview time).
+  async previewOrder(dto: PreviewOrderDto): Promise<PricingBreakdown> {
+    const shopService = await this.repo.findShopServiceWithShop(
+      dto.shopServiceId,
+    );
+    if (!shopService || !shopService.active || !shopService.shop.active) {
+      throw new BadRequestException('Service unavailable');
+    }
+    return this.price(
+      shopService.ratePhp,
+      dto.weightKg,
+      shopService.shop.commissionPct,
+    );
   }
 
   // POST /orders — customer books an express order.

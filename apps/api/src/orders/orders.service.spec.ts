@@ -179,6 +179,26 @@ describe('OrdersService', () => {
     });
   });
 
+  describe('previewOrder', () => {
+    it('prices the golden order without writing anything', async () => {
+      repo.findShopServiceWithShop.mockResolvedValue(makeShopService() as never);
+      const b = await service.previewOrder({
+        shopServiceId: 'shopsvc1',
+        weightKg: 6,
+      });
+      expect(b.washValuePhp.toFixed(2)).toBe('150.00');
+      expect(b.customerTotalPhp.toFixed(2)).toBe('222.00');
+      expect(repo.createOrder).not.toHaveBeenCalled();
+    });
+
+    it('rejects an unavailable service', async () => {
+      repo.findShopServiceWithShop.mockResolvedValue(null);
+      await expect(
+        service.previewOrder({ shopServiceId: 'x', weightKg: 6 }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
   describe('assignRider', () => {
     it('rejects assigning a non-rider', async () => {
       repo.userHasRole.mockResolvedValue(false);
