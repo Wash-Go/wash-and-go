@@ -119,6 +119,20 @@ describe('ApiClient', () => {
     });
   });
 
+  it('posts the id token in the body for /auth/session', async () => {
+    const fetchFn = jest.fn().mockResolvedValue(res(200, { id: 'u1', roles: ['CUSTOMER'] }));
+    const client = new ApiClient({
+      baseUrl: 'http://api.test',
+      tokens: tokensFrom(['fb-id-token']),
+      fetchFn,
+    });
+    await client.postSession();
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe('http://api.test/auth/session');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual({ idToken: 'fb-id-token' });
+  });
+
   it('gets riders', async () => {
     const fetchFn = jest.fn().mockResolvedValue(res(200, []));
     const client = new ApiClient({

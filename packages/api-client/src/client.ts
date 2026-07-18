@@ -97,9 +97,12 @@ export class ApiClient {
     return data as T;
   }
 
-  // First sign-in creates the Postgres user; idempotent (bearer only).
-  postSession(): Promise<{ id: string }> {
-    return this.request('POST', '/auth/session');
+  // First sign-in creates the Postgres user; idempotent. The endpoint is public
+  // and verifies the token itself, so the ID token goes in the BODY as idToken
+  // (not just the Authorization header).
+  async postSession(): Promise<{ id: string; roles: string[] }> {
+    const token = await this.tokens.getToken();
+    return this.request('POST', '/auth/session', { idToken: token });
   }
 
   getShops(): Promise<ShopView[]> {

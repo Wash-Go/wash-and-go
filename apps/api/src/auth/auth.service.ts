@@ -18,23 +18,25 @@ export class AuthService {
     private readonly users: UsersRepository,
   ) {}
 
-  // A3: under dev bypass the dev header wins and Firebase is never called — a
-  // stray bearer token cannot hit the uninitialized Admin SDK and 500.
+  // Real Firebase token WINS (the Admin SDK is initialized): if a bearer is
+  // present, verify it. Dev-bypass (x-dev-uid) is only a fallback for clients
+  // that don't mint tokens yet (rider app + portals) — so a real-auth client
+  // (customer app) and stub clients coexist under one AUTH_DEV_BYPASS flag.
   async resolveFirebaseUid(input: {
     bearer: string | null;
     devUid: string | null;
   }): Promise<string> {
+    if (input.bearer) {
+      const identity = await this.firebase.verifyIdToken(input.bearer);
+      return identity.firebaseUid;
+    }
     if (this.firebase.devBypass) {
       if (!input.devUid) {
         throw new UnauthorizedException('Missing x-dev-uid (dev bypass)');
       }
       return input.devUid;
     }
-    if (!input.bearer) {
-      throw new UnauthorizedException('Missing bearer token');
-    }
-    const identity = await this.firebase.verifyIdToken(input.bearer);
-    return identity.firebaseUid;
+    throw new UnauthorizedException('Missing bearer token');
   }
 
   async resolveAuthedUser(firebaseUid: string): Promise<User> {

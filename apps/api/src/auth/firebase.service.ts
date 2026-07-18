@@ -32,16 +32,44 @@ export class FirebaseService implements OnModuleInit {
       nodeEnv: this.config.get('NODE_ENV'),
       devBypass: this.devBypass,
     });
-    if (this.devBypass) {
-      this.logger.warn(
-        'AUTH_DEV_BYPASS is ON — Firebase token verification is skipped. DEV ONLY.',
+
+    // Initialize the Admin SDK whenever credentials are available — a real
+    // Firebase token is verified even under dev bypass (bearer wins; x-dev-uid
+    // is only the fallback for clients that don't mint tokens yet). Only pure
+    // stub mode (bypass ON + no credentials) skips init.
+    const hasCreds = !!this.config.get('GOOGLE_APPLICATION_CREDENTIALS');
+    if (!hasCreds) {
+      if (this.devBypass) {
+        this.logger.warn(
+          'No Firebase credentials + AUTH_DEV_BYPASS on — token verification unavailable, x-dev-uid only. DEV ONLY.',
+        );
+        return;
+      }
+      throw new Error(
+        'GOOGLE_APPLICATION_CREDENTIALS missing and AUTH_DEV_BYPASS off',
       );
-      return;
     }
-    // Uses GOOGLE_APPLICATION_CREDENTIALS from the environment.
-    this.app = admin.apps.length
-      ? admin.app()
-      : admin.initializeApp({ credential: admin.credential.applicationDefault() });
+
+    try {
+      this.app = admin.apps.length
+        ? admin.app()
+        : admin.initializeApp({
+            credential: admin.credential.applicationDefault(),
+          });
+      if (this.devBypass) {
+        this.logger.warn(
+          'AUTH_DEV_BYPASS is ON — real Firebase tokens are still verified; x-dev-uid is the fallback. DEV ONLY.',
+        );
+      }
+    } catch (e) {
+      if (this.devBypass) {
+        this.logger.warn(
+          `Firebase Admin init failed (${(e as Error).message}); x-dev-uid only. DEV ONLY.`,
+        );
+        return;
+      }
+      throw e;
+    }
   }
 
   async verifyIdToken(idToken: string): Promise<VerifiedIdentity> {
