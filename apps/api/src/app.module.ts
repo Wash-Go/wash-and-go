@@ -4,6 +4,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { OrdersModule } from './orders/orders.module';
 import { ShopsModule } from './shops/shops.module';
+import { RidersModule } from './riders/riders.module';
 import { HealthController } from './health.controller';
 
 /*
@@ -21,6 +22,7 @@ import { HealthController } from './health.controller';
     AuthModule,
     OrdersModule,
     ShopsModule,
+    RidersModule,
   ],
   controllers: [HealthController],
 })

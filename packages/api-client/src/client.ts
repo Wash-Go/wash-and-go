@@ -4,6 +4,7 @@ import type {
   OrderView,
   PreviewOrderBody,
   PricingBreakdown,
+  Rider,
   ShopView,
 } from '@wash-and-go/domain';
 
@@ -103,6 +104,23 @@ export class ApiClient {
 
   getShops(): Promise<ShopView[]> {
     return this.request('GET', '/shops');
+  }
+
+  // Admin-only: riders for the dispatch assign picker.
+  getRiders(): Promise<Rider[]> {
+    return this.request('GET', '/riders');
+  }
+
+  assignRider(id: string, riderId: string): Promise<OrderView> {
+    return this.request('POST', `/orders/${encodeURIComponent(id)}/assign-rider`, {
+      riderId,
+    });
+  }
+
+  weigh(id: string, weightKg: number): Promise<OrderView> {
+    return this.request('POST', `/orders/${encodeURIComponent(id)}/weigh`, {
+      weightKg,
+    });
   }
 
   previewOrder(body: PreviewOrderBody): Promise<PricingBreakdown> {

@@ -30,6 +30,12 @@ export interface PricingBreakdown {
   customerTotalPhp: string;
 }
 
+export interface Rider {
+  id: string;
+  displayName: string;
+  phone: string;
+}
+
 export interface ShopContact {
   id: string;
   name: string;

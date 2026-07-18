@@ -47,6 +47,7 @@ async function main() {
     { firebaseUid: 'dev-rider-1', phone: '+639170000002', displayName: 'Rider One', roles: ['RIDER'] as const },
     { firebaseUid: 'dev-rider-2', phone: '+639170000003', displayName: 'Rider Two', roles: ['RIDER'] as const },
     { firebaseUid: 'dev-admin', phone: '+639170000004', displayName: 'Dev Admin', roles: ['ADMIN'] as const },
+    { firebaseUid: 'dev-shop-owner', phone: '+639170000005', displayName: 'Shop Owner', roles: ['SHOP_OWNER'] as const },
   ];
   for (const u of users) {
     await prisma.user.upsert({
@@ -56,7 +57,19 @@ async function main() {
     });
   }
 
-  console.log('Seed complete: 3 services, 2 shops (+express slots), 3 users.');
+  // Make dev-shop-owner a member of the Tetuan shop so the laundry-portal has
+  // scoped data (the shop view filters by ShopMember).
+  const tetuan = await prisma.shop.findFirst({ where: { name: 'Tetuan Laundry Hub' } });
+  const shopOwner = await prisma.user.findUnique({ where: { firebaseUid: 'dev-shop-owner' } });
+  if (tetuan && shopOwner) {
+    await prisma.shopMember.upsert({
+      where: { shopId_userId: { shopId: tetuan.id, userId: shopOwner.id } },
+      create: { shopId: tetuan.id, userId: shopOwner.id, role: 'OWNER' },
+      update: { role: 'OWNER' },
+    });
+  }
+
+  console.log('Seed complete: 3 services, 2 shops, 5 users, 1 shop member.');
 }
 
 main()

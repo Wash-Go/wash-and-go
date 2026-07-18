@@ -119,6 +119,43 @@ describe('ApiClient', () => {
     });
   });
 
+  it('gets riders', async () => {
+    const fetchFn = jest.fn().mockResolvedValue(res(200, []));
+    const client = new ApiClient({
+      baseUrl: 'http://api.test',
+      tokens: tokensFrom(['t']),
+      fetchFn,
+    });
+    await client.getRiders();
+    expect(fetchFn.mock.calls[0][0]).toBe('http://api.test/riders');
+  });
+
+  it('assigns a rider', async () => {
+    const fetchFn = jest.fn().mockResolvedValue(res(200, { id: 'o1' }));
+    const client = new ApiClient({
+      baseUrl: 'http://api.test',
+      tokens: tokensFrom(['t']),
+      fetchFn,
+    });
+    await client.assignRider('o1', 'r1');
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe('http://api.test/orders/o1/assign-rider');
+    expect(JSON.parse(init.body)).toEqual({ riderId: 'r1' });
+  });
+
+  it('weighs an order', async () => {
+    const fetchFn = jest.fn().mockResolvedValue(res(200, { id: 'o1' }));
+    const client = new ApiClient({
+      baseUrl: 'http://api.test',
+      tokens: tokensFrom(['t']),
+      fetchFn,
+    });
+    await client.weigh('o1', 6.4);
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe('http://api.test/orders/o1/weigh');
+    expect(JSON.parse(init.body)).toEqual({ weightKg: 6.4 });
+  });
+
   it('posts a status transition', async () => {
     const fetchFn = jest.fn().mockResolvedValue(res(200, { id: 'o1', status: 'PICKED_UP' }));
     const client = new ApiClient({
