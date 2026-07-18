@@ -55,6 +55,7 @@ export interface OrderView {
   serviceType: ServiceType;
   pickupAddress: string;
   shopId: string | null;
+  shopServiceId: string | null;
   assignedRiderId: string | null;
   weightEstimateKg: string | null;
   weightKg: string | null;

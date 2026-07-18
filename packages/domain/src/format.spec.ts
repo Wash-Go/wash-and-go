@@ -9,7 +9,7 @@ describe('peso', () => {
     expect(peso('1234.5')).toBe('₱1,234.50');
     expect(peso(1000000)).toBe('₱1,000,000.00');
   });
-  it('handles zero + non-finite input', () => {
+  it('handles zero + non-finite', () => {
     expect(peso('0')).toBe('₱0.00');
     expect(peso('nope')).toBe('₱0.00');
   });

@@ -1,11 +1,8 @@
 /** @type {import('jest').Config} */
-// Only the pure formatter is unit-tested here; RN components are verified by the
-// apps bundling. Self-contained tsconfig so ts-jest doesn't load the RN one.
 module.exports = {
   moduleFileExtensions: ['ts', 'tsx', 'js', 'json'],
-  rootDir: 'src',
+  rootDir: 'lib',
   testMatch: ['**/*.spec.ts'],
-  passWithNoTests: true,
   transform: {
     '^.+\\.tsx?$': [
       'ts-jest',
