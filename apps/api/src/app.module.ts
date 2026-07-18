@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
+import { OrdersModule } from './orders/orders.module';
 import { HealthController } from './health.controller';
 
 /*
@@ -13,7 +14,12 @@ import { HealthController } from './health.controller';
  * `tx` into repository methods (explicit tx param — debate D5.2).
  */
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), PrismaModule, AuthModule],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    PrismaModule,
+    AuthModule,
+    OrdersModule,
+  ],
   controllers: [HealthController],
 })
 export class AppModule {}
