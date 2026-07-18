@@ -74,6 +74,41 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
   } as Order;
 }
 
+function makeUserRow(id: string, roles: UserRole[] = ['CUSTOMER']) {
+  return {
+    id,
+    firebaseUid: `fb-${id}`,
+    phone: '+639170000000',
+    displayName: `User ${id}`,
+    roles,
+    createdAt: new Date(),
+    disabledAt: null,
+  };
+}
+
+// Order with the relations the shaped read loads.
+function makeRelOrder(overrides: Partial<Order> = {}) {
+  const o = makeOrder(overrides);
+  return {
+    ...o,
+    shop: {
+      id: 'shop1',
+      name: 'Tetuan Laundry Hub',
+      address: 'Tetuan, Zamboanga City',
+      lat: D('6.9111'),
+      lng: D('122.0794'),
+      active: true,
+      commissionPct: D('12.00'),
+      expressSlotsPerDay: 8,
+      createdAt: new Date(),
+    },
+    customer: makeUserRow(o.customerId),
+    assignedRider: o.assignedRiderId
+      ? makeUserRow(o.assignedRiderId, ['RIDER'])
+      : null,
+  };
+}
+
 const inCoverage = { pickupLat: 6.9111, pickupLng: 122.0794 };
 
 describe('OrdersService', () => {
@@ -96,6 +131,8 @@ describe('OrdersService', () => {
       insertRemittanceLine: jest.fn().mockResolvedValue({ id: 'r1' }),
       findById: jest.fn(),
       findMany: jest.fn(),
+      findByIdWithRelations: jest.fn(),
+      findManyWithRelations: jest.fn(),
     } as unknown as jest.Mocked<OrdersRepository>;
 
     // $transaction just runs the callback with a throwaway tx client — the repo
@@ -331,26 +368,75 @@ describe('OrdersService', () => {
     });
   });
 
-  describe('getOrder ownership', () => {
+  describe('getOrder ownership + shaped read', () => {
     it('lets the owning customer view', async () => {
-      repo.findById.mockResolvedValue(makeOrder({ customerId: 'cust' }));
+      repo.findByIdWithRelations.mockResolvedValue(
+        makeRelOrder({ customerId: 'cust' }) as never,
+      );
       await expect(
         service.getOrder(makeUser(['CUSTOMER'], 'cust'), 'o1'),
       ).resolves.toBeDefined();
     });
 
     it('forbids a stranger customer', async () => {
-      repo.findById.mockResolvedValue(makeOrder({ customerId: 'someoneelse' }));
+      repo.findByIdWithRelations.mockResolvedValue(
+        makeRelOrder({ customerId: 'someoneelse' }) as never,
+      );
       await expect(
         service.getOrder(makeUser(['CUSTOMER'], 'cust'), 'o1'),
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
     it('lets an admin view anything', async () => {
-      repo.findById.mockResolvedValue(makeOrder({ customerId: 'x' }));
+      repo.findByIdWithRelations.mockResolvedValue(
+        makeRelOrder({ customerId: 'x' }) as never,
+      );
       await expect(
         service.getOrder(makeUser(['ADMIN']), 'o1'),
       ).resolves.toBeDefined();
+    });
+
+    it('surfaces shop drop-off + customer contact to the assigned rider', async () => {
+      repo.findByIdWithRelations.mockResolvedValue(
+        makeRelOrder({ status: 'ASSIGNED', assignedRiderId: 'r1' }) as never,
+      );
+      const d = await service.getOrder(makeUser(['RIDER'], 'r1'), 'o1');
+      expect(d.shop?.address).toContain('Zamboanga');
+      expect(d.customer.phone).toBeTruthy();
+    });
+  });
+
+  describe('availableActions', () => {
+    it('offers the assigned rider their next step (ASSIGNED → PICKED_UP)', async () => {
+      repo.findByIdWithRelations.mockResolvedValue(
+        makeRelOrder({ status: 'ASSIGNED', assignedRiderId: 'r1' }) as never,
+      );
+      const d = await service.getOrder(makeUser(['RIDER'], 'r1'), 'o1');
+      expect(d.availableActions).toEqual(['PICKED_UP']);
+    });
+
+    it('offers the assigned rider Delivered from OUT_FOR_RETURN', async () => {
+      repo.findByIdWithRelations.mockResolvedValue(
+        makeRelOrder({ status: 'OUT_FOR_RETURN', assignedRiderId: 'r1' }) as never,
+      );
+      const d = await service.getOrder(makeUser(['RIDER'], 'r1'), 'o1');
+      expect(d.availableActions).toEqual(['DELIVERED']);
+    });
+
+    it('offers the assigned rider nothing while the shop holds the order', async () => {
+      repo.findByIdWithRelations.mockResolvedValue(
+        makeRelOrder({ status: 'AT_SHOP', assignedRiderId: 'r1' }) as never,
+      );
+      const d = await service.getOrder(makeUser(['RIDER'], 'r1'), 'o1');
+      expect(d.availableActions).toEqual([]);
+    });
+
+    it('offers admin assign + cancel on a BOOKED order', async () => {
+      repo.findByIdWithRelations.mockResolvedValue(
+        makeRelOrder({ status: 'BOOKED' }) as never,
+      );
+      const d = await service.getOrder(makeUser(['ADMIN']), 'o1');
+      expect([...d.availableActions].sort()).toEqual(['ASSIGNED', 'CANCELLED']);
     });
   });
 });

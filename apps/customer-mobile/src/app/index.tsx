@@ -3,8 +3,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { ShopView } from '@wash-and-go/domain';
 import { api } from '../lib/api';
-import { peso } from '../lib/format';
-import { colors, space, type } from '../lib/theme';
 import {
   Card,
   EmptyState,
@@ -13,7 +11,11 @@ import {
   Loading,
   Muted,
   Screen,
-} from '../components/ui';
+  colors,
+  peso,
+  space,
+  type,
+} from '@wash-and-go/ui';
 
 type State =
   | { kind: 'loading' }

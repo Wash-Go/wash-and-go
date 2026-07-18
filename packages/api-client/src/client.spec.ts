@@ -119,6 +119,34 @@ describe('ApiClient', () => {
     });
   });
 
+  it('posts a status transition', async () => {
+    const fetchFn = jest.fn().mockResolvedValue(res(200, { id: 'o1', status: 'PICKED_UP' }));
+    const client = new ApiClient({
+      baseUrl: 'http://api.test',
+      tokens: tokensFrom(['t']),
+      fetchFn,
+    });
+    await client.transition('o1', 'PICKED_UP');
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe('http://api.test/orders/o1/status');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual({ status: 'PICKED_UP' });
+  });
+
+  it('posts pay-cash with no body', async () => {
+    const fetchFn = jest.fn().mockResolvedValue(res(200, { id: 'o1' }));
+    const client = new ApiClient({
+      baseUrl: 'http://api.test',
+      tokens: tokensFrom(['t']),
+      fetchFn,
+    });
+    await client.payCash('o1');
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe('http://api.test/orders/o1/pay-cash');
+    expect(init.method).toBe('POST');
+    expect(init.body).toBeUndefined();
+  });
+
   it('sends x-dev-uid when devUid is set (Expo Go stub login)', async () => {
     const fetchFn = jest.fn().mockResolvedValue(res(200, []));
     const client = new ApiClient({

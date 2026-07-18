@@ -46,6 +46,7 @@ async function main() {
     { firebaseUid: 'dev-customer', phone: '+639170000001', displayName: 'Test Customer', roles: ['CUSTOMER'] as const },
     { firebaseUid: 'dev-rider-1', phone: '+639170000002', displayName: 'Rider One', roles: ['RIDER'] as const },
     { firebaseUid: 'dev-rider-2', phone: '+639170000003', displayName: 'Rider Two', roles: ['RIDER'] as const },
+    { firebaseUid: 'dev-admin', phone: '+639170000004', displayName: 'Dev Admin', roles: ['ADMIN'] as const },
   ];
   for (const u of users) {
     await prisma.user.upsert({

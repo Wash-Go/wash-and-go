@@ -121,6 +121,18 @@ export class ApiClient {
     const q = status ? `?status=${encodeURIComponent(status)}` : '';
     return this.request('GET', `/orders${q}`);
   }
+
+  // Drive a legal status transition (rider/shop/admin). Server enforces legality
+  // + ownership; the client only offers actions the shaped read said are available.
+  transition(id: string, status: OrderStatus): Promise<OrderView> {
+    return this.request('POST', `/orders/${encodeURIComponent(id)}/status`, {
+      status,
+    });
+  }
+
+  payCash(id: string): Promise<OrderView> {
+    return this.request('POST', `/orders/${encodeURIComponent(id)}/pay-cash`);
+  }
 }
 
 function safeJson(t: string): unknown {

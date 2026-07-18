@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,7 +11,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, radius, space, type } from '../lib/theme';
+import { colors, radius, space, type } from './theme';
 
 export function Screen({
   children,
@@ -85,8 +87,68 @@ export function PrimaryButton({
   );
 }
 
+// Slide-to-confirm for irreversible / money actions (rider design D2). Uses the
+// built-in PanResponder + Animated — no native module, Expo Go safe.
+export function SlideToConfirm({
+  label,
+  onConfirm,
+  color = colors.brand,
+}: {
+  label: string;
+  onConfirm: () => void;
+  color?: string;
+}) {
+  const THUMB = 56;
+  const widthRef = useRef(0);
+  const x = useRef(new Animated.Value(0)).current;
+
+  const pan = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderMove: (_e, g) => {
+        const max = Math.max(0, widthRef.current - THUMB - 8);
+        x.setValue(Math.min(Math.max(0, g.dx), max));
+      },
+      onPanResponderRelease: (_e, g) => {
+        const max = Math.max(0, widthRef.current - THUMB - 8);
+        if (max > 0 && g.dx >= max * 0.9) {
+          Animated.timing(x, {
+            toValue: max,
+            duration: 90,
+            useNativeDriver: false,
+          }).start(() => {
+            onConfirm();
+            x.setValue(0);
+          });
+        } else {
+          Animated.spring(x, { toValue: 0, useNativeDriver: false }).start();
+        }
+      },
+    }),
+  ).current;
+
+  return (
+    <View
+      style={[styles.slideTrack, { backgroundColor: color + '22' }]}
+      onLayout={(e) => (widthRef.current = e.nativeEvent.layout.width)}
+    >
+      <Text style={[styles.slideLabel, { color }]}>{label}</Text>
+      <Animated.View
+        {...pan.panHandlers}
+        style={[styles.slideThumb, { backgroundColor: color, transform: [{ translateX: x }] }]}
+      >
+        <Text style={styles.slideThumbText}>→</Text>
+      </Animated.View>
+    </View>
+  );
+}
+
 export function H1({ children }: { children: React.ReactNode }) {
   return <Text style={[type.h1, { color: colors.text }]}>{children}</Text>;
+}
+export function H2({ children }: { children: React.ReactNode }) {
+  return <Text style={[type.h2, { color: colors.text }]}>{children}</Text>;
 }
 export function Muted({ children }: { children: React.ReactNode }) {
   return <Text style={[type.small, { color: colors.textMuted }]}>{children}</Text>;
@@ -187,13 +249,34 @@ const styles = StyleSheet.create({
   btn: {
     backgroundColor: colors.brand,
     borderRadius: radius.md,
-    minHeight: 48,
+    minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: space.lg,
   },
   btnOff: { backgroundColor: colors.border },
   btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  slideTrack: {
+    height: 64,
+    borderRadius: radius.pill,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  slideLabel: {
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  slideThumb: {
+    position: 'absolute',
+    left: 4,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  slideThumbText: { color: '#fff', fontSize: 24, fontWeight: '800' },
   centered: {
     flex: 1,
     minHeight: 320,

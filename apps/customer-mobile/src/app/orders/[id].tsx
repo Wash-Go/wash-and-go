@@ -3,10 +3,18 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { isTerminal, type OrderView } from '@wash-and-go/domain';
 import { api } from '../../lib/api';
-import { peso } from '../../lib/format';
-import { colors, space, type } from '../../lib/theme';
-import { Card, ErrorState, Loading, Muted, Screen } from '../../components/ui';
-import { StatusTimeline } from '../../components/StatusTimeline';
+import {
+  Card,
+  ErrorState,
+  Loading,
+  Muted,
+  Screen,
+  StatusTimeline,
+  colors,
+  peso,
+  space,
+  type,
+} from '@wash-and-go/ui';
 
 type State =
   | { kind: 'loading' }

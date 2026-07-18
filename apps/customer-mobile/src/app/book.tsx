@@ -4,9 +4,18 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import type { PricingBreakdown } from '@wash-and-go/domain';
 import { api } from '../lib/api';
-import { LOAD_BUCKETS, LoadBucket, peso } from '../lib/format';
-import { colors, radius, space, type } from '../lib/theme';
-import { Card, Muted, PrimaryButton, Screen } from '../components/ui';
+import { LOAD_BUCKETS, LoadBucket } from '../lib/format';
+import {
+  Card,
+  Muted,
+  PrimaryButton,
+  Screen,
+  colors,
+  peso,
+  radius,
+  space,
+  type,
+} from '@wash-and-go/ui';
 
 export default function BookScreen() {
   const params = useLocalSearchParams<{

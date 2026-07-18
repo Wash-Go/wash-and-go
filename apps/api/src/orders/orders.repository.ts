@@ -149,10 +149,26 @@ export class OrdersRepository {
     return this.prisma.order.findUnique({ where: { id } });
   }
 
-  findMany(where: Prisma.OrderWhereInput): Promise<Order[]> {
+  // Relation-loaded reads for the shaped order detail (rider/customer apps need
+  // shop drop-off + contact + the actor's available actions). One query each.
+  findByIdWithRelations(id: string): Promise<OrderWithRelations | null> {
+    return this.prisma.order.findUnique({
+      where: { id },
+      include: { shop: true, customer: true, assignedRider: true },
+    });
+  }
+
+  findManyWithRelations(
+    where: Prisma.OrderWhereInput,
+  ): Promise<OrderWithRelations[]> {
     return this.prisma.order.findMany({
       where,
       orderBy: { createdAt: 'desc' },
+      include: { shop: true, customer: true, assignedRider: true },
     });
   }
 }
+
+export type OrderWithRelations = Prisma.OrderGetPayload<{
+  include: { shop: true; customer: true; assignedRider: true };
+}>;

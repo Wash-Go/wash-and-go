@@ -9,14 +9,24 @@ import { Order, OrderStatus, Prisma, ServiceType, User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { pricePreview, PricingBreakdown, PricingError } from '../pricing/pricing';
 import { PricingConfig } from '../pricing/pricing.config';
-import { OrdersRepository } from './orders.repository';
+import { OrdersRepository, OrderWithRelations } from './orders.repository';
 import { isWithinCoverage } from './coverage';
 import { manilaDayWindow } from './manila-time';
 import {
   canRoleDrive,
   isLegalTransition,
+  nextStatuses,
   rolesForTransition,
 } from './order-status';
+
+// Shaped order read (rider/customer apps): scalar order fields + minimal shop /
+// customer / rider relations + the actions THIS actor may drive next.
+export type OrderDetail = Order & {
+  shop: { id: string; name: string; address: string } | null;
+  customer: { id: string; displayName: string; phone: string };
+  rider: { id: string; displayName: string } | null;
+  availableActions: OrderStatus[];
+};
 import {
   AssignRiderDto,
   CreateOrderDto,
@@ -303,14 +313,14 @@ export class OrdersService {
     });
   }
 
-  async getOrder(actor: User, orderId: string): Promise<Order> {
-    const order = await this.repo.findById(orderId);
+  async getOrder(actor: User, orderId: string): Promise<OrderDetail> {
+    const order = await this.repo.findByIdWithRelations(orderId);
     if (!order) throw new NotFoundException('Order not found');
     await this.assertCanView(actor, order);
-    return order;
+    return this.toDetail(actor, order);
   }
 
-  async listOrders(actor: User, status?: OrderStatus): Promise<Order[]> {
+  async listOrders(actor: User, status?: OrderStatus): Promise<OrderDetail[]> {
     const where: Prisma.OrderWhereInput = {};
     if (status) where.status = status;
 
@@ -332,7 +342,8 @@ export class OrdersService {
       where.OR = scopes.length > 0 ? scopes : [{ id: '__none__' }];
     }
 
-    return this.repo.findMany(where);
+    const orders = await this.repo.findManyWithRelations(where);
+    return Promise.all(orders.map((o) => this.toDetail(actor, o)));
   }
 
   // ── ownership helpers ───────────────────────────────────────────────────
@@ -347,26 +358,72 @@ export class OrdersService {
     }
   }
 
+  // Does this actor own the resource for a given (legal) transition? Shared by
+  // transition() (enforce) and availableActionsFor() (filter) — one truth.
+  private async ownsTransition(
+    actor: User,
+    order: Order,
+    from: OrderStatus,
+    to: OrderStatus,
+  ): Promise<boolean> {
+    if (actor.roles.includes('ADMIN')) return true;
+    const allowed = rolesForTransition(from, to);
+    const asRider = actor.roles.includes('RIDER') && allowed.includes('RIDER');
+    const asShop =
+      (actor.roles.includes('SHOP_OWNER') && allowed.includes('SHOP_OWNER')) ||
+      (actor.roles.includes('SHOP_STAFF') && allowed.includes('SHOP_STAFF'));
+
+    if (asRider && order.assignedRiderId !== actor.id) return false;
+    if (asShop && !(order.shopId && (await this.repo.isShopMember(actor.id, order.shopId)))) {
+      return false;
+    }
+    return true;
+  }
+
   private async assertTransitionOwnership(
     actor: User,
     order: Order,
     from: OrderStatus,
     to: OrderStatus,
   ): Promise<void> {
-    if (actor.roles.includes('ADMIN')) return;
-    const allowed = rolesForTransition(from, to);
-    const drivingAsRider =
-      actor.roles.includes('RIDER') && allowed.includes('RIDER');
-    const drivingAsShop =
-      (actor.roles.includes('SHOP_OWNER') && allowed.includes('SHOP_OWNER')) ||
-      (actor.roles.includes('SHOP_STAFF') && allowed.includes('SHOP_STAFF'));
+    if (!(await this.ownsTransition(actor, order, from, to))) {
+      throw new ForbiddenException('Not your order to move');
+    }
+  }
 
-    if (drivingAsRider && order.assignedRiderId !== actor.id) {
-      throw new ForbiddenException('Not your assigned order');
+  // The next statuses THIS actor can legally drive on THIS order (role + owner).
+  private async availableActionsFor(
+    actor: User,
+    order: Order,
+  ): Promise<OrderStatus[]> {
+    const from = order.status;
+    const out: OrderStatus[] = [];
+    for (const to of nextStatuses(from)) {
+      if (!canRoleDrive(from, to, actor.roles)) continue;
+      if (!(await this.ownsTransition(actor, order, from, to))) continue;
+      out.push(to);
     }
-    if (drivingAsShop) {
-      await this.assertShopActor(actor, order.shopId);
-    }
+    return out;
+  }
+
+  private async toDetail(
+    actor: User,
+    o: OrderWithRelations,
+  ): Promise<OrderDetail> {
+    const { shop, customer, assignedRider, ...scalars } = o;
+    return {
+      ...scalars,
+      shop: shop ? { id: shop.id, name: shop.name, address: shop.address } : null,
+      customer: {
+        id: customer.id,
+        displayName: customer.displayName,
+        phone: customer.phone,
+      },
+      rider: assignedRider
+        ? { id: assignedRider.id, displayName: assignedRider.displayName }
+        : null,
+      availableActions: await this.availableActionsFor(actor, o),
+    };
   }
 
   private async assertCanView(actor: User, order: Order): Promise<void> {

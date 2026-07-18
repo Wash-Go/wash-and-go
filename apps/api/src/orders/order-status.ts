@@ -38,6 +38,12 @@ export function isLegalTransition(from: OrderStatus, to: OrderStatus): boolean {
   return Boolean(TRANSITIONS[from]?.[to]);
 }
 
+// Every legal target status reachable from `from` (any role). Callers filter by
+// role + ownership to get an actor's available actions.
+export function nextStatuses(from: OrderStatus): OrderStatus[] {
+  return Object.keys(TRANSITIONS[from]) as OrderStatus[];
+}
+
 // Roles permitted to drive a given (legal) transition. Empty array if illegal.
 export function rolesForTransition(
   from: OrderStatus,

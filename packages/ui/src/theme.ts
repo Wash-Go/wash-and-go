@@ -1,7 +1,6 @@
 import type { StatusTone } from '@wash-and-go/domain';
 
-// Palette anchored on the brand blue (also the splash background). Kept in one
-// place so every screen reads as one product; sync with landing-page later.
+// Shared mobile palette + scale (customer + rider apps). One place for brand.
 export const colors = {
   brand: '#208AEF',
   brandDark: '#1567C0',
@@ -27,8 +26,6 @@ export const type = {
   small: { fontSize: 13, fontWeight: '400' as const },
 };
 
-// Maps the domain's semantic status tone to a concrete color (design system
-// lives in the app, not in shared domain code).
 export function toneColor(tone: StatusTone): string {
   switch (tone) {
     case 'success':

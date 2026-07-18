@@ -30,6 +30,18 @@ export interface PricingBreakdown {
   customerTotalPhp: string;
 }
 
+export interface ShopContact {
+  id: string;
+  name: string;
+  address: string;
+}
+
+export interface Contact {
+  id: string;
+  displayName: string;
+  phone?: string;
+}
+
 export interface OrderView {
   id: string;
   code: string;
@@ -47,6 +59,12 @@ export interface OrderView {
   paidCashAt: string | null;
   createdAt: string;
   deliveredAt: string | null;
+  // Present on the shaped read (GET /orders/:id, GET /orders): relations + the
+  // actions the requesting actor may drive next.
+  shop?: ShopContact | null;
+  customer?: Contact;
+  rider?: Contact | null;
+  availableActions?: OrderStatus[];
 }
 
 // Request bodies the app sends.

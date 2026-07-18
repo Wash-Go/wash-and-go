@@ -5,11 +5,10 @@ import {
   OrderStatus,
   STATUS_META,
 } from '@wash-and-go/domain';
-import { colors, space, type } from '../lib/theme';
+import { colors, space, type } from './theme';
 
-// Vertical progress rail. Current step is the hero (design review: current
-// status most prominent); completed steps filled, upcoming muted. CANCELLED is
-// a distinct terminal row, not part of the happy-path rail.
+// Vertical progress rail. Current step is the hero; completed filled, upcoming
+// muted. CANCELLED is a distinct terminal row.
 export function StatusTimeline({ status }: { status: OrderStatus }) {
   if (status === 'CANCELLED') {
     return (
