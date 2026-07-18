@@ -33,10 +33,9 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: colors.bg },
         }}
       >
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="index" options={{ title: 'Wash & Go' }} />
         <Stack.Screen name="book" options={{ title: 'Book pickup' }} />
-        <Stack.Screen name="orders/index" options={{ title: 'My orders' }} />
         <Stack.Screen name="orders/[id]" options={{ title: 'Order' }} />
       </Stack>
     </SafeAreaProvider>

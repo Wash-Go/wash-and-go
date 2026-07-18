@@ -1,8 +1,7 @@
-import { Link, router } from 'expo-router';
+import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { ShopView } from '@wash-and-go/domain';
-import { api } from '../lib/api';
 import {
   Card,
   EmptyState,
@@ -16,13 +15,14 @@ import {
   space,
   type,
 } from '@wash-and-go/ui';
+import { api } from '../../lib/api';
 
 type State =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
   | { kind: 'ready'; shops: ShopView[] };
 
-export default function ShopsScreen() {
+export default function HomeScreen() {
   const [state, setState] = useState<State>({ kind: 'loading' });
 
   const load = useCallback(async () => {
@@ -71,12 +71,7 @@ export default function ShopsScreen() {
 
   return (
     <Screen>
-      <View style={styles.headerRow}>
-        <H1>Book a wash</H1>
-        <Link href="/orders" style={styles.link}>
-          My orders →
-        </Link>
-      </View>
+      <H1>Book a wash</H1>
       <Muted>Express pickup and delivery, same day. Tap a service to book.</Muted>
 
       {state.shops.map((shop) => (
@@ -121,12 +116,6 @@ export default function ShopsScreen() {
 }
 
 const styles = StyleSheet.create({
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  link: { color: colors.brand, fontWeight: '600', fontSize: 15, padding: space.xs },
   services: { gap: space.sm, marginTop: space.sm },
   serviceRow: {
     flexDirection: 'row',

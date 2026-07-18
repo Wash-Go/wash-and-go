@@ -2,7 +2,6 @@ import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { STATUS_META, statusLabel, type OrderView } from '@wash-and-go/domain';
-import { api } from '../../lib/api';
 import {
   Card,
   EmptyState,
@@ -17,6 +16,7 @@ import {
   toneColor,
   type,
 } from '@wash-and-go/ui';
+import { api } from '../../lib/api';
 
 type State =
   | { kind: 'loading' }
@@ -86,7 +86,9 @@ export default function OrdersScreen() {
             <Pill text={statusLabel(o.status)} color={toneColor(STATUS_META[o.status].tone)} />
           </View>
           <Muted>{o.pickupAddress}</Muted>
-          <Text style={[type.body, { color: colors.brand, fontWeight: '600', marginTop: space.xs }]}>
+          <Text
+            style={[type.body, { color: colors.brand, fontWeight: '600', marginTop: space.xs }]}
+          >
             {peso(o.customerTotalPhp)}
           </Text>
         </Card>

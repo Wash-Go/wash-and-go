@@ -12,12 +12,20 @@ export const API_BASE_URL =
 // Real Firebase auth: the client sends the signed-in user's Firebase ID token;
 // the backend verifies it with the Admin SDK. refreshToken forces a fresh token
 // on a 401 (tokens expire hourly).
+//
+// authStateReady() first: a screen can fire a request on mount BEFORE Firebase
+// finishes restoring the persisted session. Without the await, currentUser is
+// briefly null and we'd send no token (backend then rejects with the dev-bypass
+// error). Waiting closes that race.
+async function idToken(force: boolean): Promise<string | null> {
+  await auth.authStateReady();
+  return auth.currentUser ? auth.currentUser.getIdToken(force) : null;
+}
+
 export const api = new ApiClient({
   baseUrl: API_BASE_URL,
   tokens: {
-    getToken: async () =>
-      auth.currentUser ? auth.currentUser.getIdToken() : null,
-    refreshToken: async () =>
-      auth.currentUser ? auth.currentUser.getIdToken(true) : null,
+    getToken: () => idToken(false),
+    refreshToken: () => idToken(true),
   },
 });

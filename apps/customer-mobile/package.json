@@ -7,11 +7,13 @@
     "start": "expo start",
     "ios": "expo start --ios",
     "android": "expo start --android",
-    "web": "expo start --web",
+    "web": "expo start --web --port 3000",
     "type-check": "tsc --noEmit",
     "test": "jest --config jest.logic.config.js"
   },
   "dependencies": {
+    "@expo/metro-runtime": "~57.0.6",
+    "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@wash-and-go/api-client": "workspace:*",
     "@wash-and-go/domain": "workspace:*",
