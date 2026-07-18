@@ -35,17 +35,23 @@ export interface ApiClientOptions {
   baseUrl: string;
   tokens: TokenProvider;
   fetchFn?: typeof fetch; // injectable for tests / non-global-fetch runtimes
+  // Dev-bypass stub (backend AUTH_DEV_BYPASS=1): send x-dev-uid instead of a
+  // Firebase token, so the app runs in Expo Go before real OTP exists. Never
+  // set this in a production build.
+  devUid?: string;
 }
 
 export class ApiClient {
   private readonly baseUrl: string;
   private readonly tokens: TokenProvider;
   private readonly fetchFn: typeof fetch;
+  private readonly devUid?: string;
 
   constructor(opts: ApiClientOptions) {
     this.baseUrl = opts.baseUrl.replace(/\/+$/, '');
     this.tokens = opts.tokens;
     this.fetchFn = opts.fetchFn ?? fetch;
+    this.devUid = opts.devUid;
   }
 
   private async request<T>(
@@ -59,6 +65,7 @@ export class ApiClient {
     const token = retry ? retry.token : await this.tokens.getToken();
     const headers: Record<string, string> = { 'content-type': 'application/json' };
     if (token) headers['authorization'] = `Bearer ${token}`;
+    if (this.devUid) headers['x-dev-uid'] = this.devUid;
 
     const res = await this.fetchFn(`${this.baseUrl}${path}`, {
       method,

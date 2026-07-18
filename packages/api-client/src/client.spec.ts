@@ -119,6 +119,18 @@ describe('ApiClient', () => {
     });
   });
 
+  it('sends x-dev-uid when devUid is set (Expo Go stub login)', async () => {
+    const fetchFn = jest.fn().mockResolvedValue(res(200, []));
+    const client = new ApiClient({
+      baseUrl: 'http://api.test',
+      tokens: tokensFrom([null]),
+      fetchFn,
+      devUid: 'dev-customer',
+    });
+    await client.getShops();
+    expect(fetchFn.mock.calls[0][1].headers['x-dev-uid']).toBe('dev-customer');
+  });
+
   it('encodes the status query param on listOrders', async () => {
     const fetchFn = jest.fn().mockResolvedValue(res(200, []));
     const client = new ApiClient({
