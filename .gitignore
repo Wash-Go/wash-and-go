@@ -28,3 +28,6 @@ lerna-debug.log*
 # temp directory
 .temp
 .tmp
+
+# Expo local cache
+.expo/

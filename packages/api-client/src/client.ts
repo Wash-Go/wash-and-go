@@ -51,7 +51,10 @@ export class ApiClient {
   constructor(opts: ApiClientOptions) {
     this.baseUrl = opts.baseUrl.replace(/\/+$/, '');
     this.tokens = opts.tokens;
-    this.fetchFn = opts.fetchFn ?? fetch;
+    // Wrap the global fetch so it's called as a free function, not as a method
+    // of this client — browsers throw "Illegal invocation" when fetch's `this`
+    // isn't the window. (Native RN doesn't care; this is web-safe everywhere.)
+    this.fetchFn = opts.fetchFn ?? ((input, init) => fetch(input, init));
     this.devUid = opts.devUid;
   }
 
