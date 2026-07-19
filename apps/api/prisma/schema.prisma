@@ -184,3 +184,34 @@ model RemittanceLine {
 
   @@index([shopId, createdAt])
 }
+
+// Platform-level business rules, admin-editable at runtime (no redeploy).
+// Singleton (id = 1). Per-shop rates live on ShopService, NOT here.
+// Placeholders (expressWeightThresholdKg, minOrderPricePhp, platformFeePhp) have
+// no consumer yet — editable but inert until matching/floor/fee code lands.
+model PlatformConfig {
+  id                       Int      @id @default(1)
+  serviceFeePhp            Decimal  @db.Decimal(10, 2)
+  deliveryBasePhp          Decimal  @db.Decimal(10, 2)
+  deliveryFreeKm           Decimal  @db.Decimal(6, 2)
+  deliveryPerKmPhp         Decimal  @db.Decimal(10, 2)
+  deliveryMaxPhp           Decimal  @db.Decimal(10, 2)
+  deliveryRoadFactor       Decimal  @db.Decimal(5, 3)
+  maxResolveKm             Decimal  @db.Decimal(6, 2)
+  expressWeightThresholdKg Decimal  @db.Decimal(6, 2)
+  minOrderPricePhp         Decimal  @db.Decimal(10, 2)
+  platformFeePhp           Decimal  @db.Decimal(10, 2)
+  updatedAt                DateTime @updatedAt
+}
+
+// Append-only audit of platform-config changes (one row per changed field).
+model ConfigAudit {
+  id        String   @id @default(cuid())
+  actorUid  String
+  field     String
+  oldValue  String
+  newValue  String
+  changedAt DateTime @default(now())
+
+  @@index([changedAt(sort: Desc)])
+}

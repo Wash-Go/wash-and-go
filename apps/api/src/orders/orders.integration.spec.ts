@@ -1,7 +1,8 @@
 import { ConflictException } from '@nestjs/common';
 import { OrderStatus, Prisma, User } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import { PricingConfig } from '../pricing/pricing.config';
+import { PlatformConfigService } from '../platform-config/platform-config.service';
 import { OrdersRepository } from './orders.repository';
 import { OrdersService } from './orders.service';
 
@@ -23,17 +24,11 @@ const PICKUP = { pickupLat: 6.9111, pickupLng: 122.0794 };
 describe('Orders integration (Docker Postgres)', () => {
   const prisma = new PrismaService();
   const repo = new OrdersRepository(prisma);
-  const pricingConfig = {
-    serviceFeePhp: '7',
-    delivery: {
-      baseDeliveryPhp: 40,
-      freeKm: 2,
-      perKmPhp: 8,
-      maxDeliveryPhp: 150,
-      roadFactor: 1.3,
-    },
-  } as unknown as PricingConfig;
-  const service = new OrdersService(prisma, repo, pricingConfig);
+  // Real config service against the same Postgres — seeds the singleton from
+  // defaults (serviceFee ₱7, delivery base ₱40 / free 2km / ₱8·km / cap ₱150 /
+  // road 1.3, maxResolve 20km), so the golden totals below hold.
+  const config = new PlatformConfigService(prisma, new ConfigService());
+  const service = new OrdersService(prisma, repo, config);
 
   const createdShopIds: string[] = [];
   let customer: User;

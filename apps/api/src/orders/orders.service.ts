@@ -16,7 +16,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { pricePreview, PricingBreakdown, PricingError } from '../pricing/pricing';
-import { PricingConfig } from '../pricing/pricing.config';
+import { PlatformConfigService } from '../platform-config/platform-config.service';
 import { computeDeliveryFee, haversineKm } from '../pricing/distance';
 import { OrdersRepository, OrderWithRelations } from './orders.repository';
 import { isWithinCoverage } from './coverage';
@@ -65,29 +65,24 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly repo: OrdersRepository,
-    private readonly pricingConfig: PricingConfig,
+    private readonly config: PlatformConfigService,
   ) {}
 
-  // Max resolve radius (km). Later: admin dynamic config.
-  private readonly MAX_RESOLVE_KM = 20;
-
-  private price(
+  private async price(
     ratePhp: Prisma.Decimal,
     weightKg: number | string | Prisma.Decimal,
     commissionPct: Prisma.Decimal,
     oneWayKm: number,
-  ): PricingBreakdown {
+  ): Promise<PricingBreakdown> {
     try {
-      const deliveryFeePhp = computeDeliveryFee(
-        oneWayKm,
-        this.pricingConfig.delivery,
-      );
+      const cfg = await this.config.getValues();
+      const deliveryFeePhp = computeDeliveryFee(oneWayKm, cfg.delivery);
       return pricePreview({
         ratePhp,
         weightKg,
         commissionPct,
         deliveryFeePhp,
-        serviceFeePhp: this.pricingConfig.serviceFeePhp,
+        serviceFeePhp: cfg.serviceFeePhp,
       });
     } catch (e) {
       if (e instanceof PricingError) throw new BadRequestException(e.message);
@@ -142,7 +137,8 @@ export class OrdersService {
       .sort((a, b) => a.km - b.km);
     const nearest = ranked[0];
     if (!nearest) throw new BadRequestException('No laundry shops available');
-    if (nearest.km > this.MAX_RESOLVE_KM) {
+    const { maxResolveKm } = await this.config.getValues();
+    if (nearest.km > maxResolveKm) {
       throw new BadRequestException('Pickup location is outside coverage');
     }
     return nearest;
@@ -166,7 +162,7 @@ export class OrdersService {
       ss = n.ss;
       km = n.km;
     }
-    const breakdown = this.price(
+    const breakdown = await this.price(
       ss.ratePhp,
       dto.weightKg,
       ss.shop.commissionPct,
@@ -199,7 +195,7 @@ export class OrdersService {
     const shop = shopService.shop;
 
     const km = this.kmToShop({ lat: dto.pickupLat, lng: dto.pickupLng }, shop);
-    const breakdown = this.price(
+    const breakdown = await this.price(
       shopService.ratePhp,
       dto.weightEstimateKg,
       shop.commissionPct,
@@ -311,7 +307,7 @@ export class OrdersService {
         { lat: Number(order.pickupLat ?? 0), lng: Number(order.pickupLng ?? 0) },
         shopService.shop,
       );
-      const breakdown = this.price(
+      const breakdown = await this.price(
         shopService.ratePhp,
         dto.weightKg,
         shopService.shop.commissionPct,

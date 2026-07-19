@@ -23,7 +23,12 @@ export default function AdminPage() {
     <main style={{ maxWidth: 1100, margin: '0 auto', padding: 24 }}>
       <header style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 16 }}>
         <h1>Wash &amp; Go — Dispatch</h1>
-        <span style={{ color: c.muted, fontSize: 13 }}>role: dev-admin</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <a href="/config" style={{ color: c.brand, fontSize: 13, fontWeight: 600 }}>
+            Business rules →
+          </a>
+          <span style={{ color: c.muted, fontSize: 13 }}>role: dev-admin</span>
+        </span>
       </header>
 
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>

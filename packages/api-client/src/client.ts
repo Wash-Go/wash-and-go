@@ -1,8 +1,11 @@
 import type {
+  ConfigAuditEntry,
   CreateOrderBody,
   OrderQuote,
   OrderStatus,
   OrderView,
+  PlatformConfigPatch,
+  PlatformConfigView,
   PreviewOrderBody,
   PricingBreakdown,
   QuoteOrderBody,
@@ -164,6 +167,21 @@ export class ApiClient {
 
   payCash(id: string): Promise<OrderView> {
     return this.request('POST', `/orders/${encodeURIComponent(id)}/pay-cash`);
+  }
+
+  // --- Admin: platform business rules (dynamic config, no redeploy) ---
+
+  getConfig(): Promise<PlatformConfigView> {
+    return this.request('GET', '/admin/config');
+  }
+
+  updateConfig(patch: PlatformConfigPatch): Promise<PlatformConfigView> {
+    return this.request('PUT', '/admin/config', patch);
+  }
+
+  getConfigAudit(limit?: number): Promise<ConfigAuditEntry[]> {
+    const q = limit ? `?limit=${limit}` : '';
+    return this.request('GET', `/admin/config/audit${q}`);
   }
 }
 

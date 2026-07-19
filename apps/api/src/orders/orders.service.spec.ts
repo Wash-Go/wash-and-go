@@ -8,7 +8,7 @@ import { Order, Prisma, User, UserRole } from '@prisma/client';
 import { OrdersService } from './orders.service';
 import type { OrdersRepository } from './orders.repository';
 import type { PrismaService } from '../prisma/prisma.service';
-import type { PricingConfig } from '../pricing/pricing.config';
+import type { PlatformConfigService } from '../platform-config/platform-config.service';
 
 const D = (v: Prisma.Decimal.Value) => new Prisma.Decimal(v);
 
@@ -142,18 +142,25 @@ describe('OrdersService', () => {
       $transaction: jest.fn((cb: (tx: unknown) => unknown) => cb({})),
     } as unknown as PrismaService;
 
-    const pricingConfig = {
-      serviceFeePhp: '7',
-      delivery: {
-        baseDeliveryPhp: 40,
-        freeKm: 2,
-        perKmPhp: 8,
-        maxDeliveryPhp: 150,
-        roadFactor: 1.3,
-      },
-    } as unknown as PricingConfig;
+    const config = {
+      getValues: async () => ({
+        serviceFeePhp: '7',
+        delivery: {
+          baseDeliveryPhp: 40,
+          freeKm: 2,
+          perKmPhp: 8,
+          maxDeliveryPhp: 150,
+          roadFactor: 1.3,
+        },
+        maxResolveKm: 20,
+        expressWeightThresholdKg: 5,
+        minOrderPricePhp: '0',
+        platformFeePhp: '0',
+        updatedAt: new Date(),
+      }),
+    } as unknown as PlatformConfigService;
 
-    service = new OrdersService(prisma, repo, pricingConfig);
+    service = new OrdersService(prisma, repo, config);
   });
 
   describe('createExpressOrder', () => {

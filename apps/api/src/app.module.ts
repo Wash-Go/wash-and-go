@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { OrdersModule } from './orders/orders.module';
 import { ShopsModule } from './shops/shops.module';
 import { RidersModule } from './riders/riders.module';
+import { PlatformConfigModule } from './platform-config/platform-config.module';
 import { HealthController } from './health.controller';
 
 /*
@@ -23,6 +24,7 @@ import { HealthController } from './health.controller';
     OrdersModule,
     ShopsModule,
     RidersModule,
+    PlatformConfigModule,
   ],
   controllers: [HealthController],
 })

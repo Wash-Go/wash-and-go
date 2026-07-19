@@ -107,3 +107,33 @@ export interface PreviewOrderBody {
   pickupLat?: number;
   pickupLng?: number;
 }
+
+// Platform business rules (admin-editable, no redeploy). Flat numeric view the
+// admin editor + GET /admin/config speak. Placeholders (expressWeightThresholdKg,
+// minOrderPricePhp, platformFeePhp) are editable but have no consumer yet.
+export interface PlatformConfigView {
+  serviceFeePhp: number;
+  deliveryBasePhp: number;
+  deliveryFreeKm: number;
+  deliveryPerKmPhp: number;
+  deliveryMaxPhp: number;
+  deliveryRoadFactor: number;
+  maxResolveKm: number;
+  expressWeightThresholdKg: number;
+  minOrderPricePhp: number;
+  platformFeePhp: number;
+  updatedAt: string;
+}
+
+// PUT /admin/config body — patch only the fields you change.
+export type PlatformConfigPatch = Partial<Omit<PlatformConfigView, 'updatedAt'>>;
+
+// One audited change (GET /admin/config/audit).
+export interface ConfigAuditEntry {
+  id: string;
+  actorUid: string;
+  field: string;
+  oldValue: string;
+  newValue: string;
+  changedAt: string;
+}
