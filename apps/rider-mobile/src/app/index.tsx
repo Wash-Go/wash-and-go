@@ -30,7 +30,7 @@ type State =
   | { kind: 'ready'; jobs: OrderView[] };
 
 const GROUP_COLOR = {
-  action: colors.brand,
+  action: colors.terra,
   waiting: colors.warning,
   done: colors.textMuted,
 } as const;
@@ -97,7 +97,7 @@ export default function JobsScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.xs }}>
               <Pill text={GROUP_LABEL[group]} color={GROUP_COLOR[group]} />
               {group === 'action' && next ? (
-                <Text style={[type.small, { color: colors.brand, fontWeight: '600' }]}>
+                <Text style={[type.small, { color: colors.terraDark, fontWeight: '600' }]}>
                   → {actionLabel(next)}
                 </Text>
               ) : null}
