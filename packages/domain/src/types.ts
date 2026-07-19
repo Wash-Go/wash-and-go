@@ -19,6 +19,23 @@ export interface ShopView {
   lat: string;
   lng: string;
   services: ShopServiceView[];
+  // Present when GET /shops is called with a location (?lat&lng) — nearest first.
+  distanceKm?: number;
+}
+
+// The checkout quote: the resolved (closest or chosen) shop + a full price
+// breakdown with the distance-based delivery fee.
+export interface OrderQuote {
+  shopServiceId: string;
+  shop: { id: string; name: string; address: string; distanceKm: number };
+  breakdown: PricingBreakdown;
+}
+
+export interface QuoteOrderBody {
+  pickupLat: number;
+  pickupLng: number;
+  weightKg: number;
+  shopServiceId?: string; // override; omitted → auto-resolve nearest
 }
 
 export interface PricingBreakdown {

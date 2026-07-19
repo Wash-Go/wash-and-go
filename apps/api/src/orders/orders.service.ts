@@ -5,7 +5,15 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Order, OrderStatus, Prisma, ServiceType, User } from '@prisma/client';
+import {
+  Order,
+  OrderStatus,
+  Prisma,
+  ServiceType,
+  Shop,
+  ShopService,
+  User,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { pricePreview, PricingBreakdown, PricingError } from '../pricing/pricing';
 import { PricingConfig } from '../pricing/pricing.config';
@@ -32,9 +40,17 @@ import {
   AssignRiderDto,
   CreateOrderDto,
   PreviewOrderDto,
+  QuoteOrderDto,
   TransitionDto,
   WeighDto,
 } from './dto/orders.dto';
+
+// Checkout quote result — resolved (closest/chosen) shop + full breakdown.
+export type OrderQuoteResult = {
+  shopServiceId: string;
+  shop: { id: string; name: string; address: string; distanceKm: number };
+  breakdown: PricingBreakdown;
+};
 
 /*
  * Orchestrator for the express-lite money path (ADR-003 acceptance slice). This
@@ -51,6 +67,9 @@ export class OrdersService {
     private readonly repo: OrdersRepository,
     private readonly pricingConfig: PricingConfig,
   ) {}
+
+  // Max resolve radius (km). Later: admin dynamic config.
+  private readonly MAX_RESOLVE_KM = 20;
 
   private price(
     ratePhp: Prisma.Decimal,
@@ -109,6 +128,60 @@ export class OrdersService {
       shopService.shop.commissionPct,
       km,
     );
+  }
+
+  // Resolve the nearest active shop-service to a pickup point (haversine). MVP:
+  // nearest within a max radius; express capacity is enforced at create.
+  // Fallback ranking + live-GPS + dynamic-config radius land with the maps slice.
+  private async resolveNearest(pickup: { lat: number; lng: number }): Promise<{
+    ss: ShopService & { shop: Shop };
+    km: number;
+  }> {
+    const ranked = (await this.repo.findActiveShopServices())
+      .map((ss) => ({ ss, km: this.kmToShop(pickup, ss.shop) }))
+      .sort((a, b) => a.km - b.km);
+    const nearest = ranked[0];
+    if (!nearest) throw new BadRequestException('No laundry shops available');
+    if (nearest.km > this.MAX_RESOLVE_KM) {
+      throw new BadRequestException('Pickup location is outside coverage');
+    }
+    return nearest;
+  }
+
+  // POST /orders/quote — resolve the shop (nearest, or the override) + full
+  // price breakdown (distance delivery fee). Powers the checkout screen.
+  async quoteOrder(dto: QuoteOrderDto): Promise<OrderQuoteResult> {
+    const pickup = { lat: dto.pickupLat, lng: dto.pickupLng };
+    let ss: ShopService & { shop: Shop };
+    let km: number;
+    if (dto.shopServiceId) {
+      const chosen = await this.repo.findShopServiceWithShop(dto.shopServiceId);
+      if (!chosen || !chosen.active || !chosen.shop.active) {
+        throw new BadRequestException('Service unavailable');
+      }
+      ss = chosen;
+      km = this.kmToShop(pickup, chosen.shop);
+    } else {
+      const n = await this.resolveNearest(pickup);
+      ss = n.ss;
+      km = n.km;
+    }
+    const breakdown = this.price(
+      ss.ratePhp,
+      dto.weightKg,
+      ss.shop.commissionPct,
+      km,
+    );
+    return {
+      shopServiceId: ss.id,
+      shop: {
+        id: ss.shop.id,
+        name: ss.shop.name,
+        address: ss.shop.address,
+        distanceKm: Math.round(km * 10) / 10,
+      },
+      breakdown,
+    };
   }
 
   // POST /orders — customer books an express order.

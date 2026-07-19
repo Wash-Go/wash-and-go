@@ -119,6 +119,7 @@ describe('OrdersService', () => {
   beforeEach(() => {
     repo = {
       findShopServiceWithShop: jest.fn(),
+      findActiveShopServices: jest.fn(),
       isShopMember: jest.fn(),
       userHasRole: jest.fn(),
       lockShopDay: jest.fn().mockResolvedValue(undefined),
@@ -249,6 +250,52 @@ describe('OrdersService', () => {
           pickupLat: 6.9111,
           pickupLng: 122.0794,
         }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('quoteOrder', () => {
+    function farShopService() {
+      const base = makeShopService();
+      return {
+        ...base,
+        id: 'shopsvc-far',
+        shop: { ...base.shop, id: 'shop-far', lat: D('6.9600'), lng: D('122.1300') },
+      };
+    }
+
+    it('resolves the nearest shop and prices with distance delivery', async () => {
+      // Tetuan (shopsvc1) is at the pickup coords → 0 km → nearest.
+      repo.findActiveShopServices.mockResolvedValue([
+        farShopService(),
+        makeShopService(),
+      ] as never);
+      const q = await service.quoteOrder({
+        pickupLat: 6.9111,
+        pickupLng: 122.0794,
+        weightKg: 6,
+      });
+      expect(q.shopServiceId).toBe('shopsvc1');
+      expect(q.shop.distanceKm).toBe(0);
+      expect(q.breakdown.customerTotalPhp.toFixed(2)).toBe('197.00');
+    });
+
+    it('honors a shopServiceId override (skips resolve)', async () => {
+      repo.findShopServiceWithShop.mockResolvedValue(makeShopService() as never);
+      const q = await service.quoteOrder({
+        pickupLat: 6.9111,
+        pickupLng: 122.0794,
+        weightKg: 6,
+        shopServiceId: 'shopsvc1',
+      });
+      expect(q.shopServiceId).toBe('shopsvc1');
+      expect(repo.findActiveShopServices).not.toHaveBeenCalled();
+    });
+
+    it('rejects when no shops are available', async () => {
+      repo.findActiveShopServices.mockResolvedValue([]);
+      await expect(
+        service.quoteOrder({ pickupLat: 6.9111, pickupLng: 122.0794, weightKg: 6 }),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
   });

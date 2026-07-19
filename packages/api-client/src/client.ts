@@ -1,9 +1,11 @@
 import type {
   CreateOrderBody,
+  OrderQuote,
   OrderStatus,
   OrderView,
   PreviewOrderBody,
   PricingBreakdown,
+  QuoteOrderBody,
   Rider,
   ShopView,
 } from '@wash-and-go/domain';
@@ -108,8 +110,14 @@ export class ApiClient {
     return this.request('POST', '/auth/session', { idToken: token });
   }
 
-  getShops(): Promise<ShopView[]> {
-    return this.request('GET', '/shops');
+  getShops(loc?: { lat: number; lng: number }): Promise<ShopView[]> {
+    const q = loc ? `?lat=${loc.lat}&lng=${loc.lng}` : '';
+    return this.request('GET', `/shops${q}`);
+  }
+
+  // Resolve nearest shop (or the override) + a priced quote for checkout.
+  quoteOrder(body: QuoteOrderBody): Promise<OrderQuote> {
+    return this.request('POST', '/orders/quote', body);
   }
 
   // Admin-only: riders for the dispatch assign picker.

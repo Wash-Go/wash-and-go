@@ -30,6 +30,14 @@ export class OrdersRepository {
     });
   }
 
+  // Candidate shop-services for auto-resolve: active service at an active shop.
+  findActiveShopServices(): Promise<(ShopService & { shop: Shop })[]> {
+    return this.prisma.shopService.findMany({
+      where: { active: true, shop: { active: true } },
+      include: { shop: true },
+    });
+  }
+
   async isShopMember(userId: string, shopId: string): Promise<boolean> {
     const m = await this.prisma.shopMember.findUnique({
       where: { shopId_userId: { shopId, userId } },

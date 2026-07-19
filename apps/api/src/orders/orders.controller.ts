@@ -22,6 +22,7 @@ import {
   AssignRiderDto,
   CreateOrderDto,
   PreviewOrderDto,
+  QuoteOrderDto,
   TransitionDto,
   WeighDto,
 } from './dto/orders.dto';
@@ -43,6 +44,13 @@ export class OrdersController {
   @ApiOperation({ summary: 'Price a prospective order (no write)' })
   preview(@Body() dto: PreviewOrderDto) {
     return this.orders.previewOrder(dto);
+  }
+
+  @Post('quote')
+  @Roles('CUSTOMER')
+  @ApiOperation({ summary: 'Resolve nearest shop (or override) + priced quote' })
+  quote(@Body() dto: QuoteOrderDto) {
+    return this.orders.quoteOrder(dto);
   }
 
   @Post()

@@ -58,6 +58,27 @@ export class PreviewOrderDto {
   pickupLng?: number;
 }
 
+export class QuoteOrderDto {
+  @ApiProperty({ example: 6.9111, description: 'Customer pickup latitude' })
+  @IsLatitude()
+  pickupLat!: number;
+
+  @ApiProperty({ example: 122.0794 })
+  @IsLongitude()
+  pickupLng!: number;
+
+  @ApiProperty({ example: 6, description: 'Estimated kg (load-size bucket)' })
+  @IsPositive()
+  @Max(100)
+  weightKg!: number;
+
+  @ApiProperty({ required: false, description: 'Override shop; omitted → auto-resolve nearest' })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  shopServiceId?: string;
+}
+
 export class AssignRiderDto {
   @ApiProperty({ example: 'usr_rider1' })
   @IsString()
