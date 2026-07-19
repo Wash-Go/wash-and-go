@@ -1,127 +1,131 @@
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import type { ShopView } from '@wash-and-go/domain';
+import React, { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { isTerminal, STATUS_META, statusLabel, type OrderView } from '@wash-and-go/domain';
 import {
   Card,
-  EmptyState,
-  ErrorState,
-  H1,
-  Loading,
   Muted,
+  Pill,
   Screen,
   colors,
-  peso,
+  radius,
   space,
+  toneColor,
   type,
 } from '@wash-and-go/ui';
 import { api } from '../../lib/api';
 
-type State =
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string }
-  | { kind: 'ready'; shops: ShopView[] };
-
 export default function HomeScreen() {
-  const [state, setState] = useState<State>({ kind: 'loading' });
-
-  const load = useCallback(async () => {
-    setState({ kind: 'loading' });
-    try {
-      const shops = await api.getShops();
-      setState({ kind: 'ready', shops });
-    } catch (e) {
-      setState({
-        kind: 'error',
-        message:
-          e instanceof Error ? e.message : 'Could not load shops. Check your connection.',
-      });
-    }
-  }, []);
+  // undefined = loading, null = none
+  const [active, setActive] = useState<OrderView | null | undefined>(undefined);
 
   useEffect(() => {
-    load();
-  }, [load]);
-
-  if (state.kind === 'loading') {
-    return (
-      <Screen scroll={false}>
-        <Loading label="Finding laundry shops near you…" />
-      </Screen>
-    );
-  }
-  if (state.kind === 'error') {
-    return (
-      <Screen scroll={false}>
-        <ErrorState message={state.message} onRetry={load} />
-      </Screen>
-    );
-  }
-  if (state.shops.length === 0) {
-    return (
-      <Screen scroll={false}>
-        <EmptyState
-          emoji="🧺"
-          title="No shops available yet"
-          subtitle="We're onboarding laundry partners in Zamboanga. Check back soon."
-        />
-      </Screen>
-    );
-  }
+    api
+      .listOrders()
+      .then((os) => setActive(os.find((o) => !isTerminal(o.status)) ?? null))
+      .catch(() => setActive(null));
+  }, []);
 
   return (
     <Screen>
-      <H1>Book a wash</H1>
-      <Muted>Express pickup and delivery, same day. Tap a service to book.</Muted>
+      <View style={styles.hero}>
+        <Text style={styles.hi}>GOOD MORNING</Text>
+        <Text style={styles.big}>Ready when{'\n'}you are.</Text>
+      </View>
 
-      {state.shops.map((shop) => (
-        <Card key={shop.id}>
-          <Text style={[type.title, { color: colors.text }]}>{shop.name}</Text>
-          <Muted>{shop.address}</Muted>
-          <View style={styles.services}>
-            {shop.services.map((svc) => (
-              <Card
-                key={svc.id}
-                style={styles.serviceRow}
-                onPress={() =>
-                  router.push({
-                    pathname: '/book',
-                    params: {
-                      shopServiceId: svc.id,
-                      shopName: shop.name,
-                      serviceName: svc.name,
-                      ratePhp: svc.ratePhp,
-                      turnaround: String(svc.turnaroundHours),
-                    },
-                  })
-                }
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={[type.body, { color: colors.text, fontWeight: '600' }]}>
-                    {svc.name}
-                  </Text>
-                  <Muted>{svc.turnaroundHours}h turnaround</Muted>
-                </View>
-                <Text style={[type.title, { color: colors.brand }]}>
-                  {peso(svc.ratePhp)}
-                  <Text style={type.small}>/kg</Text>
-                </Text>
-              </Card>
-            ))}
-          </View>
+      <Pressable
+        onPress={() => router.push('/book')}
+        style={({ pressed }) => [styles.cta, pressed && { opacity: 0.9 }]}
+        accessibilityRole="button"
+      >
+        <View>
+          <Text style={styles.ctaT}>Book a wash</Text>
+          <Text style={styles.ctaS}>Express pickup · same day</Text>
+        </View>
+        <View style={styles.cicon}>
+          <Text style={styles.plus}>+</Text>
+        </View>
+      </Pressable>
+
+      <View style={{ flexDirection: 'row', gap: space.sm }}>
+        <QuickTile label="Schedule" onPress={() => router.push('/book')} />
+        <QuickTile label="Reorder" onPress={() => router.push('/orders')} />
+      </View>
+
+      <Text style={styles.eyebrow}>Active order</Text>
+      {active === undefined ? (
+        <Card>
+          <Muted>Loading…</Muted>
         </Card>
-      ))}
+      ) : active ? (
+        <Card onPress={() => router.push(`/orders/${active.id}`)}>
+          <View style={styles.rowBetween}>
+            <Text style={[type.title, { color: colors.text }]}>{active.code}</Text>
+            <Pill text={statusLabel(active.status)} color={toneColor(STATUS_META[active.status].tone)} />
+          </View>
+          <Muted>{active.pickupAddress}</Muted>
+        </Card>
+      ) : (
+        <Card>
+          <Muted>No active orders. Book a wash to get started.</Muted>
+        </Card>
+      )}
     </Screen>
   );
 }
 
+function QuickTile({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.tile, pressed && { opacity: 0.8 }]}
+      accessibilityRole="button"
+    >
+      <Text style={styles.tileLabel}>{label}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  services: { gap: space.sm, marginTop: space.sm },
-  serviceRow: {
+  hero: { backgroundColor: colors.navy, borderRadius: 20, padding: 18 },
+  hi: { color: '#e7b98a', fontSize: 11, letterSpacing: 1.6, fontWeight: '700' },
+  big: { color: '#fff', fontSize: 24, fontWeight: '700', marginTop: 6, lineHeight: 28 },
+  cta: {
+    backgroundColor: colors.terra,
+    borderRadius: 18,
+    padding: 17,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.brandTint,
-    borderColor: 'transparent',
   },
+  ctaT: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  ctaS: { color: '#f8e2cd', fontSize: 12, marginTop: 2 },
+  cicon: {
+    width: 44,
+    height: 44,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  plus: { color: '#fff', fontSize: 24, fontWeight: '800' },
+  tile: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  tileLabel: { color: colors.text, fontWeight: '600', fontSize: 14 },
+  eyebrow: {
+    fontSize: 11,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    fontWeight: '700',
+    color: colors.terraDark,
+    marginTop: space.xs,
+  },
+  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 });

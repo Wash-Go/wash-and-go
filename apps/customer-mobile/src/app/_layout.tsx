@@ -36,6 +36,8 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="book" options={{ title: 'Book pickup' }} />
+        <Stack.Screen name="checkout" options={{ title: 'Review & confirm' }} />
+        <Stack.Screen name="change-laundry" options={{ title: 'Choose a laundry' }} />
         <Stack.Screen name="orders/[id]" options={{ title: 'Order' }} />
       </Stack>
     </SafeAreaProvider>
