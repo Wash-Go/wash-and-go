@@ -9,6 +9,7 @@ import { Order, OrderStatus, Prisma, ServiceType, User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { pricePreview, PricingBreakdown, PricingError } from '../pricing/pricing';
 import { PricingConfig } from '../pricing/pricing.config';
+import { computeDeliveryFee, haversineKm } from '../pricing/distance';
 import { OrdersRepository, OrderWithRelations } from './orders.repository';
 import { isWithinCoverage } from './coverage';
 import { manilaDayWindow } from './manila-time';
@@ -55,19 +56,33 @@ export class OrdersService {
     ratePhp: Prisma.Decimal,
     weightKg: number | string | Prisma.Decimal,
     commissionPct: Prisma.Decimal,
+    oneWayKm: number,
   ): PricingBreakdown {
     try {
+      const deliveryFeePhp = computeDeliveryFee(
+        oneWayKm,
+        this.pricingConfig.delivery,
+      );
       return pricePreview({
         ratePhp,
         weightKg,
         commissionPct,
-        deliveryFeePhp: this.pricingConfig.expressDeliveryFeePhp,
+        deliveryFeePhp,
         serviceFeePhp: this.pricingConfig.serviceFeePhp,
       });
     } catch (e) {
       if (e instanceof PricingError) throw new BadRequestException(e.message);
       throw e;
     }
+  }
+
+  // One-way haversine km between a customer pickup and a shop (both Decimals on
+  // the shop side). Interim distance for the delivery fee (routing API later).
+  private kmToShop(
+    pickup: { lat: number; lng: number },
+    shop: { lat: Prisma.Decimal; lng: Prisma.Decimal },
+  ): number {
+    return haversineKm(pickup, { lat: Number(shop.lat), lng: Number(shop.lng) });
   }
 
   // POST /orders/preview — read-only price estimate before booking (eng review
@@ -81,10 +96,18 @@ export class OrdersService {
     if (!shopService || !shopService.active || !shopService.shop.active) {
       throw new BadRequestException('Service unavailable');
     }
+    const km =
+      dto.pickupLat != null && dto.pickupLng != null
+        ? this.kmToShop(
+            { lat: dto.pickupLat, lng: dto.pickupLng },
+            shopService.shop,
+          )
+        : 0;
     return this.price(
       shopService.ratePhp,
       dto.weightKg,
       shopService.shop.commissionPct,
+      km,
     );
   }
 
@@ -102,10 +125,12 @@ export class OrdersService {
     }
     const shop = shopService.shop;
 
+    const km = this.kmToShop({ lat: dto.pickupLat, lng: dto.pickupLng }, shop);
     const breakdown = this.price(
       shopService.ratePhp,
       dto.weightEstimateKg,
       shop.commissionPct,
+      km,
     );
 
     const window = manilaDayWindow(new Date());
@@ -209,10 +234,15 @@ export class OrdersService {
       );
       if (!shopService) throw new ConflictException('Service no longer exists');
 
+      const km = this.kmToShop(
+        { lat: Number(order.pickupLat ?? 0), lng: Number(order.pickupLng ?? 0) },
+        shopService.shop,
+      );
       const breakdown = this.price(
         shopService.ratePhp,
         dto.weightKg,
         shopService.shop.commissionPct,
+        km,
       );
 
       const updated = await this.repo.updateOrder(tx, order.id, {

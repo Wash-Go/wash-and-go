@@ -24,9 +24,15 @@ describe('Orders integration (Docker Postgres)', () => {
   const prisma = new PrismaService();
   const repo = new OrdersRepository(prisma);
   const pricingConfig = {
-    expressDeliveryFeePhp: '65',
     serviceFeePhp: '7',
-  } as PricingConfig;
+    delivery: {
+      baseDeliveryPhp: 40,
+      freeKm: 2,
+      perKmPhp: 8,
+      maxDeliveryPhp: 150,
+      roadFactor: 1.3,
+    },
+  } as unknown as PricingConfig;
   const service = new OrdersService(prisma, repo, pricingConfig);
 
   const createdShopIds: string[] = [];
@@ -128,7 +134,8 @@ describe('Orders integration (Docker Postgres)', () => {
     const order = await book(shopServiceId);
     expect(order.status).toBe(OrderStatus.BOOKED);
     expect(order.code).toMatch(/^WG-\d{4}-\d{6}$/);
-    expect(order.customerTotalPhp.toFixed(2)).toBe('222.00');
+    // pickup == shop coords → 0 km → delivery = base ₱40; total 150 + 40 + 7
+    expect(order.customerTotalPhp.toFixed(2)).toBe('197.00');
 
     await service.assignRider(admin, order.id, { riderId: rider.id });
     await service.transition(rider, order.id, { status: OrderStatus.PICKED_UP });

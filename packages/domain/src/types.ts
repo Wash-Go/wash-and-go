@@ -86,4 +86,7 @@ export interface CreateOrderBody {
 export interface PreviewOrderBody {
   shopServiceId: string;
   weightKg: number;
+  // Optional — enables the distance-based delivery fee; omitted → base fee.
+  pickupLat?: number;
+  pickupLng?: number;
 }

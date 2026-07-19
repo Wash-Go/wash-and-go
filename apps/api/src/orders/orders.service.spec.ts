@@ -142,9 +142,15 @@ describe('OrdersService', () => {
     } as unknown as PrismaService;
 
     const pricingConfig = {
-      expressDeliveryFeePhp: '65',
       serviceFeePhp: '7',
-    } as PricingConfig;
+      delivery: {
+        baseDeliveryPhp: 40,
+        freeKm: 2,
+        perKmPhp: 8,
+        maxDeliveryPhp: 150,
+        roadFactor: 1.3,
+      },
+    } as unknown as PricingConfig;
 
     service = new OrdersService(prisma, repo, pricingConfig);
   });
@@ -170,12 +176,15 @@ describe('OrdersService', () => {
         washValuePhp: Prisma.Decimal;
         commissionPhp: Prisma.Decimal;
         shopRemittancePhp: Prisma.Decimal;
+        deliveryFeePhp: Prisma.Decimal;
         customerTotalPhp: Prisma.Decimal;
       };
       expect(createArg.washValuePhp.toFixed(2)).toBe('150.00');
       expect(createArg.commissionPhp.toFixed(2)).toBe('18.00');
       expect(createArg.shopRemittancePhp.toFixed(2)).toBe('132.00');
-      expect(createArg.customerTotalPhp.toFixed(2)).toBe('222.00');
+      // pickup == shop coords → 0 km → delivery = base ₱40; total = 150 + 40 + 7
+      expect(createArg.deliveryFeePhp.toFixed(2)).toBe('40.00');
+      expect(createArg.customerTotalPhp.toFixed(2)).toBe('197.00');
       // T1 ordering: lock before count.
       expect(repo.lockShopDay).toHaveBeenCalled();
       expect(repo.countExpressOrdersForShopDay).toHaveBeenCalled();
@@ -222,16 +231,24 @@ describe('OrdersService', () => {
       const b = await service.previewOrder({
         shopServiceId: 'shopsvc1',
         weightKg: 6,
+        pickupLat: 6.9111,
+        pickupLng: 122.0794,
       });
       expect(b.washValuePhp.toFixed(2)).toBe('150.00');
-      expect(b.customerTotalPhp.toFixed(2)).toBe('222.00');
+      // pickup == shop → 0 km → delivery ₱40; total 150 + 40 + 7
+      expect(b.customerTotalPhp.toFixed(2)).toBe('197.00');
       expect(repo.createOrder).not.toHaveBeenCalled();
     });
 
     it('rejects an unavailable service', async () => {
       repo.findShopServiceWithShop.mockResolvedValue(null);
       await expect(
-        service.previewOrder({ shopServiceId: 'x', weightKg: 6 }),
+        service.previewOrder({
+          shopServiceId: 'x',
+          weightKg: 6,
+          pickupLat: 6.9111,
+          pickupLng: 122.0794,
+        }),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
   });

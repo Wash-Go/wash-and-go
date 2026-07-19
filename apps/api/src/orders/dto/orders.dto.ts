@@ -5,6 +5,7 @@ import {
   IsLatitude,
   IsLongitude,
   IsNotEmpty,
+  IsOptional,
   IsPositive,
   IsString,
   Max,
@@ -45,6 +46,16 @@ export class PreviewOrderDto {
   @IsPositive()
   @Max(100)
   weightKg!: number;
+
+  @ApiProperty({ required: false, example: 6.9111, description: 'Customer pickup latitude — enables the distance delivery fee; omitted → base fee' })
+  @IsOptional()
+  @IsLatitude()
+  pickupLat?: number;
+
+  @ApiProperty({ required: false, example: 122.0794 })
+  @IsOptional()
+  @IsLongitude()
+  pickupLng?: number;
 }
 
 export class AssignRiderDto {
