@@ -63,11 +63,13 @@ export function PrimaryButton({
   onPress,
   disabled,
   loading,
+  tone = 'navy',
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
   loading?: boolean;
+  tone?: 'navy' | 'terra';
 }) {
   const off = disabled || loading;
   return (
@@ -76,7 +78,7 @@ export function PrimaryButton({
       disabled={off}
       accessibilityRole="button"
       accessibilityState={{ disabled: !!off }}
-      style={[styles.btn, off && styles.btnOff]}
+      style={[styles.btn, tone === 'terra' && styles.btnTerra, off && styles.btnOff]}
     >
       {loading ? (
         <ActivityIndicator color="#fff" />
@@ -254,6 +256,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: space.lg,
   },
+  btnTerra: { backgroundColor: colors.terra },
   btnOff: { backgroundColor: colors.border },
   btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   slideTrack: {
