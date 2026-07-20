@@ -20,16 +20,15 @@ export default function AdminPage() {
   const rows = orders.data ? filterOrders(orders.data, filter) : [];
 
   return (
-    <main style={{ maxWidth: 1100, margin: '0 auto', padding: 24 }}>
-      <header style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h1>Wash &amp; Go — Dispatch</h1>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <a href="/config" style={{ color: c.brand, fontSize: 13, fontWeight: 600 }}>
-            Business rules →
-          </a>
-          <span style={{ color: c.muted, fontSize: 13 }}>role: dev-admin</span>
-        </span>
-      </header>
+    <>
+      <div className="page-head">
+        <div className="page-eyebrow">Operations</div>
+        <h1>Dispatch</h1>
+        <p className="page-sub">
+          Live order board. Assign a rider when auto-match falls through — the
+          exception path, not routine dispatch.
+        </p>
+      </div>
 
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
         {STATUS_FILTERS.map((s) => (
@@ -60,7 +59,7 @@ export default function AdminPage() {
       ) : rows.length === 0 ? (
         <p style={{ color: c.muted }}>No orders in this view.</p>
       ) : (
-        <div style={{ background: c.surface, borderRadius: 12, border: `1px solid ${c.border}`, overflow: 'auto' }}>
+        <div className="card" style={{ overflow: 'auto' }}>
           <table>
             <thead>
               <tr>
@@ -81,7 +80,7 @@ export default function AdminPage() {
                     <StatusBadge status={o.status} />
                   </td>
                   <td>{o.rider?.displayName ?? '—'}</td>
-                  <td>{peso(o.customerTotalPhp)}</td>
+                  <td className="tnum">{peso(o.customerTotalPhp)}</td>
                   <td>
                     {canAssign(o) ? (
                       <AssignCell order={o} riders={riders.data ?? []} />
@@ -95,7 +94,7 @@ export default function AdminPage() {
           </table>
         </div>
       )}
-    </main>
+    </>
   );
 }
 

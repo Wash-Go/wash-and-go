@@ -33,6 +33,7 @@ export default function ConfigPage() {
   });
 
   const [draft, setDraft] = useState<Draft>({});
+  const [toast, setToast] = useState(false);
   useEffect(() => {
     if (cfg.data) setDraft(draftFrom(cfg.data));
   }, [cfg.data]);
@@ -58,34 +59,24 @@ export default function ConfigPage() {
     onSuccess: (fresh) => {
       qc.setQueryData(['config'], fresh);
       qc.invalidateQueries({ queryKey: ['config-audit'] });
+      setToast(true);
+      setTimeout(() => setToast(false), 2600);
     },
   });
 
   return (
-    <main style={{ maxWidth: 820, margin: '0 auto', padding: 24 }}>
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'baseline',
-          justifyContent: 'space-between',
-          marginBottom: 4,
-        }}
-      >
+    <>
+      <div className="page-head">
+        <div className="page-eyebrow">Configuration</div>
         <h1>Business rules</h1>
-        <a href="/" style={{ color: c.brand, fontSize: 13, fontWeight: 600 }}>
-          ← Dispatch
-        </a>
-      </header>
-      <p style={{ color: c.muted, fontSize: 13, marginBottom: 20 }}>
-        Platform-level rules, applied live — no redeploy. Per-shop wash rates stay
-        in each laundry&rsquo;s portal.
-        {cfg.data ? (
-          <>
-            {' '}
-            Last changed {new Date(cfg.data.updatedAt).toLocaleString()}.
-          </>
-        ) : null}
-      </p>
+        <p className="page-sub">
+          Platform-level rules, applied live — no redeploy. Per-shop wash rates
+          stay in each laundry&rsquo;s portal.
+          {cfg.data ? (
+            <> Last changed {new Date(cfg.data.updatedAt).toLocaleString()}.</>
+          ) : null}
+        </p>
+      </div>
 
       {cfg.isLoading ? (
         <p style={{ color: c.muted }}>Loading…</p>
@@ -98,12 +89,13 @@ export default function ConfigPage() {
           {CONFIG_GROUPS.map((g) => (
             <section
               key={g.title}
+              className="card"
               style={{
-                background: g.placeholder ? '#FFF7ED' : c.surface,
-                border: `1px solid ${g.placeholder ? '#FED7AA' : c.border}`,
-                borderRadius: 12,
-                padding: 16,
+                padding: 18,
                 marginBottom: 14,
+                ...(g.placeholder
+                  ? { background: 'var(--warn-tint)', borderColor: 'var(--warn-line)' }
+                  : {}),
               }}
             >
               <div
@@ -111,10 +103,10 @@ export default function ConfigPage() {
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
-                  marginBottom: g.note ? 4 : 12,
+                  marginBottom: g.note ? 4 : 14,
                 }}
               >
-                <h2 style={{ fontSize: 15, margin: 0 }}>{g.title}</h2>
+                <h2>{g.title}</h2>
                 {g.placeholder ? (
                   <span
                     style={{
@@ -133,7 +125,7 @@ export default function ConfigPage() {
                 ) : null}
               </div>
               {g.note ? (
-                <p style={{ color: c.muted, fontSize: 12, margin: '0 0 12px' }}>
+                <p style={{ color: c.muted, fontSize: 12, margin: '0 0 14px', lineHeight: 1.5 }}>
                   {g.note}
                 </p>
               ) : null}
@@ -144,22 +136,16 @@ export default function ConfigPage() {
                     key={f.key}
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '1fr 160px',
+                      gridTemplateColumns: '1fr 150px',
                       alignItems: 'center',
                       gap: 12,
                     }}
                   >
                     <span>
-                      <span style={{ fontSize: 14, fontWeight: 600 }}>
-                        {f.label}
-                      </span>
+                      <span style={{ fontSize: 14, fontWeight: 600 }}>{f.label}</span>
                       {f.hint ? (
                         <span
-                          style={{
-                            display: 'block',
-                            color: c.muted,
-                            fontSize: 12,
-                          }}
+                          style={{ display: 'block', color: c.muted, fontSize: 12, marginTop: 1 }}
                         >
                           {f.hint}
                         </span>
@@ -167,35 +153,21 @@ export default function ConfigPage() {
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       {f.unit ? (
-                        <span style={{ color: c.muted, fontSize: 13 }}>
-                          {f.unit}
-                        </span>
+                        <span style={{ color: c.muted, fontSize: 13, minWidth: 12 }}>{f.unit}</span>
                       ) : null}
                       <input
                         type="number"
                         step="any"
                         min={0}
                         value={draft[f.key] ?? ''}
-                        onChange={(e) =>
-                          setDraft((d) => ({ ...d, [f.key]: e.target.value }))
-                        }
-                        style={{
-                          width: '100%',
-                          padding: '7px 9px',
-                          borderRadius: 8,
-                          border: `1px solid ${errors[f.key] ? c.danger : c.border}`,
-                          fontSize: 14,
-                        }}
+                        onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
+                        className="field-input"
+                        style={errors[f.key] ? { borderColor: c.danger } : undefined}
                       />
                     </span>
                     {errors[f.key] ? (
                       <span
-                        style={{
-                          gridColumn: '2',
-                          color: c.danger,
-                          fontSize: 11,
-                          justifySelf: 'end',
-                        }}
+                        style={{ gridColumn: '2', color: c.danger, fontSize: 11, justifySelf: 'end' }}
                       >
                         {errors[f.key]}
                       </span>
@@ -206,14 +178,7 @@ export default function ConfigPage() {
             </section>
           ))}
 
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 14,
-              marginTop: 18,
-            }}
-          >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 18 }}>
             <button
               disabled={dirtyCount === 0 || hasErrors || save.isPending}
               onClick={() => save.mutate()}
@@ -221,11 +186,9 @@ export default function ConfigPage() {
                 padding: '10px 20px',
                 borderRadius: 9,
                 border: 'none',
-                background:
-                  dirtyCount === 0 || hasErrors ? c.border : c.brand,
+                background: dirtyCount === 0 || hasErrors ? c.border : c.brand,
                 color: dirtyCount === 0 || hasErrors ? c.muted : '#fff',
                 fontWeight: 700,
-                cursor: dirtyCount === 0 || hasErrors ? 'default' : 'pointer',
               }}
             >
               {save.isPending
@@ -254,15 +217,14 @@ export default function ConfigPage() {
                 Save failed — check the values and try again.
               </span>
             ) : null}
-            {save.isSuccess && dirtyCount === 0 ? (
-              <span style={{ color: c.success, fontSize: 13 }}>Saved.</span>
-            ) : null}
           </div>
 
           <AuditLog rows={audit.data ?? []} />
         </>
       )}
-    </main>
+
+      {toast ? <div className="toast">Rules updated</div> : null}
+    </>
   );
 }
 
@@ -270,15 +232,10 @@ function AuditLog({ rows }: { rows: ConfigAuditEntry[] }) {
   if (rows.length === 0) return null;
   return (
     <section style={{ marginTop: 32 }}>
-      <h2 style={{ fontSize: 14, color: c.muted }}>Recent changes</h2>
-      <div
-        style={{
-          background: c.surface,
-          border: `1px solid ${c.border}`,
-          borderRadius: 12,
-          overflow: 'auto',
-        }}
-      >
+      <div className="page-eyebrow" style={{ marginBottom: 8 }}>
+        Recent changes
+      </div>
+      <div className="card" style={{ overflow: 'auto' }}>
         <table>
           <thead>
             <tr>
@@ -291,11 +248,11 @@ function AuditLog({ rows }: { rows: ConfigAuditEntry[] }) {
           <tbody>
             {rows.map((r) => (
               <tr key={r.id}>
-                <td style={{ color: c.muted, fontSize: 12, whiteSpace: 'nowrap' }}>
+                <td style={{ color: c.muted, fontSize: 12 }}>
                   {new Date(r.changedAt).toLocaleString()}
                 </td>
                 <td style={{ fontWeight: 600, fontSize: 13 }}>{r.field}</td>
-                <td style={{ fontSize: 13 }}>
+                <td className="tnum" style={{ fontSize: 13 }}>
                   {r.oldValue} → {r.newValue}
                 </td>
                 <td style={{ color: c.muted, fontSize: 12 }}>{r.actorUid}</td>

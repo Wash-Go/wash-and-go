@@ -1,12 +1,16 @@
 import { STATUS_META, type OrderStatus } from '@wash-and-go/domain';
 
+// Chrome colors resolve to CSS variables (light/dark flip in globals.css).
+// Brand + semantic stay literal hex — they're constant across themes and are
+// used in alpha math (e.g. `color + '1A'` for badge fills), which var() breaks.
 export const c = {
   brand: '#208AEF',
-  bg: '#F5F7FB',
-  surface: '#FFFFFF',
-  border: '#E4E9F0',
-  text: '#111827',
-  muted: '#6B7280',
+  bg: 'var(--bg)',
+  surface: 'var(--surface)',
+  surface2: 'var(--surface-2)',
+  border: 'var(--border)',
+  text: 'var(--text)',
+  muted: 'var(--muted)',
   success: '#15A34A',
   danger: '#DC2626',
   warning: '#B45309',
