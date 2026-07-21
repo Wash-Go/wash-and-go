@@ -1,4 +1,5 @@
 import type {
+  CloseRemittanceBody,
   ConfigAuditEntry,
   CreateOrderBody,
   OrderQuote,
@@ -9,6 +10,7 @@ import type {
   PreviewOrderBody,
   PricingBreakdown,
   QuoteOrderBody,
+  RemittanceBatchView,
   Rider,
   ShopView,
 } from '@wash-and-go/domain';
@@ -182,6 +184,34 @@ export class ApiClient {
   getConfigAudit(limit?: number): Promise<ConfigAuditEntry[]> {
     const q = limit ? `?limit=${limit}` : '';
     return this.request('GET', `/admin/config/audit${q}`);
+  }
+
+  // --- Admin: shop payout batches (remittance) ---
+
+  getRemittanceBatches(filter?: {
+    shopId?: string;
+    status?: 'PENDING' | 'PAID';
+  }): Promise<RemittanceBatchView[]> {
+    const q = new URLSearchParams();
+    if (filter?.shopId) q.set('shopId', filter.shopId);
+    if (filter?.status) q.set('status', filter.status);
+    const qs = q.toString();
+    return this.request('GET', `/admin/remittance/batches${qs ? `?${qs}` : ''}`);
+  }
+
+  closeRemittance(body: CloseRemittanceBody): Promise<RemittanceBatchView[]> {
+    return this.request('POST', '/admin/remittance/close', body);
+  }
+
+  markRemittancePaid(
+    batchId: string,
+    reference: string,
+  ): Promise<RemittanceBatchView> {
+    return this.request(
+      'POST',
+      `/admin/remittance/batches/${encodeURIComponent(batchId)}/mark-paid`,
+      { reference },
+    );
   }
 }
 

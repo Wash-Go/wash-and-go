@@ -137,3 +137,27 @@ export interface ConfigAuditEntry {
   newValue: string;
   changedAt: string;
 }
+
+// Shop payout batch (admin remittance console). Money fields are stringified
+// Decimals, dates are ISO strings — matches the JSON the API returns.
+export type RemittanceBatchStatus = 'PENDING' | 'PAID';
+
+export interface RemittanceBatchView {
+  id: string;
+  shopId: string;
+  periodStart: string;
+  periodEnd: string;
+  totalPhp: string;
+  lineCount: number;
+  status: RemittanceBatchStatus;
+  reference: string | null;
+  paidAt: string | null;
+  paidByUid: string | null;
+  createdAt: string;
+}
+
+export interface CloseRemittanceBody {
+  periodStart: string; // ISO
+  periodEnd: string; // ISO, exclusive
+  shopId?: string; // omit to close every shop with unbatched lines
+}

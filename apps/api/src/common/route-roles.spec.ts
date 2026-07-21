@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { ROLES_KEY } from '../auth/roles.decorator';
 import { OrdersController } from '../orders/orders.controller';
 import { PlatformConfigController } from '../platform-config/platform-config.controller';
+import { RemittanceController } from '../remittance/remittance.controller';
 import { RidersController } from '../riders/riders.controller';
 import { ShopsController } from '../shops/shops.controller';
 
@@ -42,6 +43,13 @@ describe('route role matrix', () => {
     expect(rolesOf(c, 'get')).toEqual(['ADMIN']);
     expect(rolesOf(c, 'update')).toEqual(['ADMIN']);
     expect(rolesOf(c, 'audit')).toEqual(['ADMIN']);
+  });
+
+  it('admin remittance routes are ADMIN-only', () => {
+    const c = RemittanceController.prototype;
+    expect(rolesOf(c, 'close')).toEqual(['ADMIN']);
+    expect(rolesOf(c, 'list')).toEqual(['ADMIN']);
+    expect(rolesOf(c, 'markPaid')).toEqual(['ADMIN']);
   });
 
   it('the riders picker is ADMIN-only', () => {
