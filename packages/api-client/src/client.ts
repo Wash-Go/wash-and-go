@@ -1,7 +1,10 @@
 import type {
+  AddressView,
   CloseRemittanceBody,
   ConfigAuditEntry,
+  CreateAddressBody,
   CreateOrderBody,
+  UpdateAddressBody,
   OrderQuote,
   OrderStatus,
   OrderView,
@@ -212,6 +215,24 @@ export class ApiClient {
       `/admin/remittance/batches/${encodeURIComponent(batchId)}/mark-paid`,
       { reference },
     );
+  }
+
+  // --- Customer address book ---
+
+  getAddresses(): Promise<AddressView[]> {
+    return this.request('GET', '/me/addresses');
+  }
+
+  createAddress(body: CreateAddressBody): Promise<AddressView> {
+    return this.request('POST', '/me/addresses', body);
+  }
+
+  updateAddress(id: string, body: UpdateAddressBody): Promise<AddressView> {
+    return this.request('PATCH', `/me/addresses/${encodeURIComponent(id)}`, body);
+  }
+
+  deleteAddress(id: string): Promise<void> {
+    return this.request('DELETE', `/me/addresses/${encodeURIComponent(id)}`);
   }
 }
 

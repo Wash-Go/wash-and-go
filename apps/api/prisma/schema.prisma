@@ -55,6 +55,24 @@ model User {
   assignedOrders  Order[]      @relation("RiderOrders")
   shopMemberships ShopMember[]
   orderEvents     OrderEvent[]
+  addresses       Address[]
+}
+
+// Customer address book — saved pickup points the app prefills at booking. The
+// Order still snapshots its own pickupAddress/lat/lng at create (denormalized),
+// so deleting an address never mutates a past order. At most one default/user.
+model Address {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  label     String? // "Home", "Office"
+  line      String // street / barangay free text
+  lat       Decimal? @db.Decimal(9, 6)
+  lng       Decimal? @db.Decimal(9, 6)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Shop {

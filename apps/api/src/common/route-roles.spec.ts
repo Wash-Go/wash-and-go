@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { ROLES_KEY } from '../auth/roles.decorator';
+import { AddressController } from '../users/address.controller';
 import { OrdersController } from '../orders/orders.controller';
 import { PlatformConfigController } from '../platform-config/platform-config.controller';
 import { RemittanceController } from '../remittance/remittance.controller';
@@ -58,5 +59,12 @@ describe('route role matrix', () => {
 
   it('the shops catalog is CUSTOMER-scoped', () => {
     expect(rolesOf(ShopsController.prototype, 'list')).toEqual(['CUSTOMER']);
+  });
+
+  it('address-book routes are CUSTOMER-only', () => {
+    const c = AddressController.prototype;
+    for (const m of ['list', 'create', 'update', 'remove']) {
+      expect(rolesOf(c, m)).toEqual(['CUSTOMER']);
+    }
   });
 });

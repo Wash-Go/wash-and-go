@@ -161,3 +161,24 @@ export interface CloseRemittanceBody {
   periodEnd: string; // ISO, exclusive
   shopId?: string; // omit to close every shop with unbatched lines
 }
+
+// Customer address book. lat/lng are stringified Decimals (or null) as JSON.
+export interface AddressView {
+  id: string;
+  label: string | null;
+  line: string;
+  lat: string | null;
+  lng: string | null;
+  isDefault: boolean;
+  createdAt: string;
+}
+
+export interface CreateAddressBody {
+  label?: string;
+  line: string;
+  lat?: number;
+  lng?: number;
+  isDefault?: boolean;
+}
+
+export type UpdateAddressBody = Partial<CreateAddressBody>;
