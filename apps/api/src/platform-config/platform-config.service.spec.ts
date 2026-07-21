@@ -139,4 +139,50 @@ describe('PlatformConfigService', () => {
 
     expect($transaction).not.toHaveBeenCalled();
   });
+
+  it('rejects a delivery cap below the base (would misprice every order)', async () => {
+    const $transaction = jest.fn();
+    const prisma = {
+      platformConfig: { findUnique: jest.fn().mockResolvedValue(row()) }, // base 40
+      $transaction,
+    } as unknown as PrismaService;
+
+    // Lower the cap under the base — passes @Min(0) but breaks the invariant.
+    await expect(
+      makeService(prisma).update({ deliveryMaxPhp: 30 }, 'dev-admin'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect($transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects a road factor below 1 (would under-count distance)', async () => {
+    const $transaction = jest.fn();
+    const prisma = {
+      platformConfig: { findUnique: jest.fn().mockResolvedValue(row()) },
+      $transaction,
+    } as unknown as PrismaService;
+
+    await expect(
+      makeService(prisma).update({ deliveryRoadFactor: 0 }, 'dev-admin'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect($transaction).not.toHaveBeenCalled();
+  });
+
+  it('checks invariants on the MERGED config, not just the patch', async () => {
+    const $transaction = jest.fn();
+    // Current is valid (base 200, cap 250); the patch lowers only the cap to
+    // 150, which is a real change but makes the MERGED cap < base.
+    const prisma = {
+      platformConfig: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue(row({ deliveryBasePhp: 200, deliveryMaxPhp: 250 })),
+      },
+      $transaction,
+    } as unknown as PrismaService;
+
+    await expect(
+      makeService(prisma).update({ deliveryMaxPhp: 150 }, 'dev-admin'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect($transaction).not.toHaveBeenCalled();
+  });
 });

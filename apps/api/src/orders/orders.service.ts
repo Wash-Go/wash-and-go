@@ -303,10 +303,17 @@ export class OrdersService {
       );
       if (!shopService) throw new ConflictException('Service no longer exists');
 
-      const km = this.kmToShop(
-        { lat: Number(order.pickupLat ?? 0), lng: Number(order.pickupLng ?? 0) },
-        shopService.shop,
-      );
+      // If pickup coords are absent, charge base delivery (km=0) rather than
+      // computing distance to (0,0) — mid-Atlantic — which would cap the fee at
+      // max and inflate the customer total. Express always has coords; this
+      // guards a future no-coords (e.g. scheduled) order.
+      const km =
+        order.pickupLat != null && order.pickupLng != null
+          ? this.kmToShop(
+              { lat: Number(order.pickupLat), lng: Number(order.pickupLng) },
+              shopService.shop,
+            )
+          : 0;
       const breakdown = await this.price(
         shopService.ratePhp,
         dto.weightKg,

@@ -510,4 +510,204 @@ describe('OrdersService', () => {
       expect([...d.availableActions].sort()).toEqual(['ASSIGNED', 'CANCELLED']);
     });
   });
+
+  // ── payCash (B4: previously untested cash-money endpoint) ────────────────
+  describe('payCash', () => {
+    it('is idempotent — already paid returns the order without a second write', async () => {
+      const paid = makeOrder({
+        status: 'DELIVERED',
+        assignedRiderId: 'rider1',
+        paidCashAt: new Date('2026-07-20T00:00:00Z'),
+      });
+      repo.findByIdForUpdate.mockResolvedValue(paid as never);
+
+      const out = await service.payCash(makeUser(['RIDER'], 'rider1'), 'o1');
+
+      expect(out).toBe(paid);
+      expect(repo.updateOrder).not.toHaveBeenCalled();
+      expect(repo.insertOrderEvent).not.toHaveBeenCalled();
+    });
+
+    it('forbids a rider who is not the assigned rider', async () => {
+      repo.findByIdForUpdate.mockResolvedValue(
+        makeOrder({ assignedRiderId: 'someone-else' }) as never,
+      );
+      await expect(
+        service.payCash(makeUser(['RIDER'], 'rider1'), 'o1'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('records payment for the assigned rider', async () => {
+      repo.findByIdForUpdate.mockResolvedValue(
+        makeOrder({ assignedRiderId: 'rider1', status: 'DELIVERED' }) as never,
+      );
+      repo.updateOrder.mockResolvedValue(makeOrder() as never);
+
+      await service.payCash(makeUser(['RIDER'], 'rider1'), 'o1');
+
+      expect(repo.updateOrder).toHaveBeenCalledWith(
+        expect.anything(),
+        'o1',
+        expect.objectContaining({ paidCashAt: expect.any(Date) }),
+      );
+    });
+
+    it('lets an admin record payment on any order', async () => {
+      repo.findByIdForUpdate.mockResolvedValue(
+        makeOrder({ assignedRiderId: 'rider1' }) as never,
+      );
+      repo.updateOrder.mockResolvedValue(makeOrder() as never);
+      await expect(
+        service.payCash(makeUser(['ADMIN'], 'admin1'), 'o1'),
+      ).resolves.toBeDefined();
+    });
+
+    it('404s a missing order', async () => {
+      repo.findByIdForUpdate.mockResolvedValue(null as never);
+      await expect(
+        service.payCash(makeUser(['ADMIN']), 'nope'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  // ── listOrders role scoping (B5: cross-tenant data-leak surface) ──────────
+  describe('listOrders scoping', () => {
+    async function whereFor(user: User): Promise<Prisma.OrderWhereInput> {
+      repo.findManyWithRelations.mockResolvedValue([] as never);
+      await service.listOrders(user);
+      return (repo.findManyWithRelations.mock.calls[0][0] ?? {}) as Prisma.OrderWhereInput;
+    }
+
+    it('scopes a CUSTOMER to their own orders', async () => {
+      const w = await whereFor(makeUser(['CUSTOMER'], 'cust1'));
+      expect(w.OR).toEqual([{ customerId: 'cust1' }]);
+    });
+
+    it('scopes a RIDER to their assigned orders', async () => {
+      const w = await whereFor(makeUser(['RIDER'], 'rider1'));
+      expect(w.OR).toEqual([{ assignedRiderId: 'rider1' }]);
+    });
+
+    it('scopes a shop member to their shop', async () => {
+      const w = await whereFor(makeUser(['SHOP_OWNER'], 'owner1'));
+      expect(w.OR).toEqual([
+        { shop: { members: { some: { userId: 'owner1' } } } },
+      ]);
+    });
+
+    it('shows an ADMIN everything (no scope filter)', async () => {
+      const w = await whereFor(makeUser(['ADMIN'], 'admin1'));
+      expect(w.OR).toBeUndefined();
+    });
+
+    it('shows a user with no order-bearing role nothing (sentinel)', async () => {
+      const w = await whereFor(makeUser([], 'ghost'));
+      expect(w.OR).toEqual([{ id: '__none__' }]);
+    });
+  });
+
+  // ── previously-untested gate branches (B7) ───────────────────────────────
+  describe('gate branches', () => {
+    it('assignRider rejects assigning from a non-BOOKED state', async () => {
+      repo.userHasRole.mockResolvedValue(true as never);
+      repo.findByIdForUpdate.mockResolvedValue(
+        makeOrder({ status: 'ASSIGNED' }) as never,
+      );
+      await expect(
+        service.assignRider(makeUser(['ADMIN']), 'o1', { riderId: 'rider1' }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('transition to DELIVERED with a null shopId conflicts (no remittance target)', async () => {
+      repo.findByIdForUpdate.mockResolvedValue(
+        makeOrder({
+          status: 'OUT_FOR_RETURN',
+          shopId: null,
+          assignedRiderId: 'rider1',
+        }) as never,
+      );
+      repo.updateOrder.mockResolvedValue(makeOrder() as never);
+      await expect(
+        service.transition(makeUser(['RIDER'], 'rider1'), 'o1', {
+          status: 'DELIVERED',
+        }),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(repo.insertRemittanceLine).not.toHaveBeenCalled();
+    });
+
+    it('previewOrder rejects an inactive shop', async () => {
+      const ss = makeShopService();
+      ss.shop.active = false;
+      repo.findShopServiceWithShop.mockResolvedValue(ss as never);
+      await expect(
+        service.previewOrder({ shopServiceId: 'shopsvc1', weightKg: 5 }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('quoteOrder rejects an inactive override service', async () => {
+      const ss = makeShopService();
+      ss.active = false;
+      repo.findShopServiceWithShop.mockResolvedValue(ss as never);
+      await expect(
+        service.quoteOrder({
+          pickupLat: 6.9111,
+          pickupLng: 122.0794,
+          weightKg: 5,
+          shopServiceId: 'shopsvc1',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('quoteOrder rejects when the nearest shop is beyond maxResolveKm', async () => {
+      const far = makeShopService();
+      // Manila → far shop coords (~Cebu, hundreds of km) > 20km radius.
+      far.shop.lat = D('10.3157');
+      far.shop.lng = D('123.8854');
+      repo.findActiveShopServices.mockResolvedValue([far] as never);
+      await expect(
+        service.quoteOrder({ pickupLat: 6.9111, pickupLng: 122.0794, weightKg: 5 }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  // ── weigh null-pickup guard (B3) ─────────────────────────────────────────
+  describe('weigh null-pickup', () => {
+    it('charges base delivery (km=0) instead of computing distance to (0,0)', async () => {
+      repo.findByIdForUpdate.mockResolvedValue(
+        makeOrder({
+          status: 'AT_SHOP',
+          pickupLat: null,
+          pickupLng: null,
+        }) as never,
+      );
+      repo.isShopMember.mockResolvedValue(true as never);
+      repo.findShopServiceWithShop.mockResolvedValue(makeShopService() as never);
+      repo.updateOrder.mockResolvedValue(makeOrder() as never);
+
+      await service.weigh(makeUser(['SHOP_OWNER'], 'owner1'), 'o1', { weightKg: 5 });
+
+      const arg = repo.updateOrder.mock.calls[0][2] as { deliveryFeePhp: Prisma.Decimal };
+      // base ₱40, not the ₱150 cap a mid-Atlantic (0,0) distance would produce.
+      expect(arg.deliveryFeePhp.toFixed(2)).toBe('40.00');
+    });
+  });
+
+  // ── assertCanView shop-member branch (B7) ────────────────────────────────
+  describe('getOrder shop-member visibility', () => {
+    it('lets a shop member view their shop’s order', async () => {
+      repo.findByIdWithRelations.mockResolvedValue(makeRelOrder() as never);
+      repo.isShopMember.mockResolvedValue(true as never);
+      await expect(
+        service.getOrder(makeUser(['SHOP_OWNER'], 'owner1'), 'o1'),
+      ).resolves.toBeDefined();
+    });
+
+    it('forbids a shop user who is not a member of the order’s shop', async () => {
+      repo.findByIdWithRelations.mockResolvedValue(makeRelOrder() as never);
+      repo.isShopMember.mockResolvedValue(false as never);
+      await expect(
+        service.getOrder(makeUser(['SHOP_STAFF'], 'stranger'), 'o1'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
 });

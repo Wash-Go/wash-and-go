@@ -48,6 +48,29 @@ export interface PlatformConfigValues {
 
 export type ConfigPatch = Partial<Record<ConfigField, number>>;
 
+/*
+ * Cross-field invariants the per-field `≥ 0` check can't catch. A misconfigured
+ * delivery fee silently misprices EVERY order, so these are guarded server-side
+ * (mirrored client-side in the editor). Pure + exported for tests.
+ *  - cap ≥ base: else `min(base + …, max)` caps below base even at 0 km.
+ *  - roadFactor ≥ 1: haversine is a lower bound on real road distance, so the
+ *    multiplier can never legitimately shrink it; 0 collapses distance to base.
+ */
+export function assertConfigInvariants(v: {
+  deliveryBasePhp: number;
+  deliveryMaxPhp: number;
+  deliveryRoadFactor: number;
+}): void {
+  if (v.deliveryMaxPhp < v.deliveryBasePhp) {
+    throw new BadRequestException(
+      'deliveryMaxPhp (cap) must be ≥ deliveryBasePhp (base)',
+    );
+  }
+  if (v.deliveryRoadFactor < 1) {
+    throw new BadRequestException('deliveryRoadFactor must be ≥ 1');
+  }
+}
+
 @Injectable()
 export class PlatformConfigService {
   constructor(
@@ -149,6 +172,17 @@ export class PlatformConfigService {
     }
 
     if (audits.length === 0) return this.toDto(current);
+
+    // Guard cross-field invariants on the MERGED result (patch over current),
+    // not just the changed fields — a valid-looking single field can still
+    // produce an invalid combination.
+    const merged = (f: ConfigField) =>
+      f in patch && patch[f] !== undefined ? (patch[f] as number) : Number(current[f]);
+    assertConfigInvariants({
+      deliveryBasePhp: merged('deliveryBasePhp'),
+      deliveryMaxPhp: merged('deliveryMaxPhp'),
+      deliveryRoadFactor: merged('deliveryRoadFactor'),
+    });
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const row = await tx.platformConfig.update({ where: { id: 1 }, data });
