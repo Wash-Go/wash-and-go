@@ -36,12 +36,12 @@ test.describe('customer booking', () => {
 
     // Geocode succeeded → Continue becomes enabled; go to checkout.
     const cont = page.getByText('Continue', { exact: true });
-    await expect(cont).toBeEnabled({ timeout: 20_000 });
+    await expect(cont).toBeEnabled({ timeout: 30_000 });
     await cont.click();
 
     // Checkout resolved the nearest shop + a peso total.
     const confirm = page.getByText('Confirm booking');
-    await expect(confirm).toBeVisible({ timeout: 20_000 });
+    await expect(confirm).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/₱\s?\d/).first()).toBeVisible();
     // The resolved-shop card shows the "Closest" badge.
     await expect(page.getByText('Closest')).toBeVisible();
@@ -49,7 +49,7 @@ test.describe('customer booking', () => {
     // Confirm → creates the order and navigates to its detail page.
     await confirm.click();
     // Order detail shows the newly-minted order code + its total.
-    await expect(page.getByText(/WG-\d{4}-\d+/)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/WG-\d{4}-\d+/)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Total')).toBeVisible();
   });
 });

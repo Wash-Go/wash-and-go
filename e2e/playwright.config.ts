@@ -12,6 +12,7 @@ import { defineConfig, devices } from '@playwright/test';
 const PORTAL_URL = process.env.PORTAL_URL ?? 'http://localhost:3002';
 export const ADMIN_URL = process.env.ADMIN_URL ?? 'http://localhost:3001';
 export const CUSTOMER_URL = process.env.CUSTOMER_URL ?? 'http://localhost:3000';
+export const RIDER_URL = process.env.RIDER_URL ?? 'http://localhost:3003';
 export const API_URL = process.env.API_URL ?? 'http://localhost:4000';
 
 export default defineConfig({
@@ -49,6 +50,13 @@ export default defineConfig({
       // Expo web — first bundle is slow, so a generous timeout.
       command: 'pnpm --filter @wash-and-go/customer-mobile web',
       url: CUSTOMER_URL,
+      reuseExistingServer: true,
+      timeout: 240_000,
+      cwd: '..',
+    },
+    {
+      command: 'pnpm --filter @wash-and-go/rider-mobile exec expo start --web --port 3003',
+      url: RIDER_URL,
       reuseExistingServer: true,
       timeout: 240_000,
       cwd: '..',

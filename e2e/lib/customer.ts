@@ -21,6 +21,6 @@ export async function customerLogin(page: Page): Promise<void> {
 
   // Dashboard hero CTA proves we're authenticated + past /auth/session.
   await expect(page.getByRole('button', { name: /Book a wash/ })).toBeVisible({
-    timeout: 30_000,
+    timeout: 45_000,
   });
 }

@@ -73,6 +73,37 @@ export async function cancelOrder(id: string): Promise<void> {
   await call('POST', `/orders/${id}/status`, 'dev-admin', { status: 'CANCELLED' });
 }
 
+// A fresh BOOKED (unassigned) order — for the admin dispatch/assign smoke.
+export async function seedBookedOrder(): Promise<{ id: string; code: string }> {
+  const shops = (await call('GET', '/shops', 'dev-customer')) as Shop[];
+  const shopServiceId = shops[0].services[0]?.id;
+  if (!shopServiceId) throw new Error('No shop service to seed against');
+  const order = (await call('POST', '/orders', 'dev-customer', {
+    shopServiceId,
+    pickupAddress: 'E2E dispatch pickup',
+    ...PICKUP,
+    weightEstimateKg: 6,
+  })) as { id: string; code: string };
+  return order;
+}
+
+// An order ASSIGNED to a named rider (default "Rider One" = dev-rider-1), so the
+// rider app board shows it with a "Mark picked up" action. For the rider smoke.
+export async function seedAssignedToRider(
+  riderName = 'Rider One',
+): Promise<{ id: string; code: string; riderId: string }> {
+  const order = await seedBookedOrder();
+  const riders = (await call('GET', '/riders', 'dev-admin')) as {
+    id: string;
+    displayName: string;
+  }[];
+  const rider = riders.find((r) => r.displayName === riderName) ?? riders[0];
+  await call('POST', `/orders/${order.id}/assign-rider`, 'dev-admin', {
+    riderId: rider.id,
+  });
+  return { ...order, riderId: rider.id };
+}
+
 // Cancel every non-terminal order (admin). Cleanup for smokes that create real
 // orders (e.g. the customer confirm-booking path) under a different user.
 export async function cancelAllOpenOrders(): Promise<void> {

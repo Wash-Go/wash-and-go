@@ -69,7 +69,28 @@ async function main() {
     });
   }
 
-  console.log('Seed complete: 3 services, 2 shops, 5 users, 1 shop member.');
+  // Coverage zone — a real Zamboanga City ring so pilot bookings resolve against
+  // a DB zone (not just the hardcoded pilot-ring fallback). Admin can redraw it.
+  const zoneName = 'Zamboanga City (pilot)';
+  const zonePolygon = [
+    { lat: 6.86, lng: 122.02 },
+    { lat: 6.86, lng: 122.14 },
+    { lat: 6.98, lng: 122.14 },
+    { lat: 6.98, lng: 122.02 },
+  ];
+  const existingZone = await prisma.zone.findFirst({ where: { name: zoneName } });
+  if (existingZone) {
+    await prisma.zone.update({
+      where: { id: existingZone.id },
+      data: { active: true, polygon: zonePolygon },
+    });
+  } else {
+    await prisma.zone.create({
+      data: { name: zoneName, active: true, polygon: zonePolygon },
+    });
+  }
+
+  console.log('Seed complete: 3 services, 2 shops, 5 users, 1 shop member, 1 zone.');
 }
 
 main()
