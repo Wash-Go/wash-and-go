@@ -6,6 +6,7 @@ const NAV = [
   { href: '/', label: 'Dispatch' },
   { href: '/remittance', label: 'Payouts' },
   { href: '/rider-cash', label: 'Rider cash' },
+  { href: '/zones', label: 'Zones' },
   { href: '/config', label: 'Business rules' },
 ];
 

@@ -40,6 +40,10 @@ export class ZonesService {
     return this.repo.setActive(id, active);
   }
 
+  async remove(id: string): Promise<void> {
+    await this.repo.delete(id);
+  }
+
   private ring(zone: Zone): LatLng[] {
     const raw = zone.polygon as unknown;
     return Array.isArray(raw) ? (raw as LatLng[]) : [];

@@ -218,3 +218,20 @@ export interface RecordDepositBody {
   reference?: string;
   note?: string;
 }
+
+// Coverage zone (admin). polygon is an array of { lat, lng } vertices.
+export interface ZoneVertex {
+  lat: number;
+  lng: number;
+}
+export interface ZoneView {
+  id: string;
+  name: string;
+  active: boolean;
+  polygon: ZoneVertex[];
+  createdAt: string;
+}
+export interface CreateZoneBody {
+  name: string;
+  polygon: ZoneVertex[];
+}

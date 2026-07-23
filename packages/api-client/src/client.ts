@@ -4,11 +4,13 @@ import type {
   ConfigAuditEntry,
   CreateAddressBody,
   CreateOrderBody,
+  CreateZoneBody,
   GeocodeHit,
   RecordDepositBody,
   RiderCashBalance,
   RiderCashDetail,
   UpdateAddressBody,
+  ZoneView,
   OrderQuote,
   OrderStatus,
   OrderView,
@@ -264,6 +266,22 @@ export class ApiClient {
       `/admin/riders/${encodeURIComponent(riderId)}/cash/deposit`,
       body,
     );
+  }
+
+  // --- Admin: coverage zones ---
+
+  getZones(): Promise<ZoneView[]> {
+    return this.request('GET', '/admin/zones');
+  }
+
+  createZone(body: CreateZoneBody): Promise<ZoneView> {
+    return this.request('POST', '/admin/zones', body);
+  }
+
+  setZoneActive(id: string, active: boolean): Promise<ZoneView> {
+    return this.request('PATCH', `/admin/zones/${encodeURIComponent(id)}`, {
+      active,
+    });
   }
 }
 

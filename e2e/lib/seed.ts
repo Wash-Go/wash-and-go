@@ -73,6 +73,17 @@ export async function cancelOrder(id: string): Promise<void> {
   await call('POST', `/orders/${id}/status`, 'dev-admin', { status: 'CANCELLED' });
 }
 
+// Delete any zones with the given name (smoke cleanup).
+export async function deleteZonesNamed(name: string): Promise<void> {
+  const zones = (await call('GET', '/admin/zones', 'dev-admin')) as {
+    id: string;
+    name: string;
+  }[];
+  for (const z of zones.filter((z) => z.name === name)) {
+    await call('DELETE', `/admin/zones/${z.id}`, 'dev-admin');
+  }
+}
+
 /*
  * Seeds a rider who has collected COD: create an order, assign a rider, and
  * record the cash payment (admin) so the rider's collected total > 0 and they

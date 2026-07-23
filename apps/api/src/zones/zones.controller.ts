@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -51,5 +53,13 @@ export class ZonesController {
   @ApiOperation({ summary: 'Which zone contains a point (or null)' })
   resolve(@Query('lat') lat: string, @Query('lng') lng: string) {
     return this.zones.resolve({ lat: Number(lat), lng: Number(lng) });
+  }
+
+  @Delete(':id')
+  @Roles('ADMIN')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Delete a zone' })
+  remove(@Param('id') id: string) {
+    return this.zones.remove(id);
   }
 }

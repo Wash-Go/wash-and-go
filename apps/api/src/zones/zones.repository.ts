@@ -21,4 +21,8 @@ export class ZonesRepository {
   setActive(id: string, active: boolean): Promise<Zone> {
     return this.prisma.zone.update({ where: { id }, data: { active } });
   }
+
+  delete(id: string): Promise<Zone> {
+    return this.prisma.zone.delete({ where: { id } });
+  }
 }

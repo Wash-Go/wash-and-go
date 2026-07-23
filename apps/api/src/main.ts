@@ -41,6 +41,9 @@ async function bootstrap() {
   app.enableCors({
     origin: origins.length > 0 ? origins : !isProd,
     credentials: true,
+    // Fastify's default preflight omits PATCH/DELETE, so browser PATCH (zone
+    // toggle, address edit) + DELETE were CORS-blocked. Allow them explicitly.
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
   // A8: Swagger only outside production.

@@ -74,7 +74,7 @@ describe('route role matrix', () => {
 
   it('zone admin routes are ADMIN-only', () => {
     const c = ZonesController.prototype;
-    for (const m of ['list', 'create', 'setActive', 'resolve']) {
+    for (const m of ['list', 'create', 'setActive', 'resolve', 'remove']) {
       expect(rolesOf(c, m)).toEqual(['ADMIN']);
     }
   });
