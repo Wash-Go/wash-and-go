@@ -36,9 +36,12 @@ export class FirebaseService implements OnModuleInit {
     // Initialize the Admin SDK whenever credentials are available — a real
     // Firebase token is verified even under dev bypass (bearer wins; x-dev-uid
     // is only the fallback for clients that don't mint tokens yet). Only pure
-    // stub mode (bypass ON + no credentials) skips init.
-    const hasCreds = !!this.config.get('GOOGLE_APPLICATION_CREDENTIALS');
-    if (!hasCreds) {
+    // stub mode (bypass ON + no credentials) skips init. Two credential sources:
+    //   FIREBASE_SERVICE_ACCOUNT_JSON — the raw JSON as an env var (Railway/prod)
+    //   GOOGLE_APPLICATION_CREDENTIALS — a file path (local dev)
+    const inlineJson = this.config.get<string>('FIREBASE_SERVICE_ACCOUNT_JSON');
+    const credFile = this.config.get<string>('GOOGLE_APPLICATION_CREDENTIALS');
+    if (!inlineJson && !credFile) {
       if (this.devBypass) {
         this.logger.warn(
           'No Firebase credentials + AUTH_DEV_BYPASS on — token verification unavailable, x-dev-uid only. DEV ONLY.',
@@ -46,16 +49,17 @@ export class FirebaseService implements OnModuleInit {
         return;
       }
       throw new Error(
-        'GOOGLE_APPLICATION_CREDENTIALS missing and AUTH_DEV_BYPASS off',
+        'No Firebase credentials (set FIREBASE_SERVICE_ACCOUNT_JSON or GOOGLE_APPLICATION_CREDENTIALS) and AUTH_DEV_BYPASS off',
       );
     }
 
     try {
+      const credential = inlineJson
+        ? admin.credential.cert(JSON.parse(inlineJson) as admin.ServiceAccount)
+        : admin.credential.applicationDefault();
       this.app = admin.apps.length
         ? admin.app()
-        : admin.initializeApp({
-            credential: admin.credential.applicationDefault(),
-          });
+        : admin.initializeApp({ credential });
       if (this.devBypass) {
         this.logger.warn(
           'AUTH_DEV_BYPASS is ON — real Firebase tokens are still verified; x-dev-uid is the fallback. DEV ONLY.',

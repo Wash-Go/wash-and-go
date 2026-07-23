@@ -3,7 +3,9 @@
 // lands with its phases — do not add tables the current phase doesn't use.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // native = local dev; debian-openssl-3.0.x = the Docker/Railway runtime image.
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {

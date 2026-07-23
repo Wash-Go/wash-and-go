@@ -20,6 +20,7 @@ export const envValidationSchema = Joi.object({
     .required(),
   AUTH_DEV_BYPASS: Joi.string().valid('0', '1').default('0'),
   GOOGLE_APPLICATION_CREDENTIALS: Joi.string().optional(),
+  FIREBASE_SERVICE_ACCOUNT_JSON: Joi.string().optional(),
   REDIS_URL: Joi.string().uri().optional(),
   CORS_ORIGINS: Joi.string().optional(), // comma-separated allow-list
 
