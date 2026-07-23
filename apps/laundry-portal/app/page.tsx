@@ -15,16 +15,22 @@ export default function ShopPage() {
   const orders = useQuery({ queryKey: ['orders'], queryFn: () => api.listOrders() });
 
   return (
-    <main style={{ maxWidth: 760, margin: '0 auto', padding: 24 }}>
-      <header style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h1>Wash &amp; Go — Shop queue</h1>
-        <span style={{ color: c.muted, fontSize: 13 }}>role: dev-shop-owner</span>
-      </header>
+    <>
+      <div className="page-head">
+        <div className="page-eyebrow">Queue</div>
+        <h1>Orders</h1>
+        <p className="page-sub">
+          Weigh a picked-up load to set its final price, then drive it through the
+          shop steps.
+        </p>
+      </div>
 
       {orders.isLoading ? (
         <p style={{ color: c.muted }}>Loading queue…</p>
       ) : orders.isError ? (
-        <p style={{ color: c.danger }}>Could not load. Is the API running on {API_BASE_URL}?</p>
+        <p style={{ color: c.danger }}>
+          Could not load. Is the API running on {API_BASE_URL}?
+        </p>
       ) : (orders.data ?? []).length === 0 ? (
         <p style={{ color: c.muted }}>No orders in your queue.</p>
       ) : (
@@ -34,7 +40,7 @@ export default function ShopPage() {
           ))}
         </div>
       )}
-    </main>
+    </>
   );
 }
 
@@ -42,17 +48,26 @@ function OrderCard({ order: o }: { order: OrderView }) {
   const color = statusColor(o.status);
   const actions = o.availableActions ?? [];
   return (
-    <div data-testid={`order-${o.code}`} style={{ background: c.surface, border: `1px solid ${c.border}`, borderRadius: 12, padding: 16 }}>
+    <div className="card" data-testid={`order-${o.code}`} style={{ padding: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <strong>{o.code}</strong>
-        <span style={{ color, background: color + '1A', padding: '3px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600 }}>
+        <span
+          style={{
+            color,
+            background: color + '1A',
+            padding: '3px 10px',
+            borderRadius: 999,
+            fontSize: 12,
+            fontWeight: 600,
+          }}
+        >
           {statusLabel(o.status)}
         </span>
       </div>
       <div style={{ color: c.muted, fontSize: 13, marginTop: 4 }}>{o.pickupAddress}</div>
       <div style={{ fontSize: 14, marginTop: 6 }}>
         {o.weightKg != null ? `Weighed ${o.weightKg}kg` : `Est ~${o.weightEstimateKg}kg`} ·{' '}
-        <strong>{peso(o.customerTotalPhp)}</strong>
+        <strong className="tnum">{peso(o.customerTotalPhp)}</strong>
       </div>
 
       {canWeigh(o) && o.shopServiceId ? <WeighForm order={o} /> : null}
@@ -93,19 +108,35 @@ function WeighForm({ order }: { order: OrderView }) {
   });
 
   return (
-    <div style={{ marginTop: 12, padding: 12, background: c.bg, borderRadius: 10 }}>
+    <div
+      style={{
+        marginTop: 12,
+        padding: 12,
+        background: c.surface2,
+        borderRadius: 10,
+        border: `1px solid ${c.border}`,
+      }}
+    >
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Actual kg"
           inputMode="decimal"
-          style={{ width: 100, padding: '6px 8px', border: `1px solid ${c.border}`, borderRadius: 8 }}
+          className="field-input"
+          style={{ width: 100 }}
         />
         <button
           disabled={!v.ok || previewM.isPending}
           onClick={() => previewM.mutate()}
-          style={{ padding: '6px 12px', borderRadius: 8, border: `1px solid ${c.brand}`, background: '#fff', color: c.brand, fontWeight: 600 }}
+          style={{
+            padding: '7px 12px',
+            borderRadius: 8,
+            border: `1px solid ${c.brand}`,
+            background: c.surface,
+            color: c.brand,
+            fontWeight: 600,
+          }}
         >
           {previewM.isPending ? '…' : 'Preview price'}
         </button>
@@ -113,13 +144,27 @@ function WeighForm({ order }: { order: OrderView }) {
       {newTotal ? (
         <div style={{ marginTop: 10 }}>
           <div style={{ fontSize: 14 }}>
-            was <s style={{ color: c.muted }}>{peso(order.customerTotalPhp)}</s> → now{' '}
-            <strong style={{ color: c.brand }}>{peso(newTotal)}</strong>
+            was{' '}
+            <s className="tnum" style={{ color: c.muted }}>
+              {peso(order.customerTotalPhp)}
+            </s>{' '}
+            → now{' '}
+            <strong className="tnum" style={{ color: c.brand }}>
+              {peso(newTotal)}
+            </strong>
           </div>
           <button
             disabled={weighM.isPending}
             onClick={() => weighM.mutate()}
-            style={{ marginTop: 8, padding: '8px 16px', borderRadius: 8, border: 'none', background: c.brand, color: '#fff', fontWeight: 700 }}
+            style={{
+              marginTop: 8,
+              padding: '8px 16px',
+              borderRadius: 8,
+              border: 'none',
+              background: c.brand,
+              color: '#fff',
+              fontWeight: 700,
+            }}
           >
             {weighM.isPending ? 'Saving…' : 'Confirm weigh-in'}
           </button>
@@ -139,7 +184,14 @@ function ActionButton({ order, to }: { order: OrderView; to: OrderStatus }) {
     <button
       disabled={m.isPending}
       onClick={() => m.mutate()}
-      style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: c.brand, color: '#fff', fontWeight: 700 }}
+      style={{
+        padding: '8px 14px',
+        borderRadius: 8,
+        border: 'none',
+        background: c.brand,
+        color: '#fff',
+        fontWeight: 700,
+      }}
     >
       {m.isPending ? '…' : `Mark ${statusLabel(to)}`}
     </button>
