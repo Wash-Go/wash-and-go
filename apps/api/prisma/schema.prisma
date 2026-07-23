@@ -59,6 +59,20 @@ model User {
   cashDeposits    RiderCashDeposit[] @relation("RiderCashDeposits")
 }
 
+// Service coverage area (formalizes the hardcoded pilot polygon). A pickup is
+// covered when it falls inside any active zone. `polygon` is a JSON array of
+// { lat, lng } vertices (ring, auto-closed by the point-in-polygon test). Admin
+// manages these; the scheduled engine later attaches a designated shop per zone.
+model Zone {
+  id        String   @id @default(cuid())
+  name      String
+  active    Boolean  @default(true)
+  polygon   Json
+  createdAt DateTime @default(now())
+
+  @@index([active])
+}
+
 // Customer address book — saved pickup points the app prefills at booking. The
 // Order still snapshots its own pickupAddress/lat/lng at create (denormalized),
 // so deleting an address never mutates a past order. At most one default/user.

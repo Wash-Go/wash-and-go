@@ -19,7 +19,7 @@ import { pricePreview, PricingBreakdown, PricingError } from '../pricing/pricing
 import { PlatformConfigService } from '../platform-config/platform-config.service';
 import { computeDeliveryFee, haversineKm } from '../pricing/distance';
 import { OrdersRepository, OrderWithRelations } from './orders.repository';
-import { isWithinCoverage } from './coverage';
+import { ZonesService } from '../zones/zones.service';
 import { manilaDayWindow } from './manila-time';
 import {
   canRoleDrive,
@@ -66,6 +66,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly repo: OrdersRepository,
     private readonly config: PlatformConfigService,
+    private readonly zones: ZonesService,
   ) {}
 
   private async price(
@@ -182,7 +183,7 @@ export class OrdersService {
 
   // POST /orders — customer books an express order.
   async createExpressOrder(actor: User, dto: CreateOrderDto): Promise<Order> {
-    if (!isWithinCoverage({ lng: dto.pickupLng, lat: dto.pickupLat })) {
+    if (!(await this.zones.isCovered({ lat: dto.pickupLat, lng: dto.pickupLng }))) {
       throw new BadRequestException('Pickup location is outside coverage');
     }
 

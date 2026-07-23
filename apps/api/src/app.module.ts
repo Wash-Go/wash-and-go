@@ -10,6 +10,7 @@ import { RidersModule } from './riders/riders.module';
 import { PlatformConfigModule } from './platform-config/platform-config.module';
 import { RemittanceModule } from './remittance/remittance.module';
 import { MapsModule } from './maps/maps.module';
+import { ZonesModule } from './zones/zones.module';
 import { HealthController } from './health.controller';
 import { envValidationSchema, envValidationOptions } from './config/env.validation';
 
@@ -39,6 +40,7 @@ import { envValidationSchema, envValidationOptions } from './config/env.validati
     PlatformConfigModule,
     RemittanceModule,
     MapsModule,
+    ZonesModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

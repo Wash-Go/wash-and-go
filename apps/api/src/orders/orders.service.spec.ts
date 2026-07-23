@@ -9,6 +9,8 @@ import { OrdersService } from './orders.service';
 import type { OrdersRepository } from './orders.repository';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { PlatformConfigService } from '../platform-config/platform-config.service';
+import { ZonesService } from '../zones/zones.service';
+import type { ZonesRepository } from '../zones/zones.repository';
 
 const D = (v: Prisma.Decimal.Value) => new Prisma.Decimal(v);
 
@@ -160,7 +162,13 @@ describe('OrdersService', () => {
       }),
     } as unknown as PlatformConfigService;
 
-    service = new OrdersService(prisma, repo, config);
+    // Real ZonesService with no zones → falls back to the pilot Zamboanga ring,
+    // giving true coverage behavior (central ZC in, Manila out) without mocking.
+    const zones = new ZonesService({
+      findActive: async () => [],
+    } as unknown as ZonesRepository);
+
+    service = new OrdersService(prisma, repo, config, zones);
   });
 
   describe('createExpressOrder', () => {

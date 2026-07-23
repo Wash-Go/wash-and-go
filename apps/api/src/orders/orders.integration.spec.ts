@@ -3,6 +3,8 @@ import { OrderStatus, Prisma, User } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { PlatformConfigService } from '../platform-config/platform-config.service';
+import { ZonesService } from '../zones/zones.service';
+import { ZonesRepository } from '../zones/zones.repository';
 import { OrdersRepository } from './orders.repository';
 import { OrdersService } from './orders.service';
 
@@ -28,7 +30,10 @@ describe('Orders integration (Docker Postgres)', () => {
   // defaults (serviceFee ₱7, delivery base ₱40 / free 2km / ₱8·km / cap ₱150 /
   // road 1.3, maxResolve 20km), so the golden totals below hold.
   const config = new PlatformConfigService(prisma, new ConfigService());
-  const service = new OrdersService(prisma, repo, config);
+  // Real zones against the same Postgres — empty table falls back to the pilot
+  // ring, so the central-ZC PICKUP is covered.
+  const zones = new ZonesService(new ZonesRepository(prisma));
+  const service = new OrdersService(prisma, repo, config, zones);
 
   const createdShopIds: string[] = [];
   let customer: User;

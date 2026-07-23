@@ -7,6 +7,7 @@ import { RemittanceController } from '../remittance/remittance.controller';
 import { RidersController } from '../riders/riders.controller';
 import { RiderCashController } from '../riders/rider-cash.controller';
 import { ShopsController } from '../shops/shops.controller';
+import { ZonesController } from '../zones/zones.controller';
 
 /*
  * B6: lock the coarse role matrix. RolesGuard reads @Roles metadata off each
@@ -66,6 +67,13 @@ describe('route role matrix', () => {
   it('rider-cash reconciliation routes are ADMIN-only', () => {
     const c = RiderCashController.prototype;
     for (const m of ['summary', 'detail', 'deposit']) {
+      expect(rolesOf(c, m)).toEqual(['ADMIN']);
+    }
+  });
+
+  it('zone admin routes are ADMIN-only', () => {
+    const c = ZonesController.prototype;
+    for (const m of ['list', 'create', 'setActive', 'resolve']) {
       expect(rolesOf(c, m)).toEqual(['ADMIN']);
     }
   });
