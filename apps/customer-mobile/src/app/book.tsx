@@ -128,6 +128,7 @@ export default function BookScreen() {
           return (
             <Card
               key={b.key}
+              testID={`bucket-${b.key}`}
               onPress={() => setBucket(b)}
               style={{
                 flexDirection: 'row',

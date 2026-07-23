@@ -40,17 +40,24 @@ export function Card({
   children,
   style,
   onPress,
+  testID,
 }: {
   children: React.ReactNode;
   style?: ViewStyle;
   onPress?: () => void;
+  testID?: string;
 }) {
-  const content = <View style={[styles.card, style]}>{children}</View>;
+  const content = (
+    <View style={[styles.card, style]} testID={onPress ? undefined : testID}>
+      {children}
+    </View>
+  );
   if (!onPress) return content;
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
+      testID={testID}
       style={({ pressed }) => (pressed ? styles.pressed : undefined)}
     >
       {content}
