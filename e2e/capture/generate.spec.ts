@@ -41,6 +41,15 @@ async function newPage(browser: Browser): Promise<Page> {
   return ctx.newPage();
 }
 
+// Phone-shaped context for the mobile apps (customer + rider).
+async function newPhone(browser: Browser): Promise<Page> {
+  const ctx = await browser.newContext({
+    viewport: { width: 400, height: 860 },
+    deviceScaleFactor: 2,
+  });
+  return ctx.newPage();
+}
+
 // A slippy TomTom map of Zamboanga with the two shops + the coverage zone.
 function mapHtml(key: string): string {
   return `<!doctype html><html><head>
@@ -116,18 +125,18 @@ test('generate the feature PDF', async ({ browser }) => {
     await page.close();
   }
 
-  // ---- rider ----
+  // ---- rider (phone) ----
   {
-    const page = await newPage(browser);
+    const page = await newPhone(browser);
     await page.goto(RIDER, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(4000);
+    await page.waitForTimeout(4500);
     await shoot('rider', () => page.screenshot());
     await page.close();
   }
 
-  // ---- customer (Firebase login → dashboard → book → checkout) ----
+  // ---- customer (phone; Firebase login → dashboard → book → checkout) ----
   {
-    const page = await newPage(browser);
+    const page = await newPhone(browser);
     try {
       await page.goto(CUSTOMER, { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(2000);
@@ -170,6 +179,9 @@ test('generate the feature PDF', async ({ browser }) => {
 function img(uri?: string): string {
   return uri ? `<img src="${uri}"/>` : `<div class="ph">screenshot unavailable</div>`;
 }
+function phone(uri: string | undefined, cap: string): string {
+  return `<div class="phone-item">${uri ? `<img class="phone" src="${uri}"/>` : `<div class="ph">screenshot unavailable</div>`}<div class="cap">${cap}</div></div>`;
+}
 
 function buildDoc(s: Record<string, string>): string {
   return `<!doctype html><html><head><meta charset="utf-8"><style>
@@ -191,6 +203,9 @@ function buildDoc(s: Record<string, string>): string {
   ul{margin:6px 0 0;padding-left:18px}
   li{font-size:12.5px;line-height:1.6;margin:2px 0}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .phones{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin:8px 0 6px}
+  .phone-item{text-align:center}
+  img.phone{height:520px;width:auto;border-radius:26px;border:1px solid var(--line);box-shadow:0 10px 30px rgba(15,23,42,.12)}
   .cap{font-size:11px;color:var(--muted);margin-top:5px}
   .pill{display:inline-block;background:#eef4fd;color:var(--brand);font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;margin-right:6px}
   .rule{height:1px;background:var(--line);margin:22px 0}
@@ -217,11 +232,11 @@ function buildDoc(s: Record<string, string>): string {
     <h3>Customer app</h3>
     <h2>Book a wash in under a minute</h2>
     <p class="lead">React Native / Expo. Firebase email/password auth. The customer never picks a shop — the system resolves the nearest one and prices it upfront.</p>
-    <div class="grid2">
-      <div>${img(s['customer-home'])}<div class="cap">Dashboard — one-tap "Book a wash", live active-order card.</div></div>
-      <div>${img(s['customer-book'])}<div class="cap">Load size + pickup — GPS, saved addresses, or typed address geocoded via TomTom.</div></div>
+    <div class="phones">
+      ${phone(s['customer-home'], 'Dashboard — one-tap "Book a wash", active-order card.')}
+      ${phone(s['customer-book'], 'Load size + pickup — GPS, saved, or geocoded address.')}
+      ${phone(s['customer-checkout'], 'Checkout — nearest shop + distance price breakdown.')}
     </div>
-    <div style="margin-top:12px">${img(s['customer-checkout'])}<div class="cap">Checkout — auto-resolved nearest shop (Closest badge), distance-based price breakdown, "Change laundry" option.</div></div>
     <ul>
       <li><span class="k">Auto shop-match</span> — nearest active shop by distance, with a manual override.</li>
       <li><span class="k">Address book</span> — saved pickups, one default, prefilled at booking.</li>
@@ -234,9 +249,9 @@ function buildDoc(s: Record<string, string>): string {
   <div class="section pb">
     <h3>Rider app</h3>
     <h2>Assigned jobs, one clear next step</h2>
-    <div class="grid2">
-      <div>${img(s.rider)}<div class="cap">Job board — jobs grouped by action / waiting / done, with the next step surfaced.</div></div>
-      <div>
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      ${phone(s.rider, 'Job board — action jobs surfaced with the next step.')}
+      <div style="flex:1">
         <div class="card">
           <p><span class="pill">Two-leg</span> Pickup → shop, then shop → customer, as separate legs.</p>
           <ul>
