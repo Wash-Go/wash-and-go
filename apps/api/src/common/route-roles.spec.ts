@@ -5,6 +5,7 @@ import { OrdersController } from '../orders/orders.controller';
 import { PlatformConfigController } from '../platform-config/platform-config.controller';
 import { RemittanceController } from '../remittance/remittance.controller';
 import { RidersController } from '../riders/riders.controller';
+import { RiderCashController } from '../riders/rider-cash.controller';
 import { ShopsController } from '../shops/shops.controller';
 
 /*
@@ -55,6 +56,13 @@ describe('route role matrix', () => {
 
   it('the riders picker is ADMIN-only', () => {
     expect(rolesOf(RidersController.prototype, 'list')).toEqual(['ADMIN']);
+  });
+
+  it('rider-cash reconciliation routes are ADMIN-only', () => {
+    const c = RiderCashController.prototype;
+    for (const m of ['summary', 'detail', 'deposit']) {
+      expect(rolesOf(c, m)).toEqual(['ADMIN']);
+    }
   });
 
   it('the shops catalog is CUSTOMER-scoped', () => {

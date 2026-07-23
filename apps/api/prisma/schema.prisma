@@ -56,6 +56,7 @@ model User {
   shopMemberships ShopMember[]
   orderEvents     OrderEvent[]
   addresses       Address[]
+  cashDeposits    RiderCashDeposit[] @relation("RiderCashDeposits")
 }
 
 // Customer address book — saved pickup points the app prefills at booking. The
@@ -211,6 +212,23 @@ model RemittanceLine {
 enum RemittanceStatus {
   PENDING // closed, payout owed to the shop, transfer not yet made
   PAID // ops recorded the external transfer (reference + paidAt set)
+}
+
+// Rider cash reconciliation (money model: platform intermediates). A rider
+// collects the full customerTotal COD at delivery, so that cash belongs to the
+// platform. Outstanding = SUM(customerTotalPhp of the rider's paid-cash orders)
+// − SUM(deposits). Each row records the rider handing cash back to the platform.
+model RiderCashDeposit {
+  id          String   @id @default(cuid())
+  riderId     String
+  rider       User     @relation("RiderCashDeposits", fields: [riderId], references: [id])
+  amountPhp   Decimal  @db.Decimal(12, 2)
+  reference   String? // deposit slip / GCash ref / envelope no.
+  note        String?
+  recordedByUid String
+  createdAt   DateTime @default(now())
+
+  @@index([riderId, createdAt])
 }
 
 // A period's payout to one shop — the sum of its unbatched RemittanceLines in
