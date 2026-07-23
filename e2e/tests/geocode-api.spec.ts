@@ -29,10 +29,10 @@ test.describe('geocode endpoint', () => {
     expect(res.status()).toBe(400);
   });
 
-  test('is CUSTOMER/ADMIN gated — a rider is forbidden', async ({ request }) => {
+  test('is any-authenticated — a rider can look up an address', async ({ request }) => {
     const res = await request.get(`${API_URL}/geocode?q=Tetuan`, {
       headers: { 'x-dev-uid': 'dev-rider-1' },
     });
-    expect(res.status()).toBe(403);
+    expect(res.ok()).toBeTruthy();
   });
 });

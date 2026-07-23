@@ -13,9 +13,30 @@ async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter(),
+    // Skip Nest's default json body parser so our empty-body-tolerant parser
+    // below is the only one registered (avoids a duplicate-parser boot error).
+    { bodyParser: false },
   );
 
   const isProd = process.env.NODE_ENV === 'production';
+
+  // Treat an EMPTY application/json body as "no body" instead of letting
+  // Fastify's built-in parser 500 with "Body cannot be empty". This runs before
+  // Nest's pipeline (which can't rescue it), so it closes the empty-body class at
+  // the source — no-body POST/DELETE (pay-cash, delete-address) work regardless
+  // of whether the caller sends a content-type header.
+  const fastify = app.getHttpAdapter().getInstance();
+  fastify.addContentTypeParser(
+    'application/json',
+    { parseAs: 'string' },
+    (_req: unknown, body: string, done: (err: Error | null, value?: unknown) => void) => {
+      try {
+        done(null, body === '' ? undefined : JSON.parse(body));
+      } catch (err) {
+        done(err as Error);
+      }
+    },
+  );
 
   // A7: security headers.
   await app.register(helmet);
@@ -38,12 +59,25 @@ async function bootstrap() {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
+  // A credentialed response must never echo `*`. If CORS_ORIGINS is misconfigured
+  // to `*`, fall back to dev-reflect / prod-off instead of the invalid combo.
+  const originOption =
+    origins.length > 0 && !origins.includes('*') ? origins : !isProd;
   app.enableCors({
-    origin: origins.length > 0 ? origins : !isProd,
+    origin: originOption,
     credentials: true,
     // Fastify's default preflight omits PATCH/DELETE, so browser PATCH (zone
-    // toggle, address edit) + DELETE were CORS-blocked. Allow them explicitly.
+    // toggle, address edit) + DELETE were CORS-blocked. List methods explicitly.
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    // Pin the header allow-list. Without this @fastify/cors reflects requested
+    // headers (works today), but declaring intent stops a future lockdown from
+    // silently re-breaking the custom-header (x-dev-uid) + auth flows.
+    allowedHeaders: [
+      'authorization',
+      'content-type',
+      'x-dev-uid',
+      'idempotency-key',
+    ],
   });
 
   // A8: Swagger only outside production.

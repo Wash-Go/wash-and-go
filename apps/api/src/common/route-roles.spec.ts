@@ -79,15 +79,12 @@ describe('route role matrix', () => {
     }
   });
 
-  it('geocode is CUSTOMER + ADMIN', () => {
-    expect(rolesOf(GeocodeController.prototype, 'geocode')).toEqual([
-      'CUSTOMER',
-      'ADMIN',
-    ]);
+  it('geocode is any-authenticated (non-sensitive utility, no @Roles)', () => {
+    expect(rolesOf(GeocodeController.prototype, 'geocode')).toBeUndefined();
   });
 
-  it('the shops catalog is CUSTOMER-scoped', () => {
-    expect(rolesOf(ShopsController.prototype, 'list')).toEqual(['CUSTOMER']);
+  it('the shops catalog is any-authenticated (non-sensitive, no @Roles)', () => {
+    expect(rolesOf(ShopsController.prototype, 'list')).toBeUndefined();
   });
 
   it('address-book routes are CUSTOMER-only', () => {

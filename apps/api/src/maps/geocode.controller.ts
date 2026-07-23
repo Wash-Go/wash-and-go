@@ -8,7 +8,6 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { GeocodeResult, MapsProvider } from '@wash-and-go/maps';
-import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { MAPS_PROVIDER } from './maps.constants';
 
@@ -24,8 +23,10 @@ import { MAPS_PROVIDER } from './maps.constants';
 export class GeocodeController {
   constructor(@Inject(MAPS_PROVIDER) private readonly maps: MapsProvider) {}
 
+  // Any-authenticated: a non-sensitive address-lookup utility (throttler bounds
+  // abuse). Was CUSTOMER+ADMIN — widened so the portal/rider can look up an
+  // address without a 403.
   @Get()
-  @Roles('CUSTOMER', 'ADMIN')
   @ApiOperation({ summary: 'Geocode an address (returns null if no match)' })
   async geocode(@Query('q') q?: string): Promise<GeocodeResult | null> {
     const query = (q ?? '').trim();
