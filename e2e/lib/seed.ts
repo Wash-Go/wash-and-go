@@ -73,6 +73,23 @@ export async function cancelOrder(id: string): Promise<void> {
   await call('POST', `/orders/${id}/status`, 'dev-admin', { status: 'CANCELLED' });
 }
 
+// Cancel every non-terminal order (admin). Cleanup for smokes that create real
+// orders (e.g. the customer confirm-booking path) under a different user.
+export async function cancelAllOpenOrders(): Promise<void> {
+  const orders = (await call('GET', '/orders', 'dev-admin')) as {
+    id: string;
+    status: string;
+  }[];
+  const open = orders.filter(
+    (o) => o.status !== 'DELIVERED' && o.status !== 'CANCELLED',
+  );
+  for (const o of open) {
+    await call('POST', `/orders/${o.id}/status`, 'dev-admin', {
+      status: 'CANCELLED',
+    }).catch(() => undefined);
+  }
+}
+
 // Delete any zones with the given name (smoke cleanup).
 export async function deleteZonesNamed(name: string): Promise<void> {
   const zones = (await call('GET', '/admin/zones', 'dev-admin')) as {

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { customerLogin } from '../lib/customer';
+import { cancelAllOpenOrders } from '../lib/seed';
 
 /*
  * Browser smoke for the customer booking path — the whole reason the app exists.
@@ -12,7 +13,12 @@ test.describe('customer booking', () => {
   // Expo web + Firebase + geocode round-trips — give it room.
   test.setTimeout(120_000);
 
-  test('logs in, books a load, geocodes a pickup, reaches a priced checkout', async ({
+  // Confirming creates a real order under the test Firebase user; cancel it.
+  test.afterEach(async () => {
+    await cancelAllOpenOrders().catch(() => undefined);
+  });
+
+  test('books a load end to end: login → geocode → checkout → confirm → order', async ({
     page,
   }) => {
     await customerLogin(page);
@@ -34,9 +40,16 @@ test.describe('customer booking', () => {
     await cont.click();
 
     // Checkout resolved the nearest shop + a peso total.
-    await expect(page.getByText('Confirm booking')).toBeVisible({ timeout: 20_000 });
+    const confirm = page.getByText('Confirm booking');
+    await expect(confirm).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText(/₱\s?\d/).first()).toBeVisible();
     // The resolved-shop card shows the "Closest" badge.
     await expect(page.getByText('Closest')).toBeVisible();
+
+    // Confirm → creates the order and navigates to its detail page.
+    await confirm.click();
+    // Order detail shows the newly-minted order code + its total.
+    await expect(page.getByText(/WG-\d{4}-\d+/)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('Total')).toBeVisible();
   });
 });
