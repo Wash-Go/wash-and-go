@@ -42,7 +42,7 @@ function OrderCard({ order: o }: { order: OrderView }) {
   const color = statusColor(o.status);
   const actions = o.availableActions ?? [];
   return (
-    <div style={{ background: c.surface, border: `1px solid ${c.border}`, borderRadius: 12, padding: 16 }}>
+    <div data-testid={`order-${o.code}`} style={{ background: c.surface, border: `1px solid ${c.border}`, borderRadius: 12, padding: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <strong>{o.code}</strong>
         <span style={{ color, background: color + '1A', padding: '3px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600 }}>

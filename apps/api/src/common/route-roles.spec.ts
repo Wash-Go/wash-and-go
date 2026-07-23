@@ -23,7 +23,12 @@ function rolesOf(ctrl: object, method: string): string[] | undefined {
 describe('route role matrix', () => {
   it('orders controller routes carry the expected @Roles', () => {
     const c = OrdersController.prototype;
-    expect(rolesOf(c, 'preview')).toEqual(['CUSTOMER']);
+    expect(rolesOf(c, 'preview')).toEqual([
+      'CUSTOMER',
+      'SHOP_OWNER',
+      'SHOP_STAFF',
+      'ADMIN',
+    ]);
     expect(rolesOf(c, 'quote')).toEqual(['CUSTOMER']);
     expect(rolesOf(c, 'create')).toEqual(['CUSTOMER']);
     expect(rolesOf(c, 'assignRider')).toEqual(['ADMIN']);

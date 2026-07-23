@@ -40,7 +40,10 @@ export class OrdersController {
   constructor(private readonly orders: OrdersService) {}
 
   @Post('preview')
-  @Roles('CUSTOMER')
+  // Read-only price calc, not sensitive to the shop (it's their own order's
+  // economics). The laundry portal previews the recomputed total before a
+  // weigh-in, so shop roles + admin need it too, not just the customer.
+  @Roles('CUSTOMER', 'SHOP_OWNER', 'SHOP_STAFF', 'ADMIN')
   @ApiOperation({ summary: 'Price a prospective order (no write)' })
   preview(@Body() dto: PreviewOrderDto) {
     return this.orders.previewOrder(dto);
