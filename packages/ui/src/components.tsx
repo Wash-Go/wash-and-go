@@ -11,7 +11,19 @@ import {
   ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, radius, space, type } from './theme';
+import { colors, elevation, font, radius, space, type } from './theme';
+
+// Spring-scale on press — gives buttons/cards physical weight (haptic feel).
+function usePressScale(to = 0.97) {
+  const s = useRef(new Animated.Value(1)).current;
+  const spring = (v: number) =>
+    Animated.spring(s, { toValue: v, useNativeDriver: true, speed: 40, bounciness: 6 }).start();
+  return {
+    scale: s,
+    onPressIn: () => spring(to),
+    onPressOut: () => spring(1),
+  };
+}
 
 export function Screen({
   children,
@@ -26,6 +38,7 @@ export function Screen({
         <ScrollView
           contentContainerStyle={styles.scrollBody}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
           {children}
         </ScrollView>
@@ -47,20 +60,25 @@ export function Card({
   onPress?: () => void;
   testID?: string;
 }) {
-  const content = (
-    <View style={[styles.card, style]} testID={onPress ? undefined : testID}>
-      {children}
-    </View>
-  );
-  if (!onPress) return content;
+  const press = usePressScale(0.985);
+  if (!onPress) {
+    return (
+      <View style={[styles.card, style]} testID={testID}>
+        {children}
+      </View>
+    );
+  }
   return (
     <Pressable
       onPress={onPress}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       accessibilityRole="button"
       testID={testID}
-      style={({ pressed }) => (pressed ? styles.pressed : undefined)}
     >
-      {content}
+      <Animated.View style={[styles.card, style, { transform: [{ scale: press.scale }] }]}>
+        {children}
+      </Animated.View>
     </Pressable>
   );
 }
@@ -79,19 +97,32 @@ export function PrimaryButton({
   tone?: 'navy' | 'terra';
 }) {
   const off = disabled || loading;
+  const press = usePressScale(0.96);
+  const shadow = off ? undefined : tone === 'terra' ? elevation.terra : elevation.hero;
   return (
     <Pressable
       onPress={onPress}
       disabled={off}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       accessibilityRole="button"
       accessibilityState={{ disabled: !!off }}
-      style={[styles.btn, tone === 'terra' && styles.btnTerra, off && styles.btnOff]}
     >
-      {loading ? (
-        <ActivityIndicator color="#fff" />
-      ) : (
-        <Text style={styles.btnText}>{label}</Text>
-      )}
+      <Animated.View
+        style={[
+          styles.btn,
+          tone === 'terra' && styles.btnTerra,
+          off && styles.btnOff,
+          shadow,
+          { transform: [{ scale: press.scale }] },
+        ]}
+      >
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={[styles.btnText, off && { color: colors.textFaint }]}>{label}</Text>
+        )}
+      </Animated.View>
     </Pressable>
   );
 }
@@ -139,7 +170,7 @@ export function SlideToConfirm({
 
   return (
     <View
-      style={[styles.slideTrack, { backgroundColor: color + '22' }]}
+      style={[styles.slideTrack, { backgroundColor: color + '1c' }]}
       onLayout={(e) => (widthRef.current = e.nativeEvent.layout.width)}
     >
       <Text style={[styles.slideLabel, { color }]}>{label}</Text>
@@ -161,6 +192,11 @@ export function H2({ children }: { children: React.ReactNode }) {
 }
 export function Muted({ children }: { children: React.ReactNode }) {
   return <Text style={[type.small, { color: colors.textMuted }]}>{children}</Text>;
+}
+
+// Small uppercase section label (eyebrow).
+export function Eyebrow({ children, color = colors.terraDark }: { children: React.ReactNode; color?: string }) {
+  return <Text style={[type.label, { color, textTransform: 'uppercase' }]}>{children}</Text>;
 }
 
 export function Loading({ label = 'Loading…' }: { label?: string }) {
@@ -236,47 +272,44 @@ export function ErrorState({
 
 export function Pill({ text, color }: { text: string; color: string }) {
   return (
-    <View style={[styles.pill, { backgroundColor: color + '1A' }]}>
-      <Text style={[type.small, { color, fontWeight: '600' }]}>{text}</Text>
+    <View style={[styles.pill, { backgroundColor: color + '18' }]}>
+      <View style={[styles.pillDot, { backgroundColor: color }]} />
+      <Text style={[type.small, { color, fontFamily: font.bold }]}>{text}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  scrollBody: { padding: space.lg, gap: space.md, paddingBottom: space.xxl },
+  scrollBody: { padding: space.lg, gap: space.md, paddingBottom: space.xxxl },
   body: { flex: 1, padding: space.lg },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    borderColor: colors.borderSoft,
     padding: space.lg,
     gap: space.sm,
+    ...elevation.card,
   },
-  pressed: { opacity: 0.7 },
   btn: {
     backgroundColor: colors.brand,
-    borderRadius: radius.md,
-    minHeight: 52,
+    borderRadius: radius.lg,
+    minHeight: 54,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: space.lg,
   },
   btnTerra: { backgroundColor: colors.terra },
   btnOff: { backgroundColor: colors.border },
-  btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  btnText: { color: '#fff', fontSize: 16, fontFamily: font.bold, letterSpacing: -0.2 },
   slideTrack: {
     height: 64,
     borderRadius: radius.pill,
     justifyContent: 'center',
     paddingHorizontal: 4,
   },
-  slideLabel: {
-    textAlign: 'center',
-    fontSize: 16,
-    fontWeight: '700',
-  },
+  slideLabel: { textAlign: 'center', fontSize: 16, fontFamily: font.bold },
   slideThumb: {
     position: 'absolute',
     left: 4,
@@ -285,8 +318,9 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation.soft,
   },
-  slideThumbText: { color: '#fff', fontSize: 24, fontWeight: '800' },
+  slideThumbText: { color: '#fff', fontSize: 24, fontFamily: font.extrabold },
   centered: {
     flex: 1,
     minHeight: 320,
@@ -295,9 +329,13 @@ const styles = StyleSheet.create({
     padding: space.xl,
   },
   pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: space.md,
-    paddingVertical: space.xs,
+    paddingVertical: 5,
     borderRadius: radius.pill,
     alignSelf: 'flex-start',
   },
+  pillDot: { width: 6, height: 6, borderRadius: 3 },
 });
