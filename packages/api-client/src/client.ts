@@ -5,6 +5,9 @@ import type {
   CreateAddressBody,
   CreateOrderBody,
   GeocodeHit,
+  RecordDepositBody,
+  RiderCashBalance,
+  RiderCashDetail,
   UpdateAddressBody,
   OrderQuote,
   OrderStatus,
@@ -78,7 +81,11 @@ export class ApiClient {
     retry?: { token: string | null },
   ): Promise<T> {
     const token = retry ? retry.token : await this.tokens.getToken();
-    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    const headers: Record<string, string> = {};
+    // Only set content-type when there's a body — Fastify rejects an empty body
+    // sent with content-type: application/json (breaks no-body POSTs like
+    // pay-cash).
+    if (body !== undefined) headers['content-type'] = 'application/json';
     if (token) headers['authorization'] = `Bearer ${token}`;
     if (this.devUid) headers['x-dev-uid'] = this.devUid;
 
@@ -239,6 +246,24 @@ export class ApiClient {
   // Address → coordinates (booking pickup search). null = no match.
   geocode(query: string): Promise<GeocodeHit | null> {
     return this.request('GET', `/geocode?q=${encodeURIComponent(query)}`);
+  }
+
+  // --- Admin: rider cash reconciliation ---
+
+  getRiderCashSummary(): Promise<RiderCashBalance[]> {
+    return this.request('GET', '/admin/riders/cash');
+  }
+
+  getRiderCashDetail(riderId: string): Promise<RiderCashDetail> {
+    return this.request('GET', `/admin/riders/${encodeURIComponent(riderId)}/cash`);
+  }
+
+  recordRiderDeposit(riderId: string, body: RecordDepositBody): Promise<unknown> {
+    return this.request(
+      'POST',
+      `/admin/riders/${encodeURIComponent(riderId)}/cash/deposit`,
+      body,
+    );
   }
 }
 

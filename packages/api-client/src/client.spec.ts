@@ -38,7 +38,8 @@ describe('ApiClient', () => {
     expect(url).toBe('http://api.test/shops'); // trailing slash on baseUrl trimmed
     expect(init.method).toBe('GET');
     expect(init.headers.authorization).toBe('Bearer tok-1');
-    expect(init.headers['content-type']).toBe('application/json');
+    // No body ⇒ no content-type (Fastify 500s on empty json bodies).
+    expect(init.headers['content-type']).toBeUndefined();
   });
 
   it('sends no authorization header when there is no token', async () => {
@@ -63,6 +64,8 @@ describe('ApiClient', () => {
     const [url, init] = fetchFn.mock.calls[0];
     expect(url).toBe('http://api.test/orders/preview');
     expect(JSON.parse(init.body)).toEqual({ shopServiceId: 'ss1', weightKg: 6 });
+    // A body ⇒ content-type is set.
+    expect(init.headers['content-type']).toBe('application/json');
   });
 
   it('on 401 refreshes once and retries with the new token', async () => {

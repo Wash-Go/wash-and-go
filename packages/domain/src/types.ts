@@ -189,3 +189,32 @@ export interface GeocodeHit {
   label: string;
   score?: number;
 }
+
+// Rider cash reconciliation (admin). Money is stringified Decimal.
+export interface RiderCashBalance {
+  riderId: string;
+  collectedPhp: string;
+  depositedPhp: string;
+  outstandingPhp: string;
+}
+
+export interface RiderCashDepositView {
+  id: string;
+  riderId: string;
+  amountPhp: string;
+  reference: string | null;
+  note: string | null;
+  recordedByUid: string;
+  createdAt: string;
+}
+
+export interface RiderCashDetail {
+  balance: RiderCashBalance;
+  deposits: RiderCashDepositView[];
+}
+
+export interface RecordDepositBody {
+  amountPhp: number;
+  reference?: string;
+  note?: string;
+}

@@ -10,6 +10,7 @@ import { defineConfig, devices } from '@playwright/test';
  * dev server is auto-started by the webServer block below.
  */
 const PORTAL_URL = process.env.PORTAL_URL ?? 'http://localhost:3002';
+export const ADMIN_URL = process.env.ADMIN_URL ?? 'http://localhost:3001';
 export const API_URL = process.env.API_URL ?? 'http://localhost:4000';
 
 export default defineConfig({
@@ -28,11 +29,20 @@ export default defineConfig({
     headless: true,
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  webServer: {
-    command: 'pnpm --filter @wash-and-go/laundry-portal dev',
-    url: PORTAL_URL,
-    reuseExistingServer: true,
-    timeout: 120_000,
-    cwd: '..',
-  },
+  webServer: [
+    {
+      command: 'pnpm --filter @wash-and-go/laundry-portal dev',
+      url: PORTAL_URL,
+      reuseExistingServer: true,
+      timeout: 120_000,
+      cwd: '..',
+    },
+    {
+      command: 'pnpm --filter @wash-and-go/admin-dashboard dev',
+      url: ADMIN_URL,
+      reuseExistingServer: true,
+      timeout: 120_000,
+      cwd: '..',
+    },
+  ],
 });
