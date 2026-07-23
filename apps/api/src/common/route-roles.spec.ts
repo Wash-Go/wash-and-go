@@ -8,6 +8,7 @@ import { RidersController } from '../riders/riders.controller';
 import { RiderCashController } from '../riders/rider-cash.controller';
 import { ShopsController } from '../shops/shops.controller';
 import { ZonesController } from '../zones/zones.controller';
+import { GeocodeController } from '../maps/geocode.controller';
 
 /*
  * B6: lock the coarse role matrix. RolesGuard reads @Roles metadata off each
@@ -76,6 +77,13 @@ describe('route role matrix', () => {
     for (const m of ['list', 'create', 'setActive', 'resolve']) {
       expect(rolesOf(c, m)).toEqual(['ADMIN']);
     }
+  });
+
+  it('geocode is CUSTOMER + ADMIN', () => {
+    expect(rolesOf(GeocodeController.prototype, 'geocode')).toEqual([
+      'CUSTOMER',
+      'ADMIN',
+    ]);
   });
 
   it('the shops catalog is CUSTOMER-scoped', () => {

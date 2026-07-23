@@ -21,6 +21,7 @@ export default function BookScreen() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [address, setAddress] = useState('');
   const [gpsLoading, setGpsLoading] = useState(false);
+  const [geoLoading, setGeoLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<AddressView[]>([]);
   const [saveNew, setSaveNew] = useState(false);
@@ -40,6 +41,27 @@ export default function BookScreen() {
       setCoords({ lat: Number(a.lat), lng: Number(a.lng) });
     }
   }, []);
+
+  // Geocode the typed address → pin its coordinates (no GPS needed).
+  const findAddress = useCallback(async () => {
+    const q = address.trim();
+    if (q.length < 2) return;
+    setGeoLoading(true);
+    setError(null);
+    try {
+      const hit = await api.geocode(q);
+      if (hit) {
+        setCoords(hit.point);
+        setAddress(hit.label);
+      } else {
+        setError('No match for that address. Try GPS or add more detail.');
+      }
+    } catch {
+      setError('Could not search that address. Try again or use GPS.');
+    } finally {
+      setGeoLoading(false);
+    }
+  }, [address]);
 
   const useMyLocation = useCallback(async () => {
     setGpsLoading(true);
@@ -192,6 +214,21 @@ export default function BookScreen() {
       />
 
       <Pressable
+        onPress={findAddress}
+        disabled={address.trim().length < 2 || geoLoading}
+        style={({ pressed }) => [
+          styles.findBtn,
+          (address.trim().length < 2 || geoLoading) && { opacity: 0.5 },
+          pressed && { opacity: 0.8 },
+        ]}
+        accessibilityRole="button"
+      >
+        <Text style={styles.findBtnT}>
+          {geoLoading ? 'Searching…' : '🔎 Find this address'}
+        </Text>
+      </Pressable>
+
+      <Pressable
         onPress={() => setSaveNew((v) => !v)}
         style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
         accessibilityRole="checkbox"
@@ -250,4 +287,14 @@ const styles = StyleSheet.create({
   },
   checkOn: { backgroundColor: colors.navy, borderColor: colors.navy },
   checkMark: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  findBtn: {
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.navy,
+    backgroundColor: colors.navyTint,
+  },
+  findBtnT: { color: colors.navy, fontWeight: '700', fontSize: 13 },
 });

@@ -4,6 +4,7 @@ import type {
   ConfigAuditEntry,
   CreateAddressBody,
   CreateOrderBody,
+  GeocodeHit,
   UpdateAddressBody,
   OrderQuote,
   OrderStatus,
@@ -233,6 +234,11 @@ export class ApiClient {
 
   deleteAddress(id: string): Promise<void> {
     return this.request('DELETE', `/me/addresses/${encodeURIComponent(id)}`);
+  }
+
+  // Address → coordinates (booking pickup search). null = no match.
+  geocode(query: string): Promise<GeocodeHit | null> {
+    return this.request('GET', `/geocode?q=${encodeURIComponent(query)}`);
   }
 }
 

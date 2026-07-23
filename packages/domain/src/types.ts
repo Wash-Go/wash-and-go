@@ -182,3 +182,10 @@ export interface CreateAddressBody {
 }
 
 export type UpdateAddressBody = Partial<CreateAddressBody>;
+
+// Geocode result from GET /geocode?q= (address → coords). null = no match.
+export interface GeocodeHit {
+  point: { lat: number; lng: number };
+  label: string;
+  score?: number;
+}

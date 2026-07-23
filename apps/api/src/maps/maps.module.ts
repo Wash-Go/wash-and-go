@@ -3,9 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import type { MapsProvider } from '@wash-and-go/maps';
 import { TomTomProvider } from './tomtom.provider';
 import { HaversineProvider } from './haversine.provider';
+import { GeocodeController } from './geocode.controller';
+import { MAPS_PROVIDER } from './maps.constants';
 
-// Injection token for the active MapsProvider. Consumers: @Inject(MAPS_PROVIDER).
-export const MAPS_PROVIDER = 'MAPS_PROVIDER';
+export { MAPS_PROVIDER } from './maps.constants';
 
 /*
  * Picks the maps adapter from config (D10). MAPS_PROVIDER=tomtom + a key → the
@@ -15,6 +16,7 @@ export const MAPS_PROVIDER = 'MAPS_PROVIDER';
  */
 @Global()
 @Module({
+  controllers: [GeocodeController],
   providers: [
     {
       provide: MAPS_PROVIDER,
