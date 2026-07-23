@@ -23,6 +23,12 @@ export const envValidationSchema = Joi.object({
   REDIS_URL: Joi.string().uri().optional(),
   CORS_ORIGINS: Joi.string().optional(), // comma-separated allow-list
 
+  // Maps provider (geocoding + routing). Key optional until the spike wires it;
+  // the provider falls back to the haversine proxy when its key is absent.
+  MAPS_PROVIDER: Joi.string().valid('tomtom', 'google').default('tomtom'),
+  TOMTOM_API_KEY: Joi.string().allow('').optional(),
+  GOOGLE_MAPS_API_KEY: Joi.string().allow('').optional(),
+
   // Pricing / delivery params — optional (code carries pilot defaults).
   SERVICE_FEE_PHP: Joi.number().optional(),
   DELIVERY_BASE_PHP: Joi.number().optional(),
