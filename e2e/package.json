@@ -1,0 +1,14 @@
+{
+  "name": "@wash-and-go/e2e",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "smoke": "playwright test",
+    "smoke:portal": "playwright test laundry-portal"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "docx": "^9.7.1"
+  }
+}

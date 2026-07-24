@@ -46,6 +46,8 @@ async function main() {
     { firebaseUid: 'dev-customer', phone: '+639170000001', displayName: 'Test Customer', roles: ['CUSTOMER'] as const },
     { firebaseUid: 'dev-rider-1', phone: '+639170000002', displayName: 'Rider One', roles: ['RIDER'] as const },
     { firebaseUid: 'dev-rider-2', phone: '+639170000003', displayName: 'Rider Two', roles: ['RIDER'] as const },
+    { firebaseUid: 'dev-admin', phone: '+639170000004', displayName: 'Dev Admin', roles: ['ADMIN'] as const },
+    { firebaseUid: 'dev-shop-owner', phone: '+639170000005', displayName: 'Shop Owner', roles: ['SHOP_OWNER'] as const },
   ];
   for (const u of users) {
     await prisma.user.upsert({
@@ -55,7 +57,40 @@ async function main() {
     });
   }
 
-  console.log('Seed complete: 3 services, 2 shops (+express slots), 3 users.');
+  // Make dev-shop-owner a member of the Tetuan shop so the laundry-portal has
+  // scoped data (the shop view filters by ShopMember).
+  const tetuan = await prisma.shop.findFirst({ where: { name: 'Tetuan Laundry Hub' } });
+  const shopOwner = await prisma.user.findUnique({ where: { firebaseUid: 'dev-shop-owner' } });
+  if (tetuan && shopOwner) {
+    await prisma.shopMember.upsert({
+      where: { shopId_userId: { shopId: tetuan.id, userId: shopOwner.id } },
+      create: { shopId: tetuan.id, userId: shopOwner.id, role: 'OWNER' },
+      update: { role: 'OWNER' },
+    });
+  }
+
+  // Coverage zone — a real Zamboanga City ring so pilot bookings resolve against
+  // a DB zone (not just the hardcoded pilot-ring fallback). Admin can redraw it.
+  const zoneName = 'Zamboanga City (pilot)';
+  const zonePolygon = [
+    { lat: 6.86, lng: 122.02 },
+    { lat: 6.86, lng: 122.14 },
+    { lat: 6.98, lng: 122.14 },
+    { lat: 6.98, lng: 122.02 },
+  ];
+  const existingZone = await prisma.zone.findFirst({ where: { name: zoneName } });
+  if (existingZone) {
+    await prisma.zone.update({
+      where: { id: existingZone.id },
+      data: { active: true, polygon: zonePolygon },
+    });
+  } else {
+    await prisma.zone.create({
+      data: { name: zoneName, active: true, polygon: zonePolygon },
+    });
+  }
+
+  console.log('Seed complete: 3 services, 2 shops, 5 users, 1 shop member, 1 zone.');
 }
 
 main()
