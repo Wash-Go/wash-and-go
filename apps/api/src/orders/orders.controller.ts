@@ -24,6 +24,7 @@ import {
   CreateOrderDto,
   PreviewOrderDto,
   QuoteOrderDto,
+  RateOrderDto,
   TransitionDto,
   WeighDto,
 } from './dto/orders.dto';
@@ -101,6 +102,17 @@ export class OrdersController {
     @Body() dto: TransitionDto,
   ) {
     return this.orders.transition(user, id, dto);
+  }
+
+  @Post(':id/rating')
+  @Roles('CUSTOMER')
+  @ApiOperation({ summary: 'Rate a delivered order (customer, once)' })
+  rate(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Body() dto: RateOrderDto,
+  ) {
+    return this.orders.rateOrder(user, id, dto);
   }
 
   @Post(':id/pay-cash')

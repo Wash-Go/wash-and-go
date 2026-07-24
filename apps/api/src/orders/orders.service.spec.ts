@@ -110,6 +110,7 @@ function makeRelOrder(overrides: Partial<Order> = {}) {
     assignedRider: o.assignedRiderId
       ? makeUserRow(o.assignedRiderId, ['RIDER'])
       : null,
+    rating: null,
   };
 }
 
@@ -125,6 +126,8 @@ describe('OrdersService', () => {
   beforeEach(() => {
     repo = {
       findByIdempotencyKey: jest.fn().mockResolvedValue(null),
+      createRating: jest.fn(),
+      avgRatingByShop: jest.fn().mockResolvedValue(new Map()),
       findShopServiceWithShop: jest.fn(),
       findActiveShopServices: jest.fn(),
       countExpressUsedByShopForDay: jest.fn().mockResolvedValue(new Map()),
@@ -837,6 +840,63 @@ describe('OrdersService', () => {
       await expect(
         service.payCash(makeUser(['ADMIN']), 'nope'),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('rateOrder', () => {
+    it('rates a delivered order owned by the customer', async () => {
+      repo.findByIdForUpdate.mockResolvedValue(
+        makeOrder({ status: 'DELIVERED', customerId: 'cust', shopId: 'shop1' }),
+      );
+      repo.createRating.mockResolvedValue({ id: 'rt1', stars: 5 } as never);
+      await service.rateOrder(makeUser(['CUSTOMER'], 'cust'), 'o1', {
+        stars: 5,
+        comment: 'Great',
+      });
+      expect(repo.createRating).toHaveBeenCalledWith(
+        {},
+        expect.objectContaining({
+          orderId: 'o1',
+          shopId: 'shop1',
+          customerId: 'cust',
+          stars: 5,
+          comment: 'Great',
+        }),
+      );
+    });
+
+    it('rejects rating a non-delivered order', async () => {
+      repo.findByIdForUpdate.mockResolvedValue(
+        makeOrder({ status: 'AT_SHOP', customerId: 'cust', shopId: 'shop1' }),
+      );
+      await expect(
+        service.rateOrder(makeUser(['CUSTOMER'], 'cust'), 'o1', { stars: 4 }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it("forbids rating someone else's order", async () => {
+      repo.findByIdForUpdate.mockResolvedValue(
+        makeOrder({ status: 'DELIVERED', customerId: 'other', shopId: 'shop1' }),
+      );
+      await expect(
+        service.rateOrder(makeUser(['CUSTOMER'], 'cust'), 'o1', { stars: 4 }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('rejects a second rating (already rated)', async () => {
+      repo.findByIdForUpdate.mockResolvedValue(
+        makeOrder({ status: 'DELIVERED', customerId: 'cust', shopId: 'shop1' }),
+      );
+      repo.createRating.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('dup', {
+          code: 'P2002',
+          clientVersion: 'x',
+          meta: { target: 'Rating_orderId_key' },
+        }),
+      );
+      await expect(
+        service.rateOrder(makeUser(['CUSTOMER'], 'cust'), 'o1', { stars: 5 }),
+      ).rejects.toBeInstanceOf(ConflictException);
     });
   });
 

@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { isTerminal, type OrderView } from '@wash-and-go/domain';
 import { api } from '../../lib/api';
 import {
@@ -13,6 +13,7 @@ import {
   StatusTimeline,
   colors,
   peso,
+  radius,
   space,
   type,
 } from '@wash-and-go/ui';
@@ -30,6 +31,10 @@ export default function OrderDetailScreen() {
   const [confirming, setConfirming] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [stars, setStars] = useState(0);
+  const [comment, setComment] = useState('');
+  const [rating, setRating] = useState(false);
+  const [rateError, setRateError] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchOnce = useCallback(
@@ -70,6 +75,20 @@ export default function OrderDetailScreen() {
       setCancelling(false);
     }
   }, [id, fetchOnce]);
+
+  const doRate = useCallback(async () => {
+    if (stars < 1) return;
+    setRating(true);
+    setRateError(null);
+    try {
+      await api.rateOrder(id, { stars, comment: comment.trim() || undefined });
+      await fetchOnce(false);
+    } catch (e) {
+      setRateError(e instanceof Error ? e.message : 'Could not submit your rating.');
+    } finally {
+      setRating(false);
+    }
+  }, [id, stars, comment, fetchOnce]);
 
   useEffect(() => {
     fetchOnce(false);
@@ -121,6 +140,53 @@ export default function OrderDetailScreen() {
             : `Estimate — based on ~${o.weightEstimateKg}kg until the shop weighs in.`}
         </Muted>
       </Card>
+
+      {o.status === 'DELIVERED' ? (
+        <Card>
+          {o.ratedStars != null ? (
+            <>
+              <Text style={[type.title, { color: colors.text }]}>Your rating</Text>
+              <Text testID="rated-stars" style={styles.starsBig}>
+                {'★'.repeat(o.ratedStars)}
+                {'☆'.repeat(5 - o.ratedStars)}
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={[type.title, { color: colors.text }]}>Rate your order</Text>
+              <Muted>Your rating helps us match you with the best shops.</Muted>
+              <View style={styles.starsRow}>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <Pressable
+                    key={n}
+                    testID={`rate-star-${n}`}
+                    onPress={() => setStars(n)}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.star}>{n <= stars ? '★' : '☆'}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <TextInput
+                value={comment}
+                onChangeText={setComment}
+                placeholder="Add a comment (optional)"
+                placeholderTextColor={colors.textMuted}
+                style={styles.commentInput}
+                multiline
+              />
+              {rateError ? <Text style={styles.cancelError}>{rateError}</Text> : null}
+              <PrimaryButton
+                label="Submit rating"
+                onPress={doRate}
+                disabled={stars < 1}
+                loading={rating}
+                testID="rate-submit"
+              />
+            </>
+          )}
+        </Card>
+      ) : null}
 
       {o.status === 'CANCELLED' ? (
         <Card style={{ backgroundColor: colors.navyTint }}>
@@ -193,6 +259,20 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.border,
     marginVertical: space.xs,
+  },
+  starsRow: { flexDirection: 'row', gap: space.xs, marginVertical: space.sm },
+  star: { fontSize: 34, color: colors.terra },
+  starsBig: { fontSize: 28, color: colors.terra, marginTop: space.xs },
+  commentInput: {
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: space.md,
+    minHeight: 44,
+    color: colors.text,
+    fontSize: 15,
+    marginBottom: space.sm,
   },
   cancelLink: { color: colors.terra, fontWeight: '700', ...type.body, textAlign: 'center' },
   keepLink: { color: colors.textMuted, fontWeight: '600', ...type.body, textAlign: 'center' },

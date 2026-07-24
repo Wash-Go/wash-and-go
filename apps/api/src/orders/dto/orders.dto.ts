@@ -4,6 +4,7 @@ import { LOAD_CATEGORY_KEYS, LoadCategoryKey } from '../load';
 import {
   IsEnum,
   IsIn,
+  IsInt,
   IsISO8601,
   IsLatitude,
   IsLongitude,
@@ -13,6 +14,7 @@ import {
   IsString,
   Max,
   MaxLength,
+  Min,
 } from 'class-validator';
 
 const LOAD_KEYS = LOAD_CATEGORY_KEYS as unknown as string[];
@@ -110,6 +112,20 @@ export class WeighDto {
   @IsPositive()
   @Max(100)
   weightKg!: number;
+}
+
+export class RateOrderDto {
+  @ApiProperty({ example: 5, minimum: 1, maximum: 5, description: 'Stars 1–5' })
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  stars!: number;
+
+  @ApiProperty({ required: false, description: 'Optional review comment' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  comment?: string;
 }
 
 export class TransitionDto {

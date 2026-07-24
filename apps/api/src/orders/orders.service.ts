@@ -9,6 +9,7 @@ import {
   Order,
   OrderStatus,
   Prisma,
+  Rating,
   ServiceType,
   Shop,
   ShopService,
@@ -38,12 +39,14 @@ export type OrderDetail = Order & {
   customer: { id: string; displayName: string; phone: string };
   rider: { id: string; displayName: string } | null;
   availableActions: OrderStatus[];
+  ratedStars: number | null;
 };
 import {
   AssignRiderDto,
   CreateOrderDto,
   PreviewOrderDto,
   QuoteOrderDto,
+  RateOrderDto,
   TransitionDto,
   WeighDto,
 } from './dto/orders.dto';
@@ -187,6 +190,10 @@ export class OrdersService {
       );
     }
 
+    const ratings = await this.repo.avgRatingByShop(
+      inRange.map((x) => x.ss.shop.id),
+    );
+
     const candidates: ShopCandidate[] = inRange.map((x) => ({
       shopServiceId: x.ss.id,
       shopId: x.ss.shop.id,
@@ -194,6 +201,7 @@ export class OrdersService {
       turnaroundHours: x.ss.turnaroundHours,
       slotsPerDay: x.ss.shop.expressSlotsPerDay,
       usedToday: used.get(x.ss.shop.id) ?? 0,
+      avgRating: ratings.get(x.ss.shop.id)?.avg ?? 0,
     }));
     const best = rankShopCandidates(candidates, capacityAware)[0];
     const chosen = inRange.find((x) => x.ss.id === best.shopServiceId)!;
@@ -624,6 +632,40 @@ export class OrdersService {
     });
   }
 
+  // POST /orders/:id/rating — a customer rates their own delivered order, once.
+  async rateOrder(
+    actor: User,
+    orderId: string,
+    dto: RateOrderDto,
+  ): Promise<Rating> {
+    return this.prisma.$transaction(async (tx) => {
+      const order = await this.repo.findByIdForUpdate(tx, orderId);
+      if (!order) throw new NotFoundException('Order not found');
+      if (order.customerId !== actor.id) {
+        throw new ForbiddenException('Not your order to rate');
+      }
+      if (order.status !== OrderStatus.DELIVERED) {
+        throw new ConflictException('Only delivered orders can be rated');
+      }
+      if (!order.shopId) throw new ConflictException('Order has no shop to rate');
+      try {
+        return await this.repo.createRating(tx, {
+          orderId: order.id,
+          shopId: order.shopId,
+          customerId: actor.id,
+          stars: dto.stars,
+          comment: dto.comment,
+        });
+      } catch (e) {
+        // unique(orderId) — already rated.
+        if (isUniqueViolation(e, 'orderId')) {
+          throw new ConflictException('This order has already been rated');
+        }
+        throw e;
+      }
+    });
+  }
+
   async getOrder(actor: User, orderId: string): Promise<OrderDetail> {
     const order = await this.repo.findByIdWithRelations(orderId);
     if (!order) throw new NotFoundException('Order not found');
@@ -745,7 +787,7 @@ export class OrdersService {
     actor: User,
     o: OrderWithRelations,
   ): Promise<OrderDetail> {
-    const { shop, customer, assignedRider, ...scalars } = o;
+    const { shop, customer, assignedRider, rating, ...scalars } = o;
     return {
       ...scalars,
       shop: shop ? { id: shop.id, name: shop.name, address: shop.address } : null,
@@ -758,6 +800,7 @@ export class OrdersService {
         ? { id: assignedRider.id, displayName: assignedRider.displayName }
         : null,
       availableActions: await this.availableActionsFor(actor, o),
+      ratedStars: rating ? rating.stars : null,
     };
   }
 

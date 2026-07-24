@@ -195,6 +195,7 @@ model Order {
 
   events         OrderEvent[]
   remittanceLine RemittanceLine?
+  rating         Rating?
 
   @@index([status, createdAt])
   @@index([shopId, status])
@@ -312,4 +313,19 @@ model ConfigAudit {
   changedAt DateTime @default(now())
 
   @@index([changedAt(sort: Desc)])
+}
+
+// Customer rating of a delivered order (one per order). Feeds the shop-match
+// ranking (average stars per shop). Reviews checkpoint.
+model Rating {
+  id         String   @id @default(cuid())
+  orderId    String   @unique
+  order      Order    @relation(fields: [orderId], references: [id])
+  shopId     String
+  customerId String
+  stars      Int // 1..5
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  @@index([shopId])
 }

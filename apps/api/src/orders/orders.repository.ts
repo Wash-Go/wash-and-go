@@ -3,6 +3,7 @@ import {
   Order,
   OrderStatus,
   Prisma,
+  Rating,
   ServiceType,
   Shop,
   ShopService,
@@ -24,6 +25,32 @@ export class OrdersRepository {
   // ── catalog / membership reads (no tx needed) ───────────────────────────
   findByIdempotencyKey(key: string): Promise<Order | null> {
     return this.prisma.order.findUnique({ where: { idempotencyKey: key } });
+  }
+
+  // ── ratings (Reviews checkpoint) ─────────────────────────────────────────
+  createRating(
+    tx: Prisma.TransactionClient,
+    data: Prisma.RatingUncheckedCreateInput,
+  ): Promise<Rating> {
+    return tx.rating.create({ data });
+  }
+
+  // Average stars + count per shop, for the shop-match ranking.
+  async avgRatingByShop(
+    shopIds: string[],
+  ): Promise<Map<string, { avg: number; count: number }>> {
+    if (shopIds.length === 0) return new Map();
+    const grouped = await this.prisma.rating.groupBy({
+      by: ['shopId'],
+      where: { shopId: { in: shopIds } },
+      _avg: { stars: true },
+      _count: { _all: true },
+    });
+    const m = new Map<string, { avg: number; count: number }>();
+    for (const g of grouped) {
+      m.set(g.shopId, { avg: g._avg.stars ?? 0, count: g._count._all });
+    }
+    return m;
   }
 
   findShopServiceWithShop(
@@ -216,7 +243,7 @@ export class OrdersRepository {
   findByIdWithRelations(id: string): Promise<OrderWithRelations | null> {
     return this.prisma.order.findUnique({
       where: { id },
-      include: { shop: true, customer: true, assignedRider: true },
+      include: { shop: true, customer: true, assignedRider: true, rating: true },
     });
   }
 
@@ -229,7 +256,7 @@ export class OrdersRepository {
       // Stable keyset order (createdAt desc, id as tiebreak) so cursor paging is
       // correct even when two orders share a createdAt.
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      include: { shop: true, customer: true, assignedRider: true },
+      include: { shop: true, customer: true, assignedRider: true, rating: true },
       take: opts.take,
       ...(opts.cursorId ? { cursor: { id: opts.cursorId }, skip: 1 } : {}),
     });
@@ -237,5 +264,5 @@ export class OrdersRepository {
 }
 
 export type OrderWithRelations = Prisma.OrderGetPayload<{
-  include: { shop: true; customer: true; assignedRider: true };
+  include: { shop: true; customer: true; assignedRider: true; rating: true };
 }>;

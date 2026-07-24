@@ -104,6 +104,7 @@ export interface OrderView {
   deliveredAt: string | null;
   cancelledAt: string | null;
   cancelReason: string | null;
+  ratedStars: number | null; // customer's rating for this order (1–5), null if unrated
   // Present on the shaped read (GET /orders/:id, GET /orders): relations + the
   // actions the requesting actor may drive next.
   shop?: ShopContact | null;
@@ -123,6 +124,11 @@ export interface CreateOrderBody {
   // requires scheduledPickupAt (ISO, must be in the future).
   serviceType?: ServiceType;
   scheduledPickupAt?: string;
+}
+
+export interface RateOrderBody {
+  stars: number; // 1–5
+  comment?: string;
 }
 
 export interface PreviewOrderBody {

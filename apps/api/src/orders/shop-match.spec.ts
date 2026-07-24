@@ -7,6 +7,7 @@ const cand = (over: Partial<ShopCandidate>): ShopCandidate => ({
   turnaroundHours: 24,
   slotsPerDay: 10,
   usedToday: 0,
+  avgRating: 0,
   ...over,
 });
 
@@ -27,6 +28,12 @@ describe('rankShopCandidates', () => {
     const slow = cand({ shopServiceId: 'slow', km: 1, turnaroundHours: 48 });
     const fast = cand({ shopServiceId: 'fast', km: 1, turnaroundHours: 12 });
     expect(rankShopCandidates([slow, fast], true)[0].shopServiceId).toBe('fast');
+  });
+
+  it('breaks a distance+turnaround tie by higher rating', () => {
+    const low = cand({ shopServiceId: 'low', km: 1, turnaroundHours: 24, avgRating: 3.2 });
+    const high = cand({ shopServiceId: 'high', km: 1, turnaroundHours: 24, avgRating: 4.8 });
+    expect(rankShopCandidates([low, high], true)[0].shopServiceId).toBe('high');
   });
 
   it('ignores capacity when not capacity-aware (Scheduled) — nearest wins even if full', () => {

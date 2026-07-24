@@ -20,6 +20,7 @@ import type {
   PreviewOrderBody,
   PricingBreakdown,
   QuoteOrderBody,
+  RateOrderBody,
   RemittanceBatchView,
   Rider,
   ShopView,
@@ -197,6 +198,10 @@ export class ApiClient {
       status,
       ...(reason ? { reason } : {}),
     });
+  }
+
+  rateOrder(id: string, body: RateOrderBody): Promise<unknown> {
+    return this.request('POST', `/orders/${encodeURIComponent(id)}/rating`, body);
   }
 
   payCash(id: string): Promise<OrderView> {

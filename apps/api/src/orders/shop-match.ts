@@ -1,11 +1,12 @@
-// Multi-factor shop selection (P4b). Replaces plain nearest-by-distance. No shop
-// rating data exists yet, so the factors are, in priority order:
+// Multi-factor shop selection (P4b + Reviews). Factors, in priority order:
 //   1. express capacity (Express only) — a shop already at its daily express cap
 //      is deprioritized so the quote doesn't recommend a shop that will 409 at
 //      booking
 //   2. distance — nearest wins
 //   3. turnaround — the faster shop breaks a distance tie
-// Rating joins the ranking when a review model lands.
+//   4. rating — higher average stars breaks a distance+turnaround tie
+// (Rating is a tiebreaker, not a weighted factor — how heavily rating should
+// outweigh distance is a product decision, left conservative for now.)
 
 export interface ShopCandidate {
   shopServiceId: string;
@@ -14,6 +15,7 @@ export interface ShopCandidate {
   turnaroundHours: number;
   slotsPerDay: number; // Shop.expressSlotsPerDay (daily Express cap)
   usedToday: number; // Express orders already booked at this shop today
+  avgRating: number; // average customer stars (0 when unrated)
 }
 
 export function hasExpressCapacity(c: ShopCandidate): boolean {
@@ -35,6 +37,7 @@ export function rankShopCandidates(
     if (a.turnaroundHours !== b.turnaroundHours) {
       return a.turnaroundHours - b.turnaroundHours;
     }
+    if (a.avgRating !== b.avgRating) return b.avgRating - a.avgRating; // higher first
     return a.shopServiceId.localeCompare(b.shopServiceId); // deterministic
   });
 }

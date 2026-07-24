@@ -43,6 +43,7 @@ describe('route role matrix', () => {
       'SHOP_STAFF',
       'ADMIN',
     ]);
+    expect(rolesOf(c, 'rate')).toEqual(['CUSTOMER']);
     expect(rolesOf(c, 'payCash')).toEqual(['ADMIN', 'RIDER']);
     // Any-authenticated + ownership-scoped in the service — deliberately no @Roles.
     expect(rolesOf(c, 'getOne')).toBeUndefined();

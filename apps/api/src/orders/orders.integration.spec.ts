@@ -86,6 +86,7 @@ describe('Orders integration (Docker Postgres)', () => {
     for (const shopId of createdShopIds) {
       const orders = await prisma.order.findMany({ where: { shopId } });
       const ids = orders.map((o) => o.id);
+      await prisma.rating.deleteMany({ where: { orderId: { in: ids } } });
       await prisma.remittanceLine.deleteMany({ where: { orderId: { in: ids } } });
       await prisma.orderEvent.deleteMany({ where: { orderId: { in: ids } } });
       await prisma.order.deleteMany({ where: { shopId } });
@@ -253,6 +254,17 @@ describe('Orders integration (Docker Postgres)', () => {
       where: { orderId: order.id },
     });
     expect(events).toBe(9); // booking + 7 transitions + weigh
+
+    // Customer rates the delivered order; a second rating is rejected.
+    await service.rateOrder(customer, order.id, {
+      stars: 5,
+      comment: 'Fast and clean',
+    });
+    const rated = await service.getOrder(customer, order.id);
+    expect(rated.ratedStars).toBe(5);
+    await expect(
+      service.rateOrder(customer, order.id, { stars: 3 }),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('capacity: two concurrent creates on a 1-slot shop → exactly one wins', async () => {
