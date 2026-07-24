@@ -4,7 +4,7 @@ import { defineConfig, devices } from '@playwright/test';
 // just render HTML → PDF.
 export default defineConfig({
   testDir: './capture',
-  testMatch: /(money|costs)\.spec\.ts/,
+  testMatch: /(money|costs|docx)\.spec\.ts/,
   workers: 1,
   reporter: [['list']],
   timeout: 120_000,
