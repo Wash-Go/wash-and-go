@@ -89,12 +89,14 @@ export function PrimaryButton({
   disabled,
   loading,
   tone = 'navy',
+  testID,
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
   loading?: boolean;
   tone?: 'navy' | 'terra';
+  testID?: string;
 }) {
   const off = disabled || loading;
   const press = usePressScale(0.96);
@@ -107,6 +109,7 @@ export function PrimaryButton({
       onPressOut={press.onPressOut}
       accessibilityRole="button"
       accessibilityState={{ disabled: !!off }}
+      testID={testID}
     >
       <Animated.View
         style={[

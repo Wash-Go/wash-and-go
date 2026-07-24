@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { signOut } from 'firebase/auth';
 import React from 'react';
 import { Alert, Platform, Text } from 'react-native';
@@ -39,10 +40,12 @@ export default function ProfileScreen() {
         <Muted>Signed in as</Muted>
         <Text style={[type.title, { color: colors.text }]}>{email ?? '—'}</Text>
       </Card>
+      <Card testID="manage-addresses" onPress={() => router.push('/addresses')}>
+        <Text style={[type.title, { color: colors.text }]}>Saved addresses</Text>
+        <Muted>Manage your pickup addresses for faster booking.</Muted>
+      </Card>
       <Card>
-        <Muted>
-          Saved addresses, payment methods, and notifications are coming soon.
-        </Muted>
+        <Muted>Payment methods and notifications are coming soon.</Muted>
       </Card>
       <PrimaryButton label="Sign out" onPress={confirmSignOut} />
     </Screen>
