@@ -190,6 +190,8 @@ model Order {
 
   createdAt   DateTime  @default(now())
   deliveredAt DateTime?
+  cancelledAt DateTime?
+  cancelReason String?
 
   events         OrderEvent[]
   remittanceLine RemittanceLine?

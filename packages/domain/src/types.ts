@@ -87,6 +87,8 @@ export interface OrderView {
   paidCashAt: string | null;
   createdAt: string;
   deliveredAt: string | null;
+  cancelledAt: string | null;
+  cancelReason: string | null;
   // Present on the shaped read (GET /orders/:id, GET /orders): relations + the
   // actions the requesting actor may drive next.
   shop?: ShopContact | null;

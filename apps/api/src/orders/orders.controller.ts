@@ -93,8 +93,8 @@ export class OrdersController {
   }
 
   @Post(':id/status')
-  @Roles('RIDER', 'SHOP_OWNER', 'SHOP_STAFF', 'ADMIN')
-  @ApiOperation({ summary: 'Drive a legal status transition' })
+  @Roles('CUSTOMER', 'RIDER', 'SHOP_OWNER', 'SHOP_STAFF', 'ADMIN')
+  @ApiOperation({ summary: 'Drive a legal status transition (customer may cancel own order early)' })
   transition(
     @CurrentUser() user: User,
     @Param('id') id: string,

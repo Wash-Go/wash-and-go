@@ -566,6 +566,10 @@ export class OrdersService {
       if (to === OrderStatus.DELIVERED) {
         data.deliveredAt = new Date();
       }
+      if (to === OrderStatus.CANCELLED) {
+        data.cancelledAt = new Date();
+        data.cancelReason = dto.reason?.trim() || null;
+      }
       const updated = await this.repo.updateOrder(tx, order.id, data);
 
       // S1: audit in the same tx.
@@ -573,6 +577,7 @@ export class OrdersService {
         orderId: order.id,
         status: to,
         actorUserId: actor.id,
+        meta: to === OrderStatus.CANCELLED && dto.reason ? { reason: dto.reason } : undefined,
       });
 
       // S2: remittance in the same tx as the DELIVERED transition. unique(orderId)
@@ -678,7 +683,11 @@ export class OrdersService {
     const asShop =
       (actor.roles.includes('SHOP_OWNER') && allowed.includes('SHOP_OWNER')) ||
       (actor.roles.includes('SHOP_STAFF') && allowed.includes('SHOP_STAFF'));
+    // A CUSTOMER may only drive their OWN order (e.g. cancelling early).
+    const asCustomer =
+      actor.roles.includes('CUSTOMER') && allowed.includes('CUSTOMER');
 
+    if (asCustomer && order.customerId !== actor.id) return false;
     if (asRider && order.assignedRiderId !== actor.id) return false;
     if (asShop && !(order.shopId && (await this.repo.isShopMember(actor.id, order.shopId)))) {
       return false;

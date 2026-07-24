@@ -75,7 +75,11 @@ describe('order-status machine', () => {
       }
     });
 
-    it('only admin may cancel', () => {
+    it('customer may cancel only while early (BOOKED/ASSIGNED); later cancels are admin-only', () => {
+      expect(canRoleDrive('BOOKED', 'CANCELLED', ['CUSTOMER'])).toBe(true);
+      expect(canRoleDrive('ASSIGNED', 'CANCELLED', ['CUSTOMER'])).toBe(true);
+      expect(canRoleDrive('PICKED_UP', 'CANCELLED', ['CUSTOMER'])).toBe(false);
+      expect(canRoleDrive('PROCESSING', 'CANCELLED', ['CUSTOMER'])).toBe(false);
       expect(canRoleDrive('PROCESSING', 'CANCELLED', ['SHOP_OWNER'])).toBe(false);
       expect(canRoleDrive('PROCESSING', 'CANCELLED', ['ADMIN'])).toBe(true);
     });

@@ -5,7 +5,10 @@ import { OrderStatus, UserRole } from '@prisma/client';
  * path is a straight line BOOKED → ASSIGNED → PICKED_UP → AT_SHOP → PROCESSING
  * → READY_FOR_RETURN → OUT_FOR_RETURN → DELIVERED, with CANCELLED reachable
  * from any non-terminal state by an admin. Each edge also names the roles
- * allowed to drive it (plan D2 role matrix). ADMIN can drive every edge.
+ * allowed to drive it (plan D2 role matrix). ADMIN can drive every edge. The
+ * CUSTOMER may cancel their OWN order only while it is still early (BOOKED or
+ * ASSIGNED — before the rider has picked the laundry up); ownership is enforced
+ * in the service.
  *
  * The service enforces the transition inside a tx with SELECT ... FOR UPDATE on
  * the order row and writes the OrderEvent in the SAME tx (S1).
@@ -14,8 +17,8 @@ import { OrderStatus, UserRole } from '@prisma/client';
 type EdgeRoles = Partial<Record<OrderStatus, UserRole[]>>;
 
 const TRANSITIONS: Record<OrderStatus, EdgeRoles> = {
-  BOOKED: { ASSIGNED: ['ADMIN'], CANCELLED: ['ADMIN'] },
-  ASSIGNED: { PICKED_UP: ['RIDER', 'ADMIN'], CANCELLED: ['ADMIN'] },
+  BOOKED: { ASSIGNED: ['ADMIN'], CANCELLED: ['ADMIN', 'CUSTOMER'] },
+  ASSIGNED: { PICKED_UP: ['RIDER', 'ADMIN'], CANCELLED: ['ADMIN', 'CUSTOMER'] },
   PICKED_UP: { AT_SHOP: ['RIDER', 'ADMIN'], CANCELLED: ['ADMIN'] },
   AT_SHOP: {
     PROCESSING: ['SHOP_OWNER', 'SHOP_STAFF', 'ADMIN'],

@@ -12,6 +12,7 @@ import {
   IsPositive,
   IsString,
   Max,
+  MaxLength,
 } from 'class-validator';
 
 const LOAD_KEYS = LOAD_CATEGORY_KEYS as unknown as string[];
@@ -115,4 +116,10 @@ export class TransitionDto {
   @ApiProperty({ enum: OrderStatus, example: OrderStatus.PICKED_UP })
   @IsEnum(OrderStatus)
   status!: OrderStatus;
+
+  @ApiProperty({ required: false, description: 'Reason — recorded when status=CANCELLED' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(280)
+  reason?: string;
 }

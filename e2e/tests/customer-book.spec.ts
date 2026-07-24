@@ -88,4 +88,24 @@ test.describe('customer booking', () => {
     await confirm.click();
     await expect(page.getByText(/WG-\d{4}-\d+/)).toBeVisible({ timeout: 30_000 });
   });
+
+  test('cancels a booked order from the order detail', async ({ page }) => {
+    await customerLogin(page);
+    await page.getByRole('button', { name: /Book a wash/ }).click();
+    await page.getByTestId('bucket-M').click();
+    await page.getByPlaceholder('Pickup address (street, barangay)').fill('Tetuan, Zamboanga City');
+    await page.getByText('Find this address').click();
+    const cont = page.getByText('Continue', { exact: true });
+    await expect(cont).toBeEnabled({ timeout: 30_000 });
+    await cont.click();
+    const confirm = page.getByText('Confirm booking');
+    await expect(confirm).toBeVisible({ timeout: 30_000 });
+    await confirm.click();
+    await expect(page.getByText(/WG-\d{4}-\d+/)).toBeVisible({ timeout: 30_000 });
+
+    // Cancel from the order detail (two-step confirm).
+    await page.getByTestId('cancel-order').click();
+    await page.getByText('Yes, cancel booking').click();
+    await expect(page.getByText('Order cancelled')).toBeVisible({ timeout: 30_000 });
+  });
 });

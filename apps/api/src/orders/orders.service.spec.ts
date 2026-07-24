@@ -72,6 +72,8 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
     paidCashAt: null,
     createdAt: new Date(),
     deliveredAt: null,
+    cancelledAt: null,
+    cancelReason: null,
     ...overrides,
   } as Order;
 }
@@ -624,6 +626,50 @@ describe('OrdersService', () => {
       await expect(
         service.transition(makeUser(['RIDER'], 'r1'), 'o1', {
           status: 'PICKED_UP',
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('lets a customer cancel their own BOOKED order and records the reason', async () => {
+      repo.findByIdForUpdate.mockResolvedValue(
+        makeOrder({ status: 'BOOKED', customerId: 'cust' }),
+      );
+      repo.updateOrder.mockImplementation((_tx, _id, data) =>
+        Promise.resolve(makeOrder({ status: 'CANCELLED', ...(data as object) }) as never),
+      );
+      await service.transition(makeUser(['CUSTOMER'], 'cust'), 'o1', {
+        status: 'CANCELLED',
+        reason: 'Changed my mind',
+      });
+      const upd = repo.updateOrder.mock.calls[0][2] as {
+        status: string;
+        cancelReason: string;
+        cancelledAt: Date;
+      };
+      expect(upd.status).toBe('CANCELLED');
+      expect(upd.cancelReason).toBe('Changed my mind');
+      expect(upd.cancelledAt).toBeInstanceOf(Date);
+    });
+
+    it("forbids a customer cancelling someone else's order", async () => {
+      repo.findByIdForUpdate.mockResolvedValue(
+        makeOrder({ status: 'BOOKED', customerId: 'someone-else' }),
+      );
+      await expect(
+        service.transition(makeUser(['CUSTOMER'], 'cust'), 'o1', {
+          status: 'CANCELLED',
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(repo.updateOrder).not.toHaveBeenCalled();
+    });
+
+    it('forbids a customer cancelling once the laundry is picked up', async () => {
+      repo.findByIdForUpdate.mockResolvedValue(
+        makeOrder({ status: 'PICKED_UP', customerId: 'cust' }),
+      );
+      await expect(
+        service.transition(makeUser(['CUSTOMER'], 'cust'), 'o1', {
+          status: 'CANCELLED',
         }),
       ).rejects.toBeInstanceOf(ForbiddenException);
     });

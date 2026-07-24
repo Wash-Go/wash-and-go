@@ -82,11 +82,15 @@ export default function AdminPage() {
                   <td>{o.rider?.displayName ?? '—'}</td>
                   <td className="tnum">{peso(o.customerTotalPhp)}</td>
                   <td>
-                    {canAssign(o) ? (
-                      <AssignCell order={o} riders={riders.data ?? []} />
-                    ) : (
-                      <span style={{ color: c.muted, fontSize: 12 }}>—</span>
-                    )}
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      {canAssign(o) ? (
+                        <AssignCell order={o} riders={riders.data ?? []} />
+                      ) : null}
+                      {isCancellable(o) ? <CancelCell order={o} /> : null}
+                      {!canAssign(o) && !isCancellable(o) ? (
+                        <span style={{ color: c.muted, fontSize: 12 }}>—</span>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -112,6 +116,68 @@ function StatusBadge({ status }: { status: OrderStatus }) {
       }}
     >
       {statusLabel(status)}
+    </span>
+  );
+}
+
+function isCancellable(o: OrderView): boolean {
+  return o.status !== 'DELIVERED' && o.status !== 'CANCELLED';
+}
+
+// Two-step inline cancel (no native dialog) — click Cancel, then Confirm.
+function CancelCell({ order }: { order: OrderView }) {
+  const qc = useQueryClient();
+  const [confirming, setConfirming] = useState(false);
+  const m = useMutation({
+    mutationFn: () => api.transition(order.id, 'CANCELLED', 'Cancelled by admin'),
+    onSuccess: () => {
+      setConfirming(false);
+      qc.invalidateQueries({ queryKey: ['orders'] });
+    },
+  });
+
+  if (!confirming) {
+    return (
+      <button
+        data-testid={`cancel-${order.id}`}
+        onClick={() => setConfirming(true)}
+        style={{
+          padding: '6px 12px',
+          borderRadius: 8,
+          border: `1px solid ${c.danger}`,
+          background: 'transparent',
+          color: c.danger,
+          fontWeight: 700,
+        }}
+      >
+        Cancel
+      </button>
+    );
+  }
+  return (
+    <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+      <button
+        data-testid={`confirm-cancel-${order.id}`}
+        disabled={m.isPending}
+        onClick={() => m.mutate()}
+        style={{
+          padding: '6px 12px',
+          borderRadius: 8,
+          border: 'none',
+          background: c.danger,
+          color: '#fff',
+          fontWeight: 700,
+        }}
+      >
+        {m.isPending ? '…' : 'Confirm'}
+      </button>
+      <button
+        onClick={() => setConfirming(false)}
+        style={{ background: 'none', border: 'none', color: c.muted, fontSize: 12, cursor: 'pointer' }}
+      >
+        Keep
+      </button>
+      {m.isError ? <span style={{ color: c.danger, fontSize: 12 }}>failed</span> : null}
     </span>
   );
 }

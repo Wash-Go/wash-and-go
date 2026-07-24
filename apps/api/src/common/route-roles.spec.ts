@@ -36,6 +36,7 @@ describe('route role matrix', () => {
     expect(rolesOf(c, 'assignRider')).toEqual(['ADMIN']);
     expect(rolesOf(c, 'weigh')).toEqual(['SHOP_OWNER', 'SHOP_STAFF']);
     expect(rolesOf(c, 'transition')).toEqual([
+      'CUSTOMER',
       'RIDER',
       'SHOP_OWNER',
       'SHOP_STAFF',
