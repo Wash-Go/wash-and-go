@@ -187,6 +187,9 @@ model Order {
   assignedRiderId String?
   assignedRider   User?   @relation("RiderOrders", fields: [assignedRiderId], references: [id])
 
+  // Booking load size (S/M/L) the customer chose — kept so an order can be
+  // re-booked ("Book again") without re-deriving it from the estimate kg.
+  loadCategory     String?
   weightEstimateKg Decimal? @db.Decimal(6, 2)
   weightKg         Decimal? @db.Decimal(6, 2) // set at weigh-in; triggers price recompute
 

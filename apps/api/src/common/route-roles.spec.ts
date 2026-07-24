@@ -8,6 +8,7 @@ import { RemittanceController } from '../remittance/remittance.controller';
 import { ShopRemittanceController } from '../remittance/shop-remittance.controller';
 import { RidersController } from '../riders/riders.controller';
 import { RiderCashController } from '../riders/rider-cash.controller';
+import { MeCashController } from '../riders/me-cash.controller';
 import { ShopsController } from '../shops/shops.controller';
 import { ZonesController } from '../zones/zones.controller';
 import { GeocodeController } from '../maps/geocode.controller';
@@ -104,6 +105,10 @@ describe('route role matrix', () => {
     for (const m of ['list', 'setRoles', 'disable', 'enable']) {
       expect(rolesOf(c, m)).toEqual(['ADMIN']);
     }
+  });
+
+  it('rider self cash view is RIDER-only', () => {
+    expect(rolesOf(MeCashController.prototype, 'detail')).toEqual(['RIDER']);
   });
 
   it('notification routes are any-authenticated (ownership-scoped)', () => {

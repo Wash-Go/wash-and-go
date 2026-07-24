@@ -89,6 +89,9 @@ export interface OrderView {
   status: OrderStatus;
   serviceType: ServiceType;
   pickupAddress: string;
+  pickupLat: string | null;
+  pickupLng: string | null;
+  loadCategory: string | null;
   shopId: string | null;
   shopServiceId: string | null;
   assignedRiderId: string | null;

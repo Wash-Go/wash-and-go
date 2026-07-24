@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { STATUS_META, statusLabel, type OrderView } from '@wash-and-go/domain';
 import {
   Card,
@@ -32,24 +32,31 @@ const GROUP_COLOR = {
   done: colors.textMuted,
 } as const;
 
+const POLL_MS = 5000;
+
 export default function JobsScreen() {
   const [state, setState] = useState<State>({ kind: 'loading' });
 
-  const load = useCallback(async () => {
-    setState({ kind: 'loading' });
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setState({ kind: 'loading' });
     try {
       const jobs = await api.listOrders();
       setState({ kind: 'ready', jobs: sortJobs(jobs) });
     } catch (e) {
-      setState({
-        kind: 'error',
-        message: e instanceof Error ? e.message : 'Could not load your jobs.',
-      });
+      if (!silent) {
+        setState({
+          kind: 'error',
+          message: e instanceof Error ? e.message : 'Could not load your jobs.',
+        });
+      }
     }
   }, []);
 
   useEffect(() => {
-    load();
+    load(false);
+    // Poll so new assignments + status changes show without a manual refresh.
+    const t = setInterval(() => load(true), POLL_MS);
+    return () => clearInterval(t);
   }, [load]);
 
   if (state.kind === 'loading') {
@@ -62,7 +69,7 @@ export default function JobsScreen() {
   if (state.kind === 'error') {
     return (
       <Screen scroll={false}>
-        <ErrorState message={state.message} onRetry={load} />
+        <ErrorState message={state.message} onRetry={() => load(false)} />
       </Screen>
     );
   }
@@ -83,11 +90,20 @@ export default function JobsScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Text style={styles.title}>My jobs</Text>
-        <Text style={styles.count}>
-          {state.jobs.length} active
-          {needsAction > 0 ? ` · ${needsAction} need${needsAction > 1 ? '' : 's'} you` : ''}
-        </Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>My jobs</Text>
+          <Text style={styles.count}>
+            {state.jobs.length} active
+            {needsAction > 0 ? ` · ${needsAction} need${needsAction > 1 ? '' : 's'} you` : ''}
+          </Text>
+        </View>
+        <Pressable
+          testID="my-cash"
+          onPress={() => router.push('/cash' as never)}
+          accessibilityRole="button"
+        >
+          <Text style={styles.cashLink}>My cash →</Text>
+        </Pressable>
       </View>
 
       {state.jobs.map((j) => {
@@ -136,9 +152,15 @@ export default function JobsScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { marginBottom: space.xs },
+  header: {
+    marginBottom: space.xs,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
   title: { ...type.h1, color: colors.text },
   count: { ...type.small, color: colors.textMuted, marginTop: 3 },
+  cashLink: { ...type.small, color: colors.navy, fontWeight: '700' },
   actionCard: { borderColor: colors.terra, borderWidth: 1.5 },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   icon: {

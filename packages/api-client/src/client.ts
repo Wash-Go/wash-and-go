@@ -136,6 +136,11 @@ export class ApiClient {
     return this.request('POST', '/auth/session', { idToken: token });
   }
 
+  // Rider-facing: my own cash balance + deposit history.
+  getMyCash(): Promise<RiderCashDetail> {
+    return this.request('GET', '/me/cash');
+  }
+
   // --- In-app notifications (own inbox) ---
   getNotifications(): Promise<NotificationList> {
     return this.request('GET', '/me/notifications');

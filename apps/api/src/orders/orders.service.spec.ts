@@ -62,6 +62,7 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
     shopId: 'shop1',
     shopServiceId: 'shopsvc1',
     assignedRiderId: null,
+    loadCategory: 'M',
     weightEstimateKg: D('6'),
     weightKg: null,
     washValuePhp: D('150.00'),

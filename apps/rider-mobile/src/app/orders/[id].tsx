@@ -48,10 +48,12 @@ export default function JobDetailScreen() {
         const order = await api.getOrder(id);
         setState({ kind: 'ready', order });
       } catch (e) {
-        setState({
-          kind: 'error',
-          message: e instanceof Error ? e.message : 'Could not load this job.',
-        });
+        if (!silent) {
+          setState({
+            kind: 'error',
+            message: e instanceof Error ? e.message : 'Could not load this job.',
+          });
+        }
       }
     },
     [id],
@@ -59,6 +61,9 @@ export default function JobDetailScreen() {
 
   useEffect(() => {
     load(false);
+    // Poll so a status change driven elsewhere (shop/admin) shows up live.
+    const t = setInterval(() => load(true), 5000);
+    return () => clearInterval(t);
   }, [load]);
 
   const drive = useCallback(

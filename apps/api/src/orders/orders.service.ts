@@ -322,6 +322,7 @@ export class OrdersService {
         pickupAddress: dto.pickupAddress,
         pickupLat: new Prisma.Decimal(dto.pickupLat),
         pickupLng: new Prisma.Decimal(dto.pickupLng),
+        loadCategory: dto.loadCategory,
         weightEstimateKg: new Prisma.Decimal(estimateKg),
         washValuePhp: breakdown.washValuePhp,
         deliveryFeePhp: breakdown.deliveryFeePhp,
@@ -356,6 +357,13 @@ export class OrdersService {
             status: OrderStatus.ASSIGNED,
             actorUserId: actor.id,
             meta: { autoDispatch: true, riderId },
+          });
+          await this.notifications.emit(tx, {
+            userId: riderId,
+            type: 'JOB_ASSIGNED',
+            title: `New job ${order.code}`,
+            body: 'You have a new pickup assigned.',
+            orderId: order.id,
           });
           order.status = OrderStatus.ASSIGNED;
           order.assignedRiderId = riderId;
@@ -439,6 +447,7 @@ export class OrdersService {
         pickupAddress: dto.pickupAddress,
         pickupLat: new Prisma.Decimal(dto.pickupLat),
         pickupLng: new Prisma.Decimal(dto.pickupLng),
+        loadCategory: dto.loadCategory,
         weightEstimateKg: new Prisma.Decimal(estimateKg),
         scheduledPickupAt: when,
         washValuePhp: breakdown.washValuePhp,
@@ -497,6 +506,13 @@ export class OrdersService {
         status: OrderStatus.ASSIGNED,
         actorUserId: actor.id,
         meta: { riderId: dto.riderId },
+      });
+      await this.notifications.emit(tx, {
+        userId: dto.riderId,
+        type: 'JOB_ASSIGNED',
+        title: `New job ${order.code}`,
+        body: 'You have a new pickup assigned.',
+        orderId: order.id,
       });
       return updated;
     });

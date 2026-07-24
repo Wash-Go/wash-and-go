@@ -67,6 +67,7 @@ export default function RootLayout() {
       >
         <Stack.Screen name="index" options={{ title: 'My jobs' }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="cash" options={{ title: 'My cash' }} />
         <Stack.Screen name="orders/[id]" options={{ title: 'Job' }} />
       </Stack>
     </SafeAreaProvider>

@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { isTerminal, type OrderView } from '@wash-and-go/domain';
@@ -114,6 +114,25 @@ export default function OrderDetailScreen() {
 
   const o = state.order;
   const weighed = o.weightKg != null;
+  // Re-book an Express-eligible order: clone shop + pickup + load into checkout.
+  const canReorder =
+    !!o.shopServiceId &&
+    o.pickupLat != null &&
+    o.pickupLng != null &&
+    (o.loadCategory === 'S' || o.loadCategory === 'M');
+
+  const bookAgain = () =>
+    router.push({
+      pathname: '/checkout',
+      params: {
+        shopServiceId: o.shopServiceId!,
+        pickupAddress: o.pickupAddress,
+        pickupLat: String(o.pickupLat),
+        pickupLng: String(o.pickupLng),
+        loadCategory: o.loadCategory!,
+        serviceType: 'EXPRESS',
+      },
+    });
 
   return (
     <Screen>
@@ -121,6 +140,10 @@ export default function OrderDetailScreen() {
         <Text style={[type.h2, { color: colors.text }]}>{o.code}</Text>
         <Muted>{o.pickupAddress}</Muted>
       </Card>
+
+      {canReorder ? (
+        <PrimaryButton label="Book this again" tone="terra" onPress={bookAgain} testID="book-again" />
+      ) : null}
 
       <Text style={styles.section}>Progress</Text>
       <Card>
