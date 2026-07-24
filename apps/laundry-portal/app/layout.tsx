@@ -1,6 +1,8 @@
 import './globals.css';
 import type { ReactNode } from 'react';
 import { Providers } from './providers';
+import { AuthGate } from './AuthGate';
+import { AuthChip } from './AuthChip';
 
 export const metadata = {
   title: 'Wash & Go — Shop',
@@ -12,14 +14,16 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <body>
         <Providers>
-          <header className="topbar">
-            <div>
-              <div className="brand-name">Wash &amp; Go</div>
-              <div className="brand-sub">Shop console</div>
-            </div>
-            <span className="role-chip">dev-shop-owner</span>
-          </header>
-          <main className="content">{children}</main>
+          <AuthGate>
+            <header className="topbar">
+              <div>
+                <div className="brand-name">Wash &amp; Go</div>
+                <div className="brand-sub">Shop console</div>
+              </div>
+              <AuthChip />
+            </header>
+            <main className="content">{children}</main>
+          </AuthGate>
         </Providers>
       </body>
     </html>
