@@ -82,4 +82,13 @@ export class RemittanceRepository {
       take: 200,
     });
   }
+
+  // Shops the user is an OWNER/STAFF member of — scopes the shop-facing view.
+  async shopIdsForMember(userId: string): Promise<string[]> {
+    const rows = await this.prisma.shopMember.findMany({
+      where: { userId },
+      select: { shopId: true },
+    });
+    return rows.map((r) => r.shopId);
+  }
 }

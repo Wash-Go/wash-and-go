@@ -36,6 +36,7 @@ describe('RemittanceService', () => {
       findBatchById: jest.fn(),
       markBatchPaid: jest.fn(),
       listBatches: jest.fn(),
+      shopIdsForMember: jest.fn(),
     } as unknown as jest.Mocked<RemittanceRepository>;
 
     prisma = {
@@ -43,6 +44,24 @@ describe('RemittanceService', () => {
     } as unknown as PrismaService;
 
     service = new RemittanceService(prisma, repo);
+  });
+
+  describe('listBatchesForMember', () => {
+    it('returns nothing when the user is a member of no shop', async () => {
+      repo.shopIdsForMember.mockResolvedValue([]);
+      expect(await service.listBatchesForMember('u1')).toEqual([]);
+      expect(repo.listBatches).not.toHaveBeenCalled();
+    });
+
+    it("scopes the query to the member's shops", async () => {
+      repo.shopIdsForMember.mockResolvedValue(['shopA', 'shopB']);
+      repo.listBatches.mockResolvedValue([{ id: 'b1' }] as never);
+      const out = await service.listBatchesForMember('u1');
+      expect(repo.listBatches).toHaveBeenCalledWith({
+        shopId: { in: ['shopA', 'shopB'] },
+      });
+      expect(out).toEqual([{ id: 'b1' }]);
+    });
   });
 
   describe('closeBatch', () => {

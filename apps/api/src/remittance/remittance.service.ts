@@ -88,6 +88,13 @@ export class RemittanceService {
     return batch;
   }
 
+  // Shop-facing: only the caller's own shop payout batches.
+  async listBatchesForMember(userId: string): Promise<RemittanceBatch[]> {
+    const shopIds = await this.repo.shopIdsForMember(userId);
+    if (shopIds.length === 0) return [];
+    return this.repo.listBatches({ shopId: { in: shopIds } });
+  }
+
   async listBatches(filter: {
     shopId?: string;
     status?: 'PENDING' | 'PAID';

@@ -40,7 +40,72 @@ export default function ShopPage() {
           ))}
         </div>
       )}
+
+      <Payouts />
     </>
+  );
+}
+
+function Payouts() {
+  const batches = useQuery({
+    queryKey: ['shop-remittance'],
+    queryFn: () => api.getShopRemittance(),
+  });
+  const rows = batches.data ?? [];
+
+  return (
+    <section style={{ marginTop: 40 }} data-testid="payouts">
+      <div className="page-head" style={{ marginBottom: 12 }}>
+        <div className="page-eyebrow">Payouts</div>
+        <h2 style={{ margin: 0 }}>Your payout batches</h2>
+        <p className="page-sub">What the platform owes your shop and whether it’s been transferred.</p>
+      </div>
+      {batches.isLoading ? (
+        <p style={{ color: c.muted }}>Loading payouts…</p>
+      ) : batches.isError ? (
+        <p style={{ color: c.danger }}>Could not load payouts.</p>
+      ) : rows.length === 0 ? (
+        <p style={{ color: c.muted }}>No payout batches yet. They appear after a weekly close.</p>
+      ) : (
+        <div className="card" style={{ overflow: 'auto' }}>
+          <table>
+            <thead>
+              <tr>
+                <th>Period</th>
+                <th>Orders</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Reference</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((b) => (
+                <tr key={b.id} data-testid={`batch-${b.id}`}>
+                  <td>
+                    {new Date(b.periodStart).toLocaleDateString()} –{' '}
+                    {new Date(b.periodEnd).toLocaleDateString()}
+                  </td>
+                  <td>{b.lineCount}</td>
+                  <td className="tnum">{peso(b.totalPhp)}</td>
+                  <td>
+                    <span
+                      style={{
+                        color: b.status === 'PAID' ? c.success : c.warning,
+                        fontWeight: 600,
+                        fontSize: 12,
+                      }}
+                    >
+                      {b.status === 'PAID' ? 'Paid' : 'Pending'}
+                    </span>
+                  </td>
+                  <td style={{ color: c.muted }}>{b.reference ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 

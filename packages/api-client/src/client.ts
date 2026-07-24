@@ -140,6 +140,11 @@ export class ApiClient {
     return this.request('GET', `/shops${q}`);
   }
 
+  // Shop-facing: the caller's own payout batches.
+  getShopRemittance(): Promise<RemittanceBatchView[]> {
+    return this.request('GET', '/shop/remittance/batches');
+  }
+
   // Resolve nearest shop (or the override) + a priced quote for checkout.
   quoteOrder(body: QuoteOrderBody): Promise<OrderQuote> {
     return this.request('POST', '/orders/quote', body);

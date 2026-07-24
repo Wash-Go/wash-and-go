@@ -5,6 +5,7 @@ import { AdminUsersController } from '../users/admin-users.controller';
 import { OrdersController } from '../orders/orders.controller';
 import { PlatformConfigController } from '../platform-config/platform-config.controller';
 import { RemittanceController } from '../remittance/remittance.controller';
+import { ShopRemittanceController } from '../remittance/shop-remittance.controller';
 import { RidersController } from '../riders/riders.controller';
 import { RiderCashController } from '../riders/rider-cash.controller';
 import { ShopsController } from '../shops/shops.controller';
@@ -102,5 +103,12 @@ describe('route role matrix', () => {
     for (const m of ['list', 'setRoles', 'disable', 'enable']) {
       expect(rolesOf(c, m)).toEqual(['ADMIN']);
     }
+  });
+
+  it('shop-facing remittance is SHOP_OWNER/STAFF only', () => {
+    expect(rolesOf(ShopRemittanceController.prototype, 'batches')).toEqual([
+      'SHOP_OWNER',
+      'SHOP_STAFF',
+    ]);
   });
 });
