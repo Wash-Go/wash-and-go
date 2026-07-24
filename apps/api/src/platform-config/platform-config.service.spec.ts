@@ -17,6 +17,7 @@ const row = (over: Partial<Record<string, unknown>> = {}) => ({
   expressWeightThresholdKg: 5,
   minOrderPricePhp: 0,
   platformFeePhp: 0,
+  autoDispatchEnabled: 0,
   updatedAt: new Date('2026-07-19T00:00:00Z'),
   toString() {
     return String((this as Record<string, unknown>).__v);

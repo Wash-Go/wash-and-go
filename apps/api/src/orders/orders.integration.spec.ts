@@ -154,6 +154,26 @@ describe('Orders integration (Docker Postgres)', () => {
     expect(order.customerTotalPhp.toFixed(2)).toBe('272.00');
   });
 
+  it('auto-dispatches the booking to a rider when the toggle is on', async () => {
+    const { shopServiceId } = await makeShop(5);
+    await config.update({ autoDispatchEnabled: 1 }, `int-${SUFFIX}`);
+    try {
+      const order = await book(shopServiceId);
+      expect(order.status).toBe(OrderStatus.ASSIGNED);
+      expect(order.assignedRiderId).not.toBeNull();
+      // driveable by the auto-assigned rider
+      const assigned = await prisma.user.findUniqueOrThrow({
+        where: { id: order.assignedRiderId! },
+      });
+      const moved = await service.transition(assigned, order.id, {
+        status: OrderStatus.PICKED_UP,
+      });
+      expect(moved.status).toBe(OrderStatus.PICKED_UP);
+    } finally {
+      await config.update({ autoDispatchEnabled: 0 }, `int-${SUFFIX}`);
+    }
+  });
+
   it('runs a full express lifecycle and writes remittance on DELIVERED', async () => {
     const { shopServiceId } = await makeShop(5);
     const order = await book(shopServiceId);

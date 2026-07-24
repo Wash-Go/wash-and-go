@@ -12,6 +12,7 @@ const base: PlatformConfigView = {
   expressWeightThresholdKg: 5,
   minOrderPricePhp: 0,
   platformFeePhp: 0,
+  autoDispatchEnabled: 0,
   updatedAt: '2026-07-19T00:00:00Z',
 };
 

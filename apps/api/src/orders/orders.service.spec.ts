@@ -117,6 +117,8 @@ describe('OrdersService', () => {
   let repo: jest.Mocked<OrdersRepository>;
   let prisma: PrismaService;
   let service: OrdersService;
+  // Mutable config values so a test can flip autoDispatchEnabled without re-wiring.
+  let cfgValues: Record<string, unknown>;
 
   beforeEach(() => {
     repo = {
@@ -127,6 +129,7 @@ describe('OrdersService', () => {
       userHasRole: jest.fn(),
       lockShopDay: jest.fn().mockResolvedValue(undefined),
       countExpressOrdersForShopDay: jest.fn(),
+      pickAutoDispatchRider: jest.fn().mockResolvedValue(null),
       mintOrderCode: jest.fn().mockResolvedValue('WG-2026-000001'),
       createOrder: jest.fn(),
       findByIdForUpdate: jest.fn(),
@@ -145,22 +148,24 @@ describe('OrdersService', () => {
       $transaction: jest.fn((cb: (tx: unknown) => unknown) => cb({})),
     } as unknown as PrismaService;
 
+    cfgValues = {
+      serviceFeePhp: '7',
+      delivery: {
+        baseDeliveryPhp: 40,
+        freeKm: 2,
+        perKmPhp: 8,
+        maxDeliveryPhp: 150,
+        roadFactor: 1.3,
+      },
+      maxResolveKm: 20,
+      expressWeightThresholdKg: 6,
+      minOrderPricePhp: '0',
+      platformFeePhp: '0',
+      autoDispatchEnabled: 0, // OFF by default — existing tests stay BOOKED
+      updatedAt: new Date(),
+    };
     const config = {
-      getValues: async () => ({
-        serviceFeePhp: '7',
-        delivery: {
-          baseDeliveryPhp: 40,
-          freeKm: 2,
-          perKmPhp: 8,
-          maxDeliveryPhp: 150,
-          roadFactor: 1.3,
-        },
-        maxResolveKm: 20,
-        expressWeightThresholdKg: 6,
-        minOrderPricePhp: '0',
-        platformFeePhp: '0',
-        updatedAt: new Date(),
-      }),
+      getValues: async () => cfgValues,
     } as unknown as PlatformConfigService;
 
     // Real ZonesService with no zones → falls back to the pilot Zamboanga ring,
@@ -249,6 +254,62 @@ describe('OrdersService', () => {
         }),
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(repo.findShopServiceWithShop).not.toHaveBeenCalled();
+    });
+
+    it('auto-dispatches to a rider when the toggle is on', async () => {
+      cfgValues.autoDispatchEnabled = 1;
+      repo.findShopServiceWithShop.mockResolvedValue(makeShopService() as never);
+      repo.countExpressOrdersForShopDay.mockResolvedValue(0);
+      repo.createOrder.mockImplementation((_tx, data) =>
+        Promise.resolve({ id: 'o1', ...data } as never),
+      );
+      repo.pickAutoDispatchRider.mockResolvedValue('rider7');
+
+      const order = await service.createExpressOrder(makeUser(['CUSTOMER'], 'cust'), dto);
+
+      expect(repo.updateOrder).toHaveBeenCalledWith(
+        {},
+        'o1',
+        expect.objectContaining({
+          status: 'ASSIGNED',
+          assignedRider: { connect: { id: 'rider7' } },
+        }),
+      );
+      expect(repo.insertOrderEvent).toHaveBeenCalledWith(
+        {},
+        expect.objectContaining({
+          status: 'ASSIGNED',
+          meta: expect.objectContaining({ autoDispatch: true, riderId: 'rider7' }),
+        }),
+      );
+      expect(order.status).toBe('ASSIGNED');
+      expect(order.assignedRiderId).toBe('rider7');
+    });
+
+    it('stays BOOKED when the toggle is on but no rider is available', async () => {
+      cfgValues.autoDispatchEnabled = 1;
+      repo.findShopServiceWithShop.mockResolvedValue(makeShopService() as never);
+      repo.countExpressOrdersForShopDay.mockResolvedValue(0);
+      repo.createOrder.mockImplementation((_tx, data) =>
+        Promise.resolve({ id: 'o1', ...data } as never),
+      );
+      repo.pickAutoDispatchRider.mockResolvedValue(null);
+
+      const order = await service.createExpressOrder(makeUser(['CUSTOMER']), dto);
+      expect(order.status).toBe('BOOKED');
+      expect(repo.updateOrder).not.toHaveBeenCalled();
+    });
+
+    it('does not auto-dispatch when the toggle is off (default)', async () => {
+      repo.findShopServiceWithShop.mockResolvedValue(makeShopService() as never);
+      repo.countExpressOrdersForShopDay.mockResolvedValue(0);
+      repo.createOrder.mockImplementation((_tx, data) =>
+        Promise.resolve({ id: 'o1', ...data } as never),
+      );
+
+      const order = await service.createExpressOrder(makeUser(['CUSTOMER']), dto);
+      expect(order.status).toBe('BOOKED');
+      expect(repo.pickAutoDispatchRider).not.toHaveBeenCalled();
     });
   });
 

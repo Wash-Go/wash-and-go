@@ -63,16 +63,26 @@ export const CONFIG_GROUPS: ConfigGroup[] = [
     ],
   },
   {
-    title: 'Not yet applied',
-    placeholder: true,
-    note: 'Editable now, but no code consumes these yet — changing them has no effect until the matching / price-floor / platform-fee features ship.',
+    title: 'Dispatch & tiers',
     fields: [
       {
         key: 'expressWeightThresholdKg',
         label: 'Express weight cutoff',
         unit: 'kg',
-        hint: 'Vehicle split — below cutoff → motorcycle/ebike, at/above → Piaggio.',
+        hint: 'At/under → Express (Tier 2, e-bike); over → Scheduled (Tier 1).',
       },
+      {
+        key: 'autoDispatchEnabled',
+        label: 'Auto-dispatch',
+        hint: '1 = auto-assign the least-loaded rider on Express booking; 0 = manual dispatch only.',
+      },
+    ],
+  },
+  {
+    title: 'Not yet applied',
+    placeholder: true,
+    note: 'Editable now, but no code consumes these yet — changing them has no effect until the price-floor / platform-fee features ship.',
+    fields: [
       { key: 'minOrderPricePhp', label: 'Minimum order price', unit: '₱' },
       { key: 'platformFeePhp', label: 'Platform fee', unit: '₱' },
     ],

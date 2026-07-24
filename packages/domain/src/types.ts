@@ -130,6 +130,7 @@ export interface PlatformConfigView {
   expressWeightThresholdKg: number;
   minOrderPricePhp: number;
   platformFeePhp: number;
+  autoDispatchEnabled: number; // 1 = auto-assign a rider on Express booking, 0 = manual
   updatedAt: string;
 }
 

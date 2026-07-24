@@ -288,6 +288,9 @@ model PlatformConfig {
   expressWeightThresholdKg Decimal  @db.Decimal(6, 2)
   minOrderPricePhp         Decimal  @db.Decimal(10, 2)
   platformFeePhp           Decimal  @db.Decimal(10, 2)
+  // P4a dispatch toggle: 1 = auto-assign a rider on Express booking, 0 = manual
+  // dispatch only. Flag (0/1) to fit the numeric config pipeline.
+  autoDispatchEnabled      Int      @default(0)
   updatedAt                DateTime @updatedAt
 }
 

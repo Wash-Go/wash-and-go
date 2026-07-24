@@ -28,6 +28,7 @@ export const CONFIG_FIELDS = [
   'expressWeightThresholdKg',
   'minOrderPricePhp',
   'platformFeePhp',
+  'autoDispatchEnabled',
 ] as const;
 
 export type ConfigField = (typeof CONFIG_FIELDS)[number];
@@ -45,6 +46,7 @@ export interface PlatformConfigValues {
   expressWeightThresholdKg: number;
   minOrderPricePhp: string;
   platformFeePhp: string;
+  autoDispatchEnabled: number; // 1 = auto-assign rider on Express booking
   updatedAt: Date;
 }
 
@@ -98,6 +100,7 @@ export class PlatformConfigService {
       expressWeightThresholdKg: this.envNum('EXPRESS_WEIGHT_THRESHOLD_KG', 6),
       minOrderPricePhp: this.envNum('MIN_ORDER_PRICE_PHP', 0),
       platformFeePhp: this.envNum('PLATFORM_FEE_PHP', 0),
+      autoDispatchEnabled: this.envNum('AUTO_DISPATCH_ENABLED', 0),
     };
   }
 
@@ -139,6 +142,7 @@ export class PlatformConfigService {
       expressWeightThresholdKg: Number(r.expressWeightThresholdKg),
       minOrderPricePhp: r.minOrderPricePhp.toString(),
       platformFeePhp: r.platformFeePhp.toString(),
+      autoDispatchEnabled: Number(r.autoDispatchEnabled),
       updatedAt: r.updatedAt,
     };
   }

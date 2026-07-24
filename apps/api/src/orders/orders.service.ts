@@ -265,6 +265,7 @@ export class OrdersService {
     );
 
     const window = manilaDayWindow(new Date());
+    const cfg = await this.config.getValues(); // read once; used for auto-dispatch below
 
     return this.prisma.$transaction(async (tx) => {
       // T1: lock the shop-day BEFORE counting, so concurrent bookings serialize.
@@ -305,6 +306,27 @@ export class OrdersService {
         status: OrderStatus.BOOKED,
         actorUserId: actor.id,
       });
+
+      // P4a: auto-dispatch (Express only, admin-gated). Assign the least-loaded
+      // available rider immediately; if none free (or disabled), the order stays
+      // BOOKED for manual admin dispatch — the exception path.
+      if (cfg.autoDispatchEnabled > 0) {
+        const riderId = await this.repo.pickAutoDispatchRider(tx);
+        if (riderId) {
+          await this.repo.updateOrder(tx, order.id, {
+            status: OrderStatus.ASSIGNED,
+            assignedRider: { connect: { id: riderId } },
+          });
+          await this.repo.insertOrderEvent(tx, {
+            orderId: order.id,
+            status: OrderStatus.ASSIGNED,
+            actorUserId: actor.id,
+            meta: { autoDispatch: true, riderId },
+          });
+          order.status = OrderStatus.ASSIGNED;
+          order.assignedRiderId = riderId;
+        }
+      }
 
       return order;
     });

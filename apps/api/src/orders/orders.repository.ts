@@ -8,6 +8,7 @@ import {
   ShopService,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ACTIVE_RIDER_STATUSES, selectLeastLoadedRider } from './auto-dispatch';
 
 /*
  * The ONLY Prisma toucher for the orders domain (ADR-003 acceptance seam). The
@@ -59,6 +60,32 @@ export class OrdersRepository {
     const m = new Map<string, number>();
     for (const g of grouped) if (g.shopId) m.set(g.shopId, g._count._all);
     return m;
+  }
+
+  // P4a: least-loaded available rider (RIDER role, not disabled) for auto-dispatch,
+  // or null if none. Runs inside the create tx so the load count is consistent.
+  async pickAutoDispatchRider(
+    tx: Prisma.TransactionClient,
+  ): Promise<string | null> {
+    const riders = await tx.user.findMany({
+      where: { roles: { has: 'RIDER' }, disabledAt: null },
+      select: { id: true },
+    });
+    if (riders.length === 0) return null;
+    const ids = riders.map((r) => r.id);
+    const grouped = await tx.order.groupBy({
+      by: ['assignedRiderId'],
+      where: {
+        assignedRiderId: { in: ids },
+        status: { in: ACTIVE_RIDER_STATUSES },
+      },
+      _count: { _all: true },
+    });
+    const load = new Map<string, number>();
+    for (const g of grouped) {
+      if (g.assignedRiderId) load.set(g.assignedRiderId, g._count._all);
+    }
+    return selectLeastLoadedRider(ids, load);
   }
 
   async isShopMember(userId: string, shopId: string): Promise<boolean> {
