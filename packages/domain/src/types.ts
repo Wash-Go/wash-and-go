@@ -15,6 +15,89 @@ export interface AdminUserView {
 export interface SetUserRolesBody {
   roles: UserRole[];
 }
+
+// Admin shop administration (checkpoint C — shop onboarding, code side). Margin
+// fields (commissionPct, expressSlotsPerDay) ARE exposed here (ADMIN-only),
+// unlike the customer-facing ShopView. Decimals are strings over the wire.
+export interface AdminShopView {
+  id: string;
+  name: string;
+  address: string;
+  lat: string;
+  lng: string;
+  active: boolean;
+  commissionPct: string;
+  expressSlotsPerDay: number;
+  serviceCount: number;
+  memberCount: number;
+  createdAt: string;
+}
+
+export interface AdminShopServiceView {
+  id: string;
+  serviceId: string;
+  code: string;
+  name: string;
+  ratePhp: string;
+  turnaroundHours: number;
+  active: boolean;
+}
+
+export interface AdminShopMemberView {
+  id: string;
+  userId: string;
+  displayName: string;
+  phone: string;
+  role: string;
+}
+
+export interface AdminShopDetail extends AdminShopView {
+  services: AdminShopServiceView[];
+  members: AdminShopMemberView[];
+}
+
+export interface ServiceCatalogView {
+  id: string;
+  code: string;
+  name: string;
+  billingUnit: string;
+}
+
+export interface CreateShopBody {
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  commissionPct?: number;
+  expressSlotsPerDay?: number;
+}
+
+export interface UpdateShopBody {
+  name?: string;
+  address?: string;
+  lat?: number;
+  lng?: number;
+  commissionPct?: number;
+  expressSlotsPerDay?: number;
+  active?: boolean;
+}
+
+export interface AddShopServiceBody {
+  serviceId: string;
+  ratePhp: number;
+  turnaroundHours: number;
+}
+
+export interface UpdateShopServiceBody {
+  ratePhp?: number;
+  turnaroundHours?: number;
+  active?: boolean;
+}
+
+export interface AddShopMemberBody {
+  userId: string;
+  role: 'OWNER' | 'STAFF';
+}
 // ServiceType re-used below for the create body.
 
 // Wire shapes returned by the Nest API. Money is a STRING over the wire (Prisma

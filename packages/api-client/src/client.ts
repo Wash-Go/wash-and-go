@@ -1,7 +1,17 @@
 import type {
   AddressView,
+  AddShopMemberBody,
+  AddShopServiceBody,
+  AdminShopDetail,
+  AdminShopMemberView,
+  AdminShopServiceView,
+  AdminShopView,
   AdminUserView,
   CloseRemittanceBody,
+  CreateShopBody,
+  ServiceCatalogView,
+  UpdateShopBody,
+  UpdateShopServiceBody,
   ConfigAuditEntry,
   CreateAddressBody,
   CreateOrderBody,
@@ -356,6 +366,55 @@ export class ApiClient {
     return this.request('PATCH', `/admin/zones/${encodeURIComponent(id)}`, {
       active,
     });
+  }
+
+  // --- Admin: shop administration (onboarding — CRUD over shops/services/staff) ---
+
+  listShops(): Promise<AdminShopView[]> {
+    return this.request('GET', '/admin/shops');
+  }
+
+  getShopCatalog(): Promise<ServiceCatalogView[]> {
+    return this.request('GET', '/admin/shops/catalog');
+  }
+
+  getShop(id: string): Promise<AdminShopDetail> {
+    return this.request('GET', `/admin/shops/${encodeURIComponent(id)}`);
+  }
+
+  createShop(body: CreateShopBody): Promise<AdminShopView> {
+    return this.request('POST', '/admin/shops', body);
+  }
+
+  updateShop(id: string, body: UpdateShopBody): Promise<AdminShopView> {
+    return this.request('PATCH', `/admin/shops/${encodeURIComponent(id)}`, body);
+  }
+
+  addShopService(id: string, body: AddShopServiceBody): Promise<AdminShopServiceView> {
+    return this.request('POST', `/admin/shops/${encodeURIComponent(id)}/services`, body);
+  }
+
+  updateShopService(
+    id: string,
+    shopServiceId: string,
+    body: UpdateShopServiceBody,
+  ): Promise<AdminShopServiceView> {
+    return this.request(
+      'PATCH',
+      `/admin/shops/${encodeURIComponent(id)}/services/${encodeURIComponent(shopServiceId)}`,
+      body,
+    );
+  }
+
+  addShopMember(id: string, body: AddShopMemberBody): Promise<AdminShopMemberView> {
+    return this.request('POST', `/admin/shops/${encodeURIComponent(id)}/members`, body);
+  }
+
+  removeShopMember(id: string, memberId: string): Promise<void> {
+    return this.request(
+      'DELETE',
+      `/admin/shops/${encodeURIComponent(id)}/members/${encodeURIComponent(memberId)}`,
+    );
   }
 }
 
