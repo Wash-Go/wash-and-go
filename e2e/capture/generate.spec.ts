@@ -155,6 +155,20 @@ test('generate the feature PDF', async ({ browser }) => {
       await page.getByText('Confirm booking').waitFor({ timeout: 20_000 });
       await page.waitForTimeout(800);
       await shoot('customer-checkout', () => page.screenshot());
+
+      // Logistics v1.1: Large load → Scheduled (Tier 1) with a pickup window.
+      await page.goto(`${CUSTOMER}/book`, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1200);
+      await page.getByTestId('bucket-L').click();
+      await page.getByTestId('slot-0').click();
+      await page.getByPlaceholder('Pickup address (street, barangay)').fill('Tetuan, Zamboanga City');
+      await page.getByText('Find this address').click();
+      await page.waitForTimeout(1500);
+      await shoot('customer-scheduled', () => page.screenshot());
+      await page.getByText('Continue', { exact: true }).click();
+      await page.getByText('Confirm booking').waitFor({ timeout: 20_000 });
+      await page.waitForTimeout(800);
+      await shoot('customer-scheduled-checkout', () => page.screenshot());
     } catch (e) {
       console.log('customer warn:', String(e).slice(0, 160));
     }
@@ -231,10 +245,10 @@ function buildDoc(s: Record<string, string>): string {
   <div class="section pb">
     <h3>Customer app</h3>
     <h2>Book a wash in under a minute</h2>
-    <p class="lead">React Native / Expo. Firebase email/password auth. The customer never picks a shop — the system resolves the nearest one and prices it upfront.</p>
+    <p class="lead">React Native / Expo. Firebase email/password auth. The customer picks a load size — not a shop or a raw weight — and the system resolves the nearest laundry and prices it upfront.</p>
     <div class="phones">
       ${phone(s['customer-home'], 'Dashboard — one-tap "Book a wash", active-order card.')}
-      ${phone(s['customer-book'], 'Load size + pickup — GPS, saved, or geocoded address.')}
+      ${phone(s['customer-book'], 'Load size (S/M/L) + pickup — GPS, saved, or geocoded address.')}
       ${phone(s['customer-checkout'], 'Checkout — nearest shop + distance price breakdown.')}
     </div>
     <ul>
@@ -243,6 +257,22 @@ function buildDoc(s: Record<string, string>): string {
       <li><span class="k">Geocoding</span> — type an address, get a pinned pickup (TomTom Search).</li>
       <li><span class="k">Transparent pricing</span> — wash + distance delivery + service fee, shown before confirm.</li>
       <li><span class="k">Order tracking</span> — live status + full price breakdown per order.</li>
+    </ul>
+  </div>
+
+  <div class="section pb">
+    <h3>New · Logistics v1.1</h3>
+    <h2>Two service tiers — Express &amp; Scheduled</h2>
+    <p class="lead">The customer chooses a standardized load size; the platform routes it to the right logistics tier. Express (Tier 2, e-bike) handles same-day loads up to 6&nbsp;kg; larger loads move to Scheduled (Tier 1, Piaggio batch) with a chosen pickup window. Over-threshold Express bookings are steered to Scheduled automatically.</p>
+    <div class="phones">
+      ${phone(s['customer-scheduled'], 'Large load → Scheduled — pick a pickup window (Tier 1).')}
+      ${phone(s['customer-scheduled-checkout'], 'Checkout — Scheduled badge + the chosen pickup time.')}
+    </div>
+    <ul>
+      <li><span class="k">Load categories</span> — Small / Medium / Large map to weight estimates; the shop weighs the real load at intake.</li>
+      <li><span class="k">Express ceiling</span> — 6&nbsp;kg (admin-editable). At/under → Express; over → Scheduled.</li>
+      <li><span class="k">Scheduled pickup</span> — customer picks a window; any load size accepted.</li>
+      <li><span class="k">One booking flow</span> — the tier split happens behind a single, simple booking screen.</li>
     </ul>
   </div>
 
