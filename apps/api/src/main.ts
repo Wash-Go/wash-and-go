@@ -9,6 +9,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { initSentry } from './observability/sentry';
+import { JsonLogger } from './observability/json-logger';
 
 async function bootstrap() {
   // Init error tracking first so failures during boot are captured too (no-op
@@ -20,8 +21,13 @@ async function bootstrap() {
     new FastifyAdapter(),
     // Skip Nest's default json body parser so our empty-body-tolerant parser
     // below is the only one registered (avoids a duplicate-parser boot error).
-    { bodyParser: false },
+    // bufferLogs holds boot logs until useLogger swaps in the structured logger.
+    { bodyParser: false, bufferLogs: true },
   );
+
+  // Structured JSON logs in prod (aggregator-friendly), pretty in dev. Applies
+  // to boot logs + the exception filter's error logs.
+  app.useLogger(new JsonLogger());
 
   const isProd = process.env.NODE_ENV === 'production';
 
