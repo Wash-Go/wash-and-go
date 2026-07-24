@@ -79,7 +79,7 @@ function TrackingPage() {
 
       <AppCta
         title="Track your orders on the go"
-        subtitle="Get real-time status, rider location, and delivery updates in the app."
+        subtitle="Get live order status and delivery updates in the app."
       />
     </main>
   )

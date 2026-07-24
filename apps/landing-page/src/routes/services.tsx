@@ -9,56 +9,66 @@ export const Route = createFileRoute('/services')({
 })
 
 /*
- * Service catalogue from spec §8 (Zamboanga rates). All rates are PROPOSED /
- * indicative — the founder rate card is not approved. Per-shop pricing may
- * vary; final price is set at weigh-in for weight-based services.
+ * Service catalogue. Each partner laundry sets its own rates — we show the exact
+ * price at booking (wash + delivery + service fee), and weight-based services are
+ * finalized at the shop's weigh-in. No fixed figures here on purpose.
  */
 const SERVICES = [
   {
     name: 'Wash, Dry & Fold',
     blurb: 'Everyday laundry washed, dried, and neatly folded.',
-    indicative: '≈ ₱25 / kg',
-    note: 'Typical range ₱22–30 / kg',
+    pricing: 'Per kg · shop-set',
+    note: 'Priced on the weighed load',
   },
   {
     name: 'Wash + Iron',
     blurb: 'Washed, dried, and pressed — ready to wear.',
-    indicative: '≈ ₱220–280 / 8 kg',
+    pricing: 'Per load · shop-set',
     note: 'Pressed on hangers',
   },
   {
     name: 'Dry Cleaning',
     blurb: 'Solvent cleaning for delicate and structured garments.',
-    indicative: '≈ ₱80–150 / piece',
+    pricing: 'Per piece · shop-set',
     note: 'Per-garment pricing',
   },
   {
     name: 'Wedding Gown Care',
     blurb: 'Specialist cleaning and preservation for gowns.',
-    indicative: '≈ ₱500–1,200 / piece',
-    note: 'Quote confirmed by the shop',
+    pricing: 'Quoted by the shop',
+    note: 'Confirmed before processing',
   },
 ] as const
 
 const SERVICE_TYPES = [
   {
+    tag: 'Express',
+    color: '#D07A29',
+    title: 'Express',
+    points: [
+      'Same-day, on-demand pickup for light loads (up to 6 kg)',
+      'Straight to a nearby partner shop, priority processing',
+      'Best when you need it back fast',
+    ],
+  },
+  {
     tag: 'Scheduled',
     color: '#3D5975',
-    title: 'Scheduled Service',
+    title: 'Scheduled',
     points: [
       'Pick a day and time window that suits you',
-      'Batched with nearby pickups for a lower delivery fee',
+      'Any load size — batched routes keep delivery efficient',
       'Best for regular, planned laundry',
     ],
   },
   {
-    tag: 'Express',
-    color: '#D07A29',
-    title: 'Express Service',
+    tag: 'Business',
+    color: '#2F7D5B',
+    title: 'Business',
     points: [
-      'On-demand pickup for urgent loads',
-      'Direct-to-shop, priority processing',
-      'Faster turnaround at a premium fee',
+      'For hotels, dorms, restaurants, offices & more',
+      'One-time or recurring scheduled pickups',
+      'Built for larger, predictable volumes',
     ],
   },
 ] as const
@@ -73,13 +83,13 @@ function ServicesPage() {
             <span className="text-[#D07A29]">Never Been</span> This Easy.
           </h1>
           <p className="mt-4 font-['Montserrat'] text-base text-[#444] sm:text-lg">
-            One coordination layer, two ways to get it done — pick the pace that
+            One coordination layer, three ways to get it done — pick the one that
             fits your day.
           </p>
         </div>
 
         {/* Service types */}
-        <div className="mt-12 grid gap-6 sm:grid-cols-2">
+        <div className="mt-12 grid gap-6 sm:grid-cols-3">
           {SERVICE_TYPES.map((t) => (
             <div
               key={t.tag}
@@ -128,7 +138,7 @@ function ServicesPage() {
                     {s.name}
                   </h3>
                   <span className="shrink-0 font-['Montserrat'] text-sm font-semibold text-[#D07A29]">
-                    {s.indicative}
+                    {s.pricing}
                   </span>
                 </div>
                 <p className="mt-2 font-['Montserrat'] text-sm text-gray-600">
@@ -141,8 +151,9 @@ function ServicesPage() {
             ))}
           </div>
           <p className="mt-6 text-center font-['Montserrat'] text-xs text-gray-400">
-            Indicative Zamboanga rates. Final price for weight-based services is
-            set by the partner shop's measured weight at weigh-in.
+            Each partner laundry sets its own rates. You always see the exact
+            price — wash + delivery + service fee — before you confirm, and
+            weight-based services are finalized at the shop's weigh-in.
           </p>
         </div>
       </section>

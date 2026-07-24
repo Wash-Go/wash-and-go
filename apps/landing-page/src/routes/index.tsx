@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import heroImage from '../assets/images/heroes/home-hero.webp'
 import seeMoreIcon from '../assets/images/icons/see-more.svg'
@@ -9,6 +9,7 @@ export const Route = createFileRoute('/')({
 })
 
 function HomePage() {
+  const navigate = useNavigate()
   const imageRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(0)
 
@@ -53,6 +54,7 @@ function HomePage() {
             active:scale-[0.97] active:bg-[#a85d1e] active:shadow-none
             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D07A29] focus-visible:ring-offset-2
           "
+            onClick={() => navigate({ to: '/book-order' })}
           >
             Book Laundry Now
           </button>
@@ -67,6 +69,7 @@ function HomePage() {
             active:scale-[0.97] active:bg-[#a85d1e] active:text-white active:border-[#a85d1e]
             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D07A29] focus-visible:ring-offset-2
           "
+            onClick={() => navigate({ to: '/pricing' })}
           >
             See Pricing
             <img
@@ -117,6 +120,7 @@ function HomePage() {
                   active:scale-95 active:bg-[#a85d1e] active:shadow-none
                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D07A29] focus-visible:ring-offset-2
                 "
+                  onClick={() => navigate({ to: '/book-order' })}
                 >
                   Book Laundry Now
                 </button>
@@ -132,6 +136,7 @@ function HomePage() {
                   active:scale-95 active:bg-[#a85d1e] active:text-white active:border-[#a85d1e]
                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D07A29] focus-visible:ring-offset-2
                 "
+                  onClick={() => navigate({ to: '/pricing' })}
                 >
                   See Pricing
                   <img
@@ -170,7 +175,7 @@ function HomePage() {
           >
             <span className="text-yellow-400 text-sm sm:text-base">★</span>
             <span className="font-['Montserrat'] text-xs sm:text-base font-semibold whitespace-nowrap">
-              Quality Assured
+              Local partner shops
             </span>
           </div>
         </div>

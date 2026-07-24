@@ -1,3 +1,4 @@
+import { useNavigate } from '@tanstack/react-router'
 import schedulePickupImg from '../../assets/images/heroes/schedule-pickup.png'
 import fastReliableImg from '../../assets/images/heroes/fast-reliable.png'
 import premiumLaundryImg from '../../assets/images/heroes/premium-laundry.png'
@@ -5,6 +6,7 @@ import expressPickupIcon from '../../assets/images/icons/express-pickup.svg'
 import scheduleLaterIcon from '../../assets/images/icons/schedule-later.svg'
 
 export function FeaturesSection() {
+  const navigate = useNavigate()
   return (
     <section className="mt-16 w-full space-y-20 sm:mt-24 sm:space-y-24 lg:space-y-28">
       {/* Feature 1: Schedule Your Pick up — image left, text right */}
@@ -33,7 +35,10 @@ export function FeaturesSection() {
               </p>
 
               <div className="mt-5 flex w-full justify-end flex-col items-stretch gap-10 sm:flex-row sm:flex-wrap sm:items-end">
-                <button className="inline-flex w-full cursor-pointer items-center justify-center gap-2 xl:rounded-lg bg-[#004375] px-5 py-3 font-['Montserrat'] text-sm font-semibold text-white shadow-sm shadow-[#004375]/15 transition-all duration-150 hover:-translate-y-0.5 hover:bg-[#003460] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004375] focus-visible:ring-offset-2 sm:w-auto">
+                <button
+                  onClick={() => navigate({ to: '/services' })}
+                  className="inline-flex w-full cursor-pointer items-center justify-center gap-2 xl:rounded-lg bg-[#004375] px-5 py-3 font-['Montserrat'] text-sm font-semibold text-white shadow-sm shadow-[#004375]/15 transition-all duration-150 hover:-translate-y-0.5 hover:bg-[#003460] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004375] focus-visible:ring-offset-2 sm:w-auto"
+                >
                   <img
                     src={expressPickupIcon}
                     alt=""
@@ -43,7 +48,10 @@ export function FeaturesSection() {
                 </button>
 
                 <div className="group mx-auto flex w-fit max-w-full flex-col items-center sm:mx-0 sm:items-start">
-                  <button className="inline-flex cursor-pointer items-center justify-center gap-2 px-1 font-['Montserrat'] text-sm font-medium text-[#555] transition-colors duration-150 hover:text-[#004375] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004375] focus-visible:ring-offset-2">
+                  <button
+                    onClick={() => navigate({ to: '/services' })}
+                    className="inline-flex cursor-pointer items-center justify-center gap-2 px-1 font-['Montserrat'] text-sm font-medium text-[#555] transition-colors duration-150 hover:text-[#004375] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004375] focus-visible:ring-offset-2"
+                  >
                     <img
                       src={scheduleLaterIcon}
                       alt=""
