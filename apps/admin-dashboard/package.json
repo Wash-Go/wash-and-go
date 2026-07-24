@@ -15,7 +15,8 @@
     "@wash-and-go/domain": "workspace:*",
     "next": "15.1.6",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "firebase": "^12.16.0"
   },
   "devDependencies": {
     "@types/node": "^22.13.5",

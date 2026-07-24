@@ -1,6 +1,9 @@
 'use client';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { signOut } from 'firebase/auth';
+import { auth } from '../lib/firebase';
+import { useAuth } from '../lib/useAuth';
 
 const NAV = [
   { href: '/', label: 'Dispatch' },
@@ -13,6 +16,7 @@ const NAV = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { user, devBypass } = useAuth();
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -33,7 +37,33 @@ export function AppShell({ children }: { children: ReactNode }) {
             </a>
           ))}
         </nav>
-        <div className="sidebar-foot">Admin console</div>
+        <div className="sidebar-foot">
+          {!devBypass && user ? (
+            <>
+              <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {user.email}
+              </span>
+              <button
+                onClick={() => signOut(auth)}
+                style={{
+                  marginTop: 6,
+                  background: 'none',
+                  border: 'none',
+                  color: 'inherit',
+                  opacity: 0.7,
+                  cursor: 'pointer',
+                  padding: 0,
+                  fontSize: 12,
+                  textDecoration: 'underline',
+                }}
+              >
+                Sign out
+              </button>
+            </>
+          ) : (
+            'Admin console'
+          )}
+        </div>
       </aside>
       <main className="content">{children}</main>
     </div>
