@@ -251,6 +251,63 @@ describe('OrdersService', () => {
     });
   });
 
+  describe('createScheduledOrder', () => {
+    const futureIso = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+    const schedDto = {
+      shopServiceId: 'shopsvc1',
+      pickupAddress: 'Tetuan',
+      ...inCoverage,
+      loadCategory: 'L' as const, // 9kg — allowed for Scheduled (no ceiling)
+      serviceType: 'SCHEDULED' as const,
+      scheduledPickupAt: futureIso,
+    };
+
+    it('books a Large scheduled order with a pickup time, skipping express capacity', async () => {
+      repo.findShopServiceWithShop.mockResolvedValue(makeShopService() as never);
+      repo.createOrder.mockImplementation((_tx, data) =>
+        Promise.resolve({ id: 'o1', ...data } as never),
+      );
+
+      await service.createScheduledOrder(makeUser(['CUSTOMER'], 'cust'), schedDto);
+
+      const createArg = repo.createOrder.mock.calls[0][1] as {
+        serviceType: string;
+        scheduledPickupAt: Date;
+        washValuePhp: Prisma.Decimal;
+      };
+      expect(createArg.serviceType).toBe('SCHEDULED');
+      expect(createArg.scheduledPickupAt).toBeInstanceOf(Date);
+      // 9kg × ₱25 = ₱225 — no express weight ceiling applied.
+      expect(createArg.washValuePhp.toFixed(2)).toBe('225.00');
+      // Express-only machinery is untouched for a scheduled order.
+      expect(repo.lockShopDay).not.toHaveBeenCalled();
+      expect(repo.countExpressOrdersForShopDay).not.toHaveBeenCalled();
+      expect(repo.insertOrderEvent).toHaveBeenCalledWith(
+        {},
+        expect.objectContaining({ status: 'BOOKED', actorUserId: 'cust' }),
+      );
+    });
+
+    it('rejects a scheduled order with no pickup time', async () => {
+      await expect(
+        service.createScheduledOrder(makeUser(['CUSTOMER']), {
+          ...schedDto,
+          scheduledPickupAt: undefined,
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(repo.findShopServiceWithShop).not.toHaveBeenCalled();
+    });
+
+    it('rejects a pickup time in the past', async () => {
+      await expect(
+        service.createScheduledOrder(makeUser(['CUSTOMER']), {
+          ...schedDto,
+          scheduledPickupAt: new Date(Date.now() - 3600 * 1000).toISOString(),
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
   describe('previewOrder', () => {
     it('prices the golden order without writing anything', async () => {
       repo.findShopServiceWithShop.mockResolvedValue(makeShopService() as never);

@@ -271,6 +271,85 @@ export class OrdersService {
     });
   }
 
+  private validateScheduledTime(iso?: string): Date {
+    if (!iso) {
+      throw new BadRequestException(
+        'scheduledPickupAt is required for a Scheduled order',
+      );
+    }
+    const when = new Date(iso);
+    if (Number.isNaN(when.getTime())) {
+      throw new BadRequestException('scheduledPickupAt is not a valid date');
+    }
+    if (when.getTime() <= Date.now()) {
+      throw new BadRequestException('scheduledPickupAt must be in the future');
+    }
+    return when;
+  }
+
+  // POST /orders (serviceType=SCHEDULED) — a Tier 1 Scheduled booking. Unlike
+  // Express: no weight ceiling (any load category), no express slot/advisory
+  // lock (batch capacity + route consolidation land in P2), and it carries a
+  // requested pickup time. Same coverage check + pricing engine.
+  async createScheduledOrder(actor: User, dto: CreateOrderDto): Promise<Order> {
+    const when = this.validateScheduledTime(dto.scheduledPickupAt);
+    const cat = loadCategory(dto.loadCategory);
+    if (!cat) throw new BadRequestException('Unknown load category');
+    const estimateKg = cat.estimateKg; // Scheduled accepts any size
+
+    if (!(await this.zones.isCovered({ lat: dto.pickupLat, lng: dto.pickupLng }))) {
+      throw new BadRequestException('Pickup location is outside coverage');
+    }
+
+    const shopService = await this.repo.findShopServiceWithShop(
+      dto.shopServiceId,
+    );
+    if (!shopService || !shopService.active || !shopService.shop.active) {
+      throw new BadRequestException('Service unavailable');
+    }
+    const shop = shopService.shop;
+
+    const km = this.kmToShop({ lat: dto.pickupLat, lng: dto.pickupLng }, shop);
+    const breakdown = await this.price(
+      shopService.ratePhp,
+      estimateKg,
+      shop.commissionPct,
+      km,
+    );
+
+    return this.prisma.$transaction(async (tx) => {
+      const code = await this.repo.mintOrderCode(tx);
+      const order = await this.repo.createOrder(tx, {
+        code,
+        serviceType: ServiceType.SCHEDULED,
+        status: OrderStatus.BOOKED,
+        pickupAddress: dto.pickupAddress,
+        pickupLat: new Prisma.Decimal(dto.pickupLat),
+        pickupLng: new Prisma.Decimal(dto.pickupLng),
+        weightEstimateKg: new Prisma.Decimal(estimateKg),
+        scheduledPickupAt: when,
+        washValuePhp: breakdown.washValuePhp,
+        deliveryFeePhp: breakdown.deliveryFeePhp,
+        serviceFeePhp: breakdown.serviceFeePhp,
+        commissionPhp: breakdown.commissionPhp,
+        shopRemittancePhp: breakdown.shopRemittancePhp,
+        customerTotalPhp: breakdown.customerTotalPhp,
+        customer: { connect: { id: actor.id } },
+        shop: { connect: { id: shop.id } },
+        shopService: { connect: { id: shopService.id } },
+      });
+
+      await this.repo.insertOrderEvent(tx, {
+        orderId: order.id,
+        status: OrderStatus.BOOKED,
+        actorUserId: actor.id,
+        meta: { scheduledPickupAt: when.toISOString() },
+      });
+
+      return order;
+    });
+  }
+
   // POST /orders/:id/assign-rider — admin manual dispatch (BOOKED → ASSIGNED).
   async assignRider(
     actor: User,

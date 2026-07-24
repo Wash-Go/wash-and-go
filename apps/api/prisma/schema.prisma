@@ -178,6 +178,10 @@ model Order {
   shopRemittancePhp Decimal @default(0) @db.Decimal(10, 2)
   customerTotalPhp  Decimal @default(0) @db.Decimal(10, 2)
 
+  // Scheduled (Tier 1) orders carry a requested pickup time; null for Express
+  // (Tier 2, dispatched on demand). Batch routing off this field lands in P2.
+  scheduledPickupAt DateTime?
+
   // MVP: cash recorded manually. PayMongo lands Phase 2.
   paidCashAt DateTime?
 

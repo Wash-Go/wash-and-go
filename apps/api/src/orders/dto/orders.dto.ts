@@ -1,9 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, ServiceType } from '@prisma/client';
 import { LOAD_CATEGORY_KEYS, LoadCategoryKey } from '../load';
 import {
   IsEnum,
   IsIn,
+  IsISO8601,
   IsLatitude,
   IsLongitude,
   IsNotEmpty,
@@ -37,6 +38,16 @@ export class CreateOrderDto {
   @ApiProperty({ enum: LOAD_KEYS, example: 'M', description: 'Load size category; maps to an estimate kg, rebilled at weigh-in' })
   @IsIn(LOAD_KEYS)
   loadCategory!: LoadCategoryKey;
+
+  @ApiProperty({ required: false, enum: ServiceType, default: ServiceType.EXPRESS, description: 'Omitted → EXPRESS (Tier 2). SCHEDULED (Tier 1) has no weight ceiling.' })
+  @IsOptional()
+  @IsEnum(ServiceType)
+  serviceType?: ServiceType;
+
+  @ApiProperty({ required: false, example: '2026-07-25T09:00:00+08:00', description: 'Requested pickup time (ISO). Required + must be in the future for SCHEDULED.' })
+  @IsOptional()
+  @IsISO8601()
+  scheduledPickupAt?: string;
 }
 
 export class PreviewOrderDto {

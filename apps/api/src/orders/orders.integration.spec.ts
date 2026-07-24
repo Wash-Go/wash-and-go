@@ -1,5 +1,5 @@
 import { ConflictException } from '@nestjs/common';
-import { OrderStatus, Prisma, User } from '@prisma/client';
+import { OrderStatus, Prisma, ServiceType, User } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { PlatformConfigService } from '../platform-config/platform-config.service';
@@ -132,6 +132,27 @@ describe('Orders integration (Docker Postgres)', () => {
       loadCategory, // 'M' → 6kg estimate → golden ₱197 order
     });
   }
+
+  function bookScheduled(shopServiceId: string) {
+    return service.createScheduledOrder(customer, {
+      shopServiceId,
+      pickupAddress: 'Tetuan',
+      ...PICKUP,
+      loadCategory: 'L', // 9kg — Scheduled has no weight ceiling
+      serviceType: 'SCHEDULED',
+      scheduledPickupAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+    });
+  }
+
+  it('books a Scheduled (Tier 1) order — any size, with a pickup time', async () => {
+    const { shopServiceId } = await makeShop(0); // scheduled ignores express slots
+    const order = await bookScheduled(shopServiceId);
+    expect(order.serviceType).toBe(ServiceType.SCHEDULED);
+    expect(order.status).toBe(OrderStatus.BOOKED);
+    expect(order.scheduledPickupAt).toBeInstanceOf(Date);
+    // 9kg × ₱25 = ₱225 wash + ₱40 delivery + ₱7 service = ₱272 (no ceiling)
+    expect(order.customerTotalPhp.toFixed(2)).toBe('272.00');
+  });
 
   it('runs a full express lifecycle and writes remittance on DELIVERED', async () => {
     const { shopServiceId } = await makeShop(5);

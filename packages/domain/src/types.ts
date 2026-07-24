@@ -1,5 +1,6 @@
 import type { OrderStatus, ServiceType } from './order-status';
 import type { LoadCategoryKey } from './load';
+// ServiceType re-used below for the create body.
 
 // Wire shapes returned by the Nest API. Money is a STRING over the wire (Prisma
 // Decimal serializes to a decimal string in JSON); the app keeps it as a string
@@ -77,6 +78,7 @@ export interface OrderView {
   assignedRiderId: string | null;
   weightEstimateKg: string | null;
   weightKg: string | null;
+  scheduledPickupAt: string | null; // ISO; set for Scheduled (Tier 1), null for Express
   washValuePhp: string;
   deliveryFeePhp: string;
   serviceFeePhp: string;
@@ -99,6 +101,10 @@ export interface CreateOrderBody {
   pickupLat: number;
   pickupLng: number;
   loadCategory: LoadCategoryKey; // maps to an estimate kg; server enforces the express ceiling
+  // Omitted → EXPRESS (Tier 2). SCHEDULED (Tier 1) has no weight ceiling and
+  // requires scheduledPickupAt (ISO, must be in the future).
+  serviceType?: ServiceType;
+  scheduledPickupAt?: string;
 }
 
 export interface PreviewOrderBody {

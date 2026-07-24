@@ -58,9 +58,11 @@ export class OrdersController {
 
   @Post()
   @Roles('CUSTOMER')
-  @ApiOperation({ summary: 'Book an express order (customer)' })
+  @ApiOperation({ summary: 'Book an order (customer) — Express (default) or Scheduled' })
   create(@CurrentUser() user: User, @Body() dto: CreateOrderDto) {
-    return this.orders.createExpressOrder(user, dto);
+    return dto.serviceType === 'SCHEDULED'
+      ? this.orders.createScheduledOrder(user, dto)
+      : this.orders.createExpressOrder(user, dto);
   }
 
   @Post(':id/assign-rider')
