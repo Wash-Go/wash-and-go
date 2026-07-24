@@ -32,6 +32,9 @@ jobs:
           --filter @wash-and-go/domain
           --filter @wash-and-go/api-client
           --filter @wash-and-go/customer-mobile
+          --filter @wash-and-go/admin-dashboard
+          --filter @wash-and-go/laundry-portal
+          --filter @wash-and-go/rider-mobile
           test
 
   api-test:
@@ -88,3 +91,17 @@ jobs:
         run: pnpm --filter @wash-and-go/api prisma:generate
       - name: Build
         run: pnpm -r build
+
+  docker-api:
+    name: Docker build (API image)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Validates the deploy image builds (catches the .npmrc/phantom-dep class of
+      # regressions before Railway does at deploy). Build only — no push.
+      - name: Build API image
+        run: docker build -f apps/api/Dockerfile -t washgo-api:ci .
+
+# NOTE: browser e2e smokes (e2e/) run locally at frontend checkpoints, not in CI —
+# they need all app dev servers + a browser and flake on Expo-web hydration, so
+# gating merges on them would be noisy. Revisit with retries + a dedicated job.
