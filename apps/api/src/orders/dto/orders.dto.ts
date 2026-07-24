@@ -1,7 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { OrderStatus } from '@prisma/client';
+import { LOAD_CATEGORY_KEYS, LoadCategoryKey } from '../load';
 import {
   IsEnum,
+  IsIn,
   IsLatitude,
   IsLongitude,
   IsNotEmpty,
@@ -10,6 +12,8 @@ import {
   IsString,
   Max,
 } from 'class-validator';
+
+const LOAD_KEYS = LOAD_CATEGORY_KEYS as unknown as string[];
 
 export class CreateOrderDto {
   @ApiProperty({ example: 'shopsvc_abc123', description: 'ShopService id (shop + service + rate)' })
@@ -30,10 +34,9 @@ export class CreateOrderDto {
   @IsLongitude()
   pickupLng!: number;
 
-  @ApiProperty({ example: 6, description: 'Customer weight estimate (kg); rebilled at weigh-in' })
-  @IsPositive()
-  @Max(100)
-  weightEstimateKg!: number;
+  @ApiProperty({ enum: LOAD_KEYS, example: 'M', description: 'Load size category; maps to an estimate kg, rebilled at weigh-in' })
+  @IsIn(LOAD_KEYS)
+  loadCategory!: LoadCategoryKey;
 }
 
 export class PreviewOrderDto {
@@ -67,10 +70,9 @@ export class QuoteOrderDto {
   @IsLongitude()
   pickupLng!: number;
 
-  @ApiProperty({ example: 6, description: 'Estimated kg (load-size bucket)' })
-  @IsPositive()
-  @Max(100)
-  weightKg!: number;
+  @ApiProperty({ enum: LOAD_KEYS, example: 'M', description: 'Load size category; maps to an estimate kg' })
+  @IsIn(LOAD_KEYS)
+  loadCategory!: LoadCategoryKey;
 
   @ApiProperty({ required: false, description: 'Override shop; omitted → auto-resolve nearest' })
   @IsOptional()

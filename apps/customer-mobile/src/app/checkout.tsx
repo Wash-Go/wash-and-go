@@ -1,7 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import type { OrderQuote } from '@wash-and-go/domain';
+import { loadCategory as findLoadCategory } from '@wash-and-go/domain';
+import type { LoadCategoryKey, OrderQuote } from '@wash-and-go/domain';
 import {
   Card,
   ErrorState,
@@ -18,13 +19,16 @@ import { api } from '../lib/api';
 
 export default function CheckoutScreen() {
   const p = useLocalSearchParams<{
-    weightKg: string;
+    loadCategory: LoadCategoryKey;
     pickupLat: string;
     pickupLng: string;
     pickupAddress: string;
     shopServiceId?: string;
   }>();
-  const weightKg = Number(p.weightKg);
+  const loadCategory = p.loadCategory;
+  const cat = findLoadCategory(loadCategory);
+  const estKg = cat?.estimateKg ?? 0;
+  const catLabel = cat?.label ?? 'Load';
   const pickupLat = Number(p.pickupLat);
   const pickupLng = Number(p.pickupLng);
   const pickupAddress = p.pickupAddress ?? '';
@@ -41,7 +45,7 @@ export default function CheckoutScreen() {
       const q = await api.quoteOrder({
         pickupLat,
         pickupLng,
-        weightKg,
+        loadCategory,
         shopServiceId: p.shopServiceId || undefined,
       });
       setQuote(q);
@@ -50,7 +54,7 @@ export default function CheckoutScreen() {
     } finally {
       setLoading(false);
     }
-  }, [pickupLat, pickupLng, weightKg, p.shopServiceId]);
+  }, [pickupLat, pickupLng, loadCategory, p.shopServiceId]);
 
   useEffect(() => {
     loadQuote();
@@ -66,7 +70,7 @@ export default function CheckoutScreen() {
         pickupAddress,
         pickupLat,
         pickupLng,
-        weightEstimateKg: weightKg,
+        loadCategory,
       });
       router.replace(`/orders/${order.id}`);
     } catch (e) {
@@ -74,7 +78,7 @@ export default function CheckoutScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [quote, pickupAddress, pickupLat, pickupLng, weightKg]);
+  }, [quote, pickupAddress, pickupLat, pickupLng, loadCategory]);
 
   if (loading) {
     return (
@@ -116,7 +120,7 @@ export default function CheckoutScreen() {
               router.push({
                 pathname: '/change-laundry',
                 params: {
-                  weightKg: String(weightKg),
+                  loadCategory,
                   pickupLat: String(pickupLat),
                   pickupLng: String(pickupLng),
                   pickupAddress,
@@ -133,13 +137,13 @@ export default function CheckoutScreen() {
       <Text style={styles.eyebrow}>Order</Text>
       <Card>
         <Text style={[type.body, { color: colors.text, fontWeight: '600' }]}>
-          ~{weightKg}kg load
+          {catLabel} · ~{estKg}kg load
         </Text>
         <Muted>{pickupAddress}</Muted>
       </Card>
 
       <Card>
-        <PriceRow label={`Wash · ~${weightKg}kg`} value={peso(b.washValuePhp)} />
+        <PriceRow label={`Wash · ~${estKg}kg`} value={peso(b.washValuePhp)} />
         <PriceRow label={`Delivery · ${quote.shop.distanceKm} km`} value={peso(b.deliveryFeePhp)} />
         <PriceRow label="Service fee" value={peso(b.serviceFeePhp)} />
         <View style={styles.divider} />

@@ -155,7 +155,7 @@ describe('OrdersService', () => {
           roadFactor: 1.3,
         },
         maxResolveKm: 20,
-        expressWeightThresholdKg: 5,
+        expressWeightThresholdKg: 6,
         minOrderPricePhp: '0',
         platformFeePhp: '0',
         updatedAt: new Date(),
@@ -176,7 +176,7 @@ describe('OrdersService', () => {
       shopServiceId: 'shopsvc1',
       pickupAddress: 'Tetuan',
       ...inCoverage,
-      weightEstimateKg: 6,
+      loadCategory: 'M' as const, // 6kg estimate → the golden ₱197 order
     };
 
     it('books when in coverage and capacity remains, pricing the golden order', async () => {
@@ -239,6 +239,16 @@ describe('OrdersService', () => {
         service.createExpressOrder(makeUser(['CUSTOMER']), dto),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
+
+    it('rejects an over-threshold load (Large) before any coverage/DB work', async () => {
+      await expect(
+        service.createExpressOrder(makeUser(['CUSTOMER']), {
+          ...dto,
+          loadCategory: 'L', // 9kg > 6kg express ceiling → Scheduled
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(repo.findShopServiceWithShop).not.toHaveBeenCalled();
+    });
   });
 
   describe('previewOrder', () => {
@@ -288,7 +298,7 @@ describe('OrdersService', () => {
       const q = await service.quoteOrder({
         pickupLat: 6.9111,
         pickupLng: 122.0794,
-        weightKg: 6,
+        loadCategory: 'M',
       });
       expect(q.shopServiceId).toBe('shopsvc1');
       expect(q.shop.distanceKm).toBe(0);
@@ -300,7 +310,7 @@ describe('OrdersService', () => {
       const q = await service.quoteOrder({
         pickupLat: 6.9111,
         pickupLng: 122.0794,
-        weightKg: 6,
+        loadCategory: 'M',
         shopServiceId: 'shopsvc1',
       });
       expect(q.shopServiceId).toBe('shopsvc1');
@@ -310,8 +320,27 @@ describe('OrdersService', () => {
     it('rejects when no shops are available', async () => {
       repo.findActiveShopServices.mockResolvedValue([]);
       await expect(
-        service.quoteOrder({ pickupLat: 6.9111, pickupLng: 122.0794, weightKg: 6 }),
+        service.quoteOrder({ pickupLat: 6.9111, pickupLng: 122.0794, loadCategory: 'M' }),
       ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects an over-threshold load (Large) and points to Scheduled', async () => {
+      repo.findActiveShopServices.mockResolvedValue([makeShopService()] as never);
+      await expect(
+        service.quoteOrder({ pickupLat: 6.9111, pickupLng: 122.0794, loadCategory: 'L' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      // rejected on the load rule, before any shop resolution
+      expect(repo.findActiveShopServices).not.toHaveBeenCalled();
+    });
+
+    it('prices Small at its 3kg estimate (wash ₱75)', async () => {
+      repo.findActiveShopServices.mockResolvedValue([makeShopService()] as never);
+      const q = await service.quoteOrder({
+        pickupLat: 6.9111,
+        pickupLng: 122.0794,
+        loadCategory: 'S',
+      });
+      expect(q.breakdown.washValuePhp.toFixed(2)).toBe('75.00'); // 25 × 3
     });
   });
 
@@ -660,7 +689,7 @@ describe('OrdersService', () => {
         service.quoteOrder({
           pickupLat: 6.9111,
           pickupLng: 122.0794,
-          weightKg: 5,
+          loadCategory: 'M',
           shopServiceId: 'shopsvc1',
         }),
       ).rejects.toBeInstanceOf(BadRequestException);
@@ -673,7 +702,7 @@ describe('OrdersService', () => {
       far.shop.lng = D('123.8854');
       repo.findActiveShopServices.mockResolvedValue([far] as never);
       await expect(
-        service.quoteOrder({ pickupLat: 6.9111, pickupLng: 122.0794, weightKg: 5 }),
+        service.quoteOrder({ pickupLat: 6.9111, pickupLng: 122.0794, loadCategory: 'M' }),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
   });

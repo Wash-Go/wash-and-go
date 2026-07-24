@@ -26,7 +26,12 @@ test.describe('customer booking', () => {
     // Dashboard → Book (the CTA button, not the empty-state prose).
     await page.getByRole('button', { name: /Book a wash/ }).click();
 
-    // Pick the Medium load bucket.
+    // Large (>6kg) is gated to Scheduled (Tier 1) — shows the badge and can't be
+    // selected for Express.
+    await expect(page.getByTestId('bucket-L')).toBeVisible();
+    await expect(page.getByTestId('bucket-L-scheduled')).toBeVisible();
+
+    // Pick the Medium load bucket (Express-eligible).
     await expect(page.getByTestId('bucket-M')).toBeVisible();
     await page.getByTestId('bucket-M').click();
 

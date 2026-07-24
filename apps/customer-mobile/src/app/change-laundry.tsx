@@ -17,7 +17,7 @@ import { api } from '../lib/api';
 
 export default function ChangeLaundryScreen() {
   const p = useLocalSearchParams<{
-    weightKg: string;
+    loadCategory: string;
     pickupLat: string;
     pickupLng: string;
     pickupAddress: string;
@@ -46,7 +46,7 @@ export default function ChangeLaundryScreen() {
     router.replace({
       pathname: '/checkout',
       params: {
-        weightKg: p.weightKg,
+        loadCategory: p.loadCategory,
         pickupLat: p.pickupLat,
         pickupLng: p.pickupLng,
         pickupAddress: p.pickupAddress,

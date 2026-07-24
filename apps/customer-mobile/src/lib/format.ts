@@ -1,15 +1,27 @@
-// Load-size buckets (design D2) — customers can't estimate kg, so they pick a
-// bucket with a concrete example; kg feeds the price preview, the shop weighs
-// the real number at pickup. (peso lives in @wash-and-go/ui, shared.)
+import {
+  LOAD_CATEGORIES,
+  isExpressEligible,
+  type LoadCategoryKey,
+} from '@wash-and-go/domain';
+
+// Booking-screen shape for the load-size options, derived from the shared
+// load-category catalog (single source of truth in @wash-and-go/domain).
+// `kg` is the estimate used for the price preview; `expressEligible` gates the
+// Express path — over-threshold loads route to Scheduled (Tier 1). The shop
+// weighs the real load at pickup and the price recomputes. (peso lives in
+// @wash-and-go/ui, shared.)
 export interface LoadBucket {
-  key: string;
+  key: LoadCategoryKey;
   label: string;
   example: string;
   kg: number;
+  expressEligible: boolean;
 }
 
-export const LOAD_BUCKETS: LoadBucket[] = [
-  { key: 'S', label: 'Small', example: '1-2 outfits, a gym bag', kg: 3 },
-  { key: 'M', label: 'Medium', example: 'a full hamper', kg: 6 },
-  { key: 'L', label: 'Large', example: 'a family load', kg: 9 },
-];
+export const LOAD_BUCKETS: LoadBucket[] = LOAD_CATEGORIES.map((c) => ({
+  key: c.key,
+  label: c.label,
+  example: c.example,
+  kg: c.estimateKg,
+  expressEligible: isExpressEligible(c),
+}));

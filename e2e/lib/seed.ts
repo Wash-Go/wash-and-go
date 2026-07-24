@@ -50,7 +50,7 @@ export async function seedAtShopOrder(): Promise<{ id: string; code: string }> {
     shopServiceId,
     pickupAddress: 'E2E pickup, Tetuan',
     ...PICKUP,
-    weightEstimateKg: 6,
+    loadCategory: 'M', // 6kg estimate
   })) as { id: string; code: string };
 
   // BOOKED → ASSIGNED → PICKED_UP → AT_SHOP, all driven by admin.
@@ -82,7 +82,7 @@ export async function seedBookedOrder(): Promise<{ id: string; code: string }> {
     shopServiceId,
     pickupAddress: 'E2E dispatch pickup',
     ...PICKUP,
-    weightEstimateKg: 6,
+    loadCategory: 'M', // 6kg estimate
   })) as { id: string; code: string };
   return order;
 }
@@ -151,7 +151,7 @@ export async function seedRiderCollectedCash(): Promise<{
     shopServiceId,
     pickupAddress: 'E2E COD pickup',
     ...PICKUP,
-    weightEstimateKg: 6,
+    loadCategory: 'M', // 6kg estimate
   })) as { id: string; customerTotalPhp: string };
 
   const riders = (await call('GET', '/riders', 'dev-admin')) as {

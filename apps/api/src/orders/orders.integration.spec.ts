@@ -44,6 +44,10 @@ describe('Orders integration (Docker Postgres)', () => {
   beforeAll(async () => {
     await prisma.$connect();
 
+    // A prior run may have persisted the old default; pin the Express ceiling to
+    // 6kg so the golden Medium (6kg) order is eligible regardless of DB state.
+    await config.update({ expressWeightThresholdKg: 6 }, `int-${SUFFIX}`);
+
     const wdf = await prisma.serviceCatalogItem.upsert({
       where: { code: 'WDF' },
       create: { code: 'WDF', name: 'Wash, Dry & Fold', billingUnit: 'PER_KG' },
@@ -120,12 +124,12 @@ describe('Orders integration (Docker Postgres)', () => {
     return { shopId: shop.id, shopServiceId: ss.id };
   }
 
-  function book(shopServiceId: string, weightEstimateKg = 6) {
+  function book(shopServiceId: string, loadCategory: 'S' | 'M' | 'L' = 'M') {
     return service.createExpressOrder(customer, {
       shopServiceId,
       pickupAddress: 'Tetuan',
       ...PICKUP,
-      weightEstimateKg,
+      loadCategory, // 'M' → 6kg estimate → golden ₱197 order
     });
   }
 

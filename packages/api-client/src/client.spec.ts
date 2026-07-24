@@ -114,7 +114,7 @@ describe('ApiClient', () => {
         pickupAddress: 'x',
         pickupLat: 1,
         pickupLng: 2,
-        weightEstimateKg: 6,
+        loadCategory: 'M',
       }),
     ).rejects.toMatchObject({
       status: 400,

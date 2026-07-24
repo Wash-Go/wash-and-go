@@ -14,6 +14,7 @@ import {
   ShopService,
   User,
 } from '@prisma/client';
+import { isExpressEligible, loadCategory, LoadCategoryKey } from './load';
 import { PrismaService } from '../prisma/prisma.service';
 import { pricePreview, PricingBreakdown, PricingError } from '../pricing/pricing';
 import { PlatformConfigService } from '../platform-config/platform-config.service';
@@ -100,6 +101,23 @@ export class OrdersService {
     return haversineKm(pickup, { lat: Number(shop.lat), lng: Number(shop.lng) });
   }
 
+  // Map a load category → its estimate kg AND enforce the Express weight ceiling
+  // (Logistics v1.1). Over-threshold categories belong to Scheduled (Tier 1),
+  // which isn't live yet, so we reject with a clear pointer. The config threshold
+  // is authoritative (admin-editable); the shared domain rule keeps client + server
+  // in agreement. Applied at both quote and create (create is the backstop).
+  private async resolveExpressLoadKg(key: LoadCategoryKey): Promise<number> {
+    const cat = loadCategory(key);
+    if (!cat) throw new BadRequestException('Unknown load category');
+    const { expressWeightThresholdKg } = await this.config.getValues();
+    if (!isExpressEligible(cat, expressWeightThresholdKg)) {
+      throw new BadRequestException(
+        `${cat.label} loads exceed the ${expressWeightThresholdKg}kg Express limit — use our Scheduled service (coming soon).`,
+      );
+    }
+    return cat.estimateKg;
+  }
+
   // POST /orders/preview — read-only price estimate before booking (eng review
   // D3). Reuses the same engine as create, so the preview total always matches
   // what the order will be priced at for identical inputs. No write, no coverage
@@ -148,6 +166,7 @@ export class OrdersService {
   // POST /orders/quote — resolve the shop (nearest, or the override) + full
   // price breakdown (distance delivery fee). Powers the checkout screen.
   async quoteOrder(dto: QuoteOrderDto): Promise<OrderQuoteResult> {
+    const estimateKg = await this.resolveExpressLoadKg(dto.loadCategory);
     const pickup = { lat: dto.pickupLat, lng: dto.pickupLng };
     let ss: ShopService & { shop: Shop };
     let km: number;
@@ -165,7 +184,7 @@ export class OrdersService {
     }
     const breakdown = await this.price(
       ss.ratePhp,
-      dto.weightKg,
+      estimateKg,
       ss.shop.commissionPct,
       km,
     );
@@ -183,6 +202,9 @@ export class OrdersService {
 
   // POST /orders — customer books an express order.
   async createExpressOrder(actor: User, dto: CreateOrderDto): Promise<Order> {
+    // Backstop the Express weight ceiling before any work (the client gates it too).
+    const estimateKg = await this.resolveExpressLoadKg(dto.loadCategory);
+
     if (!(await this.zones.isCovered({ lat: dto.pickupLat, lng: dto.pickupLng }))) {
       throw new BadRequestException('Pickup location is outside coverage');
     }
@@ -198,7 +220,7 @@ export class OrdersService {
     const km = this.kmToShop({ lat: dto.pickupLat, lng: dto.pickupLng }, shop);
     const breakdown = await this.price(
       shopService.ratePhp,
-      dto.weightEstimateKg,
+      estimateKg,
       shop.commissionPct,
       km,
     );
@@ -226,7 +248,7 @@ export class OrdersService {
         pickupAddress: dto.pickupAddress,
         pickupLat: new Prisma.Decimal(dto.pickupLat),
         pickupLng: new Prisma.Decimal(dto.pickupLng),
-        weightEstimateKg: new Prisma.Decimal(dto.weightEstimateKg),
+        weightEstimateKg: new Prisma.Decimal(estimateKg),
         washValuePhp: breakdown.washValuePhp,
         deliveryFeePhp: breakdown.deliveryFeePhp,
         serviceFeePhp: breakdown.serviceFeePhp,

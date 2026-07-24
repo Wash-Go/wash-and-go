@@ -96,10 +96,12 @@ export default function BookScreen() {
     }
   }, []);
 
-  const canContinue = !!bucket && !!coords && address.trim().length > 0;
+  // Over-threshold loads belong to Scheduled (Tier 1), not live yet — can't book them Express.
+  const canContinue =
+    !!bucket && bucket.expressEligible && !!coords && address.trim().length > 0;
 
   const cont = useCallback(() => {
-    if (!bucket || !coords || !address.trim()) return;
+    if (!bucket || !bucket.expressEligible || !coords || !address.trim()) return;
     const line = address.trim();
     // Best-effort save to the address book so it's reusable next time.
     if (saveNew && !saved.some((a) => a.line === line)) {
@@ -110,7 +112,7 @@ export default function BookScreen() {
     router.push({
       pathname: '/checkout',
       params: {
-        weightKg: String(bucket.kg),
+        loadCategory: bucket.key,
         pickupLat: String(coords.lat),
         pickupLng: String(coords.lng),
         pickupAddress: line,
@@ -125,15 +127,17 @@ export default function BookScreen() {
       <View style={{ gap: space.sm }}>
         {LOAD_BUCKETS.map((b) => {
           const selected = bucket?.key === b.key;
+          const eligible = b.expressEligible;
           return (
             <Card
               key={b.key}
               testID={`bucket-${b.key}`}
-              onPress={() => setBucket(b)}
+              onPress={eligible ? () => setBucket(b) : undefined}
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
+                opacity: eligible ? 1 : 0.55,
                 borderColor: selected ? colors.navy : colors.border,
                 borderWidth: selected ? 2 : StyleSheet.hairlineWidth,
                 backgroundColor: selected ? colors.navyTint : colors.surface,
@@ -145,18 +149,25 @@ export default function BookScreen() {
                 </Text>
                 <Muted>{b.example}</Muted>
               </View>
-              <View
-                style={[
-                  styles.radioDot,
-                  { borderColor: selected ? colors.navy : colors.border },
-                ]}
-              >
-                {selected ? <View style={styles.radioInner} /> : null}
-              </View>
+              {eligible ? (
+                <View
+                  style={[
+                    styles.radioDot,
+                    { borderColor: selected ? colors.navy : colors.border },
+                  ]}
+                >
+                  {selected ? <View style={styles.radioInner} /> : null}
+                </View>
+              ) : (
+                <View style={styles.schedBadge} testID={`bucket-${b.key}-scheduled`}>
+                  <Text style={styles.schedBadgeT}>Scheduled soon</Text>
+                </View>
+              )}
             </Card>
           );
         })}
       </View>
+      <Muted>Large loads move to our Scheduled service (coming soon).</Muted>
 
       <Text style={styles.section}>Where should we pick up?</Text>
 
@@ -259,6 +270,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   radioInner: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.navy },
+  schedBadge: {
+    backgroundColor: colors.navyTint,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.navy,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  schedBadgeT: { color: colors.navy, fontSize: 10, fontWeight: '800', letterSpacing: 0.3 },
   input: {
     backgroundColor: colors.surface,
     borderWidth: StyleSheet.hairlineWidth,

@@ -8,4 +8,8 @@ describe('LOAD_BUCKETS', () => {
       expect(b.example.length).toBeGreaterThan(5);
     }
   });
+
+  it('flags only the ≤6kg loads as Express-eligible (Large → Scheduled)', () => {
+    expect(LOAD_BUCKETS.map((b) => b.expressEligible)).toEqual([true, true, false]);
+  });
 });

@@ -44,7 +44,12 @@ describe('PlatformConfigService', () => {
     const dto = await makeService(prisma).getRaw();
 
     expect(create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ id: 1, serviceFeePhp: 7, maxResolveKm: 20 }),
+      data: expect.objectContaining({
+        id: 1,
+        serviceFeePhp: 7,
+        maxResolveKm: 20,
+        expressWeightThresholdKg: 6, // Express weight ceiling default (Logistics v1.1)
+      }),
     });
     expect(dto.serviceFeePhp).toBe(7);
     expect(dto.deliveryRoadFactor).toBe(1.3);

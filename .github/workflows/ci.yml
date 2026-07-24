@@ -26,6 +26,13 @@ jobs:
         run: pnpm --filter @wash-and-go/api prisma:generate
       - name: Type-check
         run: pnpm -r type-check
+      - name: Unit tests (no DB)
+        run: >-
+          pnpm
+          --filter @wash-and-go/domain
+          --filter @wash-and-go/api-client
+          --filter @wash-and-go/customer-mobile
+          test
 
   api-test:
     name: API tests

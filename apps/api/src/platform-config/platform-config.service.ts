@@ -10,8 +10,10 @@ import type { DeliveryConfig } from '../pricing/distance';
  * read seeds the row from them, the DB wins after. Per-shop rates stay on
  * ShopService (laundry portal) — this store is platform-level only.
  *
- * Placeholders (expressWeightThresholdKg, minOrderPricePhp, platformFeePhp) are
- * editable but have NO consumer yet — inert until matching/floor/fee code lands.
+ * expressWeightThresholdKg is the Express weight ceiling (kg) — the booking flow
+ * rejects load categories over it and points them at Scheduled (Tier 1).
+ * Placeholders (minOrderPricePhp, platformFeePhp) are editable but have NO
+ * consumer yet — inert until floor/fee code lands.
  */
 
 // The flat, editable field set (DB columns). The admin API + editor speak this.
@@ -93,7 +95,7 @@ export class PlatformConfigService {
       deliveryMaxPhp: this.envNum('DELIVERY_MAX_PHP', 150),
       deliveryRoadFactor: this.envNum('DELIVERY_ROAD_FACTOR', 1.3),
       maxResolveKm: this.envNum('MAX_RESOLVE_KM', 20),
-      expressWeightThresholdKg: this.envNum('EXPRESS_WEIGHT_THRESHOLD_KG', 5),
+      expressWeightThresholdKg: this.envNum('EXPRESS_WEIGHT_THRESHOLD_KG', 6),
       minOrderPricePhp: this.envNum('MIN_ORDER_PRICE_PHP', 0),
       platformFeePhp: this.envNum('PLATFORM_FEE_PHP', 0),
     };
