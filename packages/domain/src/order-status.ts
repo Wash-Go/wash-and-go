@@ -18,6 +18,15 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 export const SERVICE_TYPES = ['SCHEDULED', 'EXPRESS'] as const;
 export type ServiceType = (typeof SERVICE_TYPES)[number];
 
+export const USER_ROLES = [
+  'CUSTOMER',
+  'RIDER',
+  'SHOP_OWNER',
+  'SHOP_STAFF',
+  'ADMIN',
+] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+
 // `tone` is a semantic token, not a color. The app maps tone -> its palette so
 // the design system stays in the app, not in shared domain code.
 export type StatusTone = 'pending' | 'active' | 'success' | 'cancelled';

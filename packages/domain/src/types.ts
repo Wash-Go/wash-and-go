@@ -1,5 +1,20 @@
-import type { OrderStatus, ServiceType } from './order-status';
+import type { OrderStatus, ServiceType, UserRole } from './order-status';
 import type { LoadCategoryKey } from './load';
+
+// Admin user directory (checkpoint O). Money-agnostic; dates are ISO strings.
+export interface AdminUserView {
+  id: string;
+  firebaseUid: string;
+  phone: string;
+  displayName: string;
+  roles: UserRole[];
+  disabledAt: string | null;
+  createdAt: string;
+}
+
+export interface SetUserRolesBody {
+  roles: UserRole[];
+}
 // ServiceType re-used below for the create body.
 
 // Wire shapes returned by the Nest API. Money is a STRING over the wire (Prisma

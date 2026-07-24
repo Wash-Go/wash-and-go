@@ -1,5 +1,6 @@
 import type {
   AddressView,
+  AdminUserView,
   CloseRemittanceBody,
   ConfigAuditEntry,
   CreateAddressBody,
@@ -22,6 +23,7 @@ import type {
   RemittanceBatchView,
   Rider,
   ShopView,
+  UserRole,
 } from '@wash-and-go/domain';
 
 /*
@@ -277,6 +279,26 @@ export class ApiClient {
       undefined,
       idempotencyKey,
     );
+  }
+
+  // --- Admin: user directory (onboarding — grant roles / disable) ---
+  listUsers(role?: UserRole, q?: string): Promise<AdminUserView[]> {
+    const params = new URLSearchParams();
+    if (role) params.set('role', role);
+    if (q) params.set('q', q);
+    const qs = params.toString();
+    return this.request('GET', `/admin/users${qs ? `?${qs}` : ''}`);
+  }
+
+  setUserRoles(id: string, roles: UserRole[]): Promise<AdminUserView> {
+    return this.request('PATCH', `/admin/users/${encodeURIComponent(id)}/roles`, {
+      roles,
+    });
+  }
+
+  setUserDisabled(id: string, disabled: boolean): Promise<AdminUserView> {
+    const action = disabled ? 'disable' : 'enable';
+    return this.request('POST', `/admin/users/${encodeURIComponent(id)}/${action}`);
   }
 
   // --- Admin: coverage zones ---

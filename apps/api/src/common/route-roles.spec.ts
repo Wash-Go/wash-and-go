@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { ROLES_KEY } from '../auth/roles.decorator';
 import { AddressController } from '../users/address.controller';
+import { AdminUsersController } from '../users/admin-users.controller';
 import { OrdersController } from '../orders/orders.controller';
 import { PlatformConfigController } from '../platform-config/platform-config.controller';
 import { RemittanceController } from '../remittance/remittance.controller';
@@ -92,6 +93,13 @@ describe('route role matrix', () => {
     const c = AddressController.prototype;
     for (const m of ['list', 'create', 'update', 'remove']) {
       expect(rolesOf(c, m)).toEqual(['CUSTOMER']);
+    }
+  });
+
+  it('admin user-management routes are ADMIN-only', () => {
+    const c = AdminUsersController.prototype;
+    for (const m of ['list', 'setRoles', 'disable', 'enable']) {
+      expect(rolesOf(c, m)).toEqual(['ADMIN']);
     }
   });
 });
