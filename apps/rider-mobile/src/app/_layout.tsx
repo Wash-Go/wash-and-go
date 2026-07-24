@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
   useFonts,
@@ -8,9 +8,12 @@ import {
   PlusJakartaSans_700Bold,
   PlusJakartaSans_800ExtraBold,
 } from '@expo-google-fonts/plus-jakarta-sans';
+import { onAuthStateChanged, type User } from 'firebase/auth';
+import { useEffect, useState } from 'react';
 import { Text as RNText, TextInput as RNTextInput } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { colors, font } from '@wash-and-go/ui';
+import { auth, DEV_UID } from '../lib/firebase';
 
 const RNTextAny = RNText as unknown as { defaultProps?: { style?: unknown } };
 const RNTextInputAny = RNTextInput as unknown as { defaultProps?: { style?: unknown } };
@@ -27,6 +30,27 @@ export default function RootLayout() {
     PlusJakartaSans_700Bold,
     PlusJakartaSans_800ExtraBold,
   });
+  // Dev/e2e (DEV_UID set) skips auth gating entirely.
+  const devBypass = !!DEV_UID;
+  // undefined = still restoring the persisted session.
+  const [user, setUser] = useState<User | null | undefined>(undefined);
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (devBypass) return;
+    return onAuthStateChanged(auth, (u) => setUser(u));
+  }, [devBypass]);
+
+  useEffect(() => {
+    if (devBypass || user === undefined) return;
+    const onLogin = (segments[0] as string) === 'login';
+    // '/login' is a real route (src/app/login.tsx); the cast covers Expo Router's
+    // typed-routes only regenerating on `expo start`.
+    if (!user && !onLogin) router.replace('/login' as never);
+    else if (user && onLogin) router.replace('/');
+  }, [user, segments, router, devBypass]);
+
   if (!fontsLoaded) return null;
 
   return (
@@ -42,6 +66,7 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="index" options={{ title: 'My jobs' }} />
+        <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="orders/[id]" options={{ title: 'Job' }} />
       </Stack>
     </SafeAreaProvider>
