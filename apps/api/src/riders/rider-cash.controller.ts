@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Headers, Param, Post, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User } from '@prisma/client';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -36,6 +37,7 @@ export class RiderCashController {
     return { balance, deposits };
   }
 
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post(':id/cash/deposit')
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Record a rider handing cash back to the platform' })

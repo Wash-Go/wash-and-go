@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { IsString, MinLength } from 'class-validator';
 import type { User } from '@prisma/client';
@@ -35,6 +36,9 @@ export class AuthController {
 
   // Public: brand-new Firebase users have no Postgres row yet, so this endpoint
   // verifies the token itself and creates/updates the User (debate A2).
+  // Tighter than the global bucket: this public endpoint verifies a Firebase
+  // token + writes a User, so cap per-IP abuse (30/min).
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @Public()
   @Post('session')
   async session(@Body() dto: SessionDto): Promise<MeResponse> {

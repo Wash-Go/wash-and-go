@@ -8,6 +8,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -115,6 +116,7 @@ export class OrdersController {
     return this.orders.rateOrder(user, id, dto);
   }
 
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post(':id/pay-cash')
   @Roles('ADMIN', 'RIDER')
   @ApiOperation({ summary: 'Record a manual cash payment' })

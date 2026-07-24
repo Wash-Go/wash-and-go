@@ -7,6 +7,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User } from '@prisma/client';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -30,6 +31,7 @@ import { RemittanceService } from './remittance.service';
 export class RemittanceController {
   constructor(private readonly remittance: RemittanceService) {}
 
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('close')
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Close unbatched payout lines into batches' })
@@ -52,6 +54,7 @@ export class RemittanceController {
     return this.remittance.listBatches(query);
   }
 
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('batches/:id/mark-paid')
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Record the external payout transfer (idempotent)' })
