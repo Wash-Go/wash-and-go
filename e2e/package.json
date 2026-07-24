@@ -8,6 +8,7 @@
     "smoke:portal": "playwright test laundry-portal"
   },
   "devDependencies": {
-    "@playwright/test": "^1.49.1"
+    "@playwright/test": "^1.49.1",
+    "docx": "^9.7.1"
   }
 }
