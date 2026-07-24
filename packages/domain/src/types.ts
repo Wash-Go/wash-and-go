@@ -37,6 +37,7 @@ export interface QuoteOrderBody {
   pickupLat: number;
   pickupLng: number;
   loadCategory: LoadCategoryKey; // maps to an estimate kg server-side
+  serviceType?: ServiceType; // SCHEDULED skips the express weight ceiling
   shopServiceId?: string; // override; omitted → auto-resolve nearest
 }
 

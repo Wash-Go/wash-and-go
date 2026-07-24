@@ -22,6 +22,8 @@ export default function ChangeLaundryScreen() {
     pickupLng: string;
     pickupAddress: string;
     current?: string;
+    serviceType?: string;
+    scheduledPickupAt?: string;
   }>();
   const lat = Number(p.pickupLat);
   const lng = Number(p.pickupLng);
@@ -51,6 +53,8 @@ export default function ChangeLaundryScreen() {
         pickupLng: p.pickupLng,
         pickupAddress: p.pickupAddress,
         shopServiceId,
+        ...(p.serviceType ? { serviceType: p.serviceType } : {}),
+        ...(p.scheduledPickupAt ? { scheduledPickupAt: p.scheduledPickupAt } : {}),
       },
     });
   }

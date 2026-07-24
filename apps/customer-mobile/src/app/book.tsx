@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { AddressView } from '@wash-and-go/domain';
 import {
@@ -16,8 +16,34 @@ import {
 import { api } from '../lib/api';
 import { LOAD_BUCKETS, LoadBucket } from '../lib/format';
 
+interface PickupSlot {
+  iso: string;
+  label: string;
+}
+
+// Preset pickup windows for Scheduled (Tier 1) bookings — a few concrete future
+// slots so the customer taps one instead of a raw date picker. Always in the
+// future (bumped a day if the hour has passed).
+function buildSlots(): PickupSlot[] {
+  const now = new Date();
+  const mk = (addDays: number, hour: number, label: string): PickupSlot => {
+    const d = new Date(now);
+    d.setDate(d.getDate() + addDays);
+    d.setHours(hour, 0, 0, 0);
+    if (d.getTime() <= now.getTime()) d.setDate(d.getDate() + 1);
+    return { iso: d.toISOString(), label };
+  };
+  return [
+    mk(1, 9, 'Tomorrow · morning (9 AM)'),
+    mk(1, 14, 'Tomorrow · afternoon (2 PM)'),
+    mk(2, 9, 'In 2 days · morning (9 AM)'),
+  ];
+}
+
 export default function BookScreen() {
   const [bucket, setBucket] = useState<LoadBucket | null>(null);
+  const [slot, setSlot] = useState<PickupSlot | null>(null);
+  const slots = useMemo(buildSlots, []);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [address, setAddress] = useState('');
   const [gpsLoading, setGpsLoading] = useState(false);
@@ -96,12 +122,18 @@ export default function BookScreen() {
     }
   }, []);
 
-  // Over-threshold loads belong to Scheduled (Tier 1), not live yet — can't book them Express.
+  // Loads over the Express ceiling route to Scheduled (Tier 1) — the customer
+  // picks a pickup window; Express stays on-demand.
+  const isScheduled = !!bucket && !bucket.expressEligible;
   const canContinue =
-    !!bucket && bucket.expressEligible && !!coords && address.trim().length > 0;
+    !!bucket &&
+    !!coords &&
+    address.trim().length > 0 &&
+    (!isScheduled || !!slot);
 
   const cont = useCallback(() => {
-    if (!bucket || !bucket.expressEligible || !coords || !address.trim()) return;
+    if (!bucket || !coords || !address.trim()) return;
+    if (isScheduled && !slot) return;
     const line = address.trim();
     // Best-effort save to the address book so it's reusable next time.
     if (saveNew && !saved.some((a) => a.line === line)) {
@@ -116,9 +148,11 @@ export default function BookScreen() {
         pickupLat: String(coords.lat),
         pickupLng: String(coords.lng),
         pickupAddress: line,
+        serviceType: isScheduled ? 'SCHEDULED' : 'EXPRESS',
+        ...(isScheduled && slot ? { scheduledPickupAt: slot.iso } : {}),
       },
     });
-  }, [bucket, coords, address, saveNew, saved]);
+  }, [bucket, coords, address, saveNew, saved, isScheduled, slot]);
 
   return (
     <Screen>
@@ -132,12 +166,11 @@ export default function BookScreen() {
             <Card
               key={b.key}
               testID={`bucket-${b.key}`}
-              onPress={eligible ? () => setBucket(b) : undefined}
+              onPress={() => setBucket(b)}
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                opacity: eligible ? 1 : 0.55,
                 borderColor: selected ? colors.navy : colors.border,
                 borderWidth: selected ? 2 : StyleSheet.hairlineWidth,
                 backgroundColor: selected ? colors.navyTint : colors.surface,
@@ -160,14 +193,50 @@ export default function BookScreen() {
                 </View>
               ) : (
                 <View style={styles.schedBadge} testID={`bucket-${b.key}-scheduled`}>
-                  <Text style={styles.schedBadgeT}>Scheduled soon</Text>
+                  <Text style={styles.schedBadgeT}>Scheduled</Text>
                 </View>
               )}
             </Card>
           );
         })}
       </View>
-      <Muted>Large loads move to our Scheduled service (coming soon).</Muted>
+
+      {isScheduled ? (
+        <View style={{ gap: space.sm }}>
+          <Text style={styles.section}>When should we pick up?</Text>
+          <Muted>Large loads use our Scheduled service — pick a window.</Muted>
+          {slots.map((s, i) => {
+            const on = slot?.iso === s.iso;
+            return (
+              <Card
+                key={s.iso}
+                testID={`slot-${i}`}
+                onPress={() => setSlot(s)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  borderColor: on ? colors.navy : colors.border,
+                  borderWidth: on ? 2 : StyleSheet.hairlineWidth,
+                  backgroundColor: on ? colors.navyTint : colors.surface,
+                }}
+              >
+                <Text style={[type.body, { color: colors.text, fontWeight: '600' }]}>
+                  {s.label}
+                </Text>
+                <View
+                  style={[
+                    styles.radioDot,
+                    { borderColor: on ? colors.navy : colors.border },
+                  ]}
+                >
+                  {on ? <View style={styles.radioInner} /> : null}
+                </View>
+              </Card>
+            );
+          })}
+        </View>
+      ) : null}
 
       <Text style={styles.section}>Where should we pick up?</Text>
 

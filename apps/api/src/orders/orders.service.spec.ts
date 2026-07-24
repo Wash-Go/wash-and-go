@@ -399,6 +399,17 @@ describe('OrdersService', () => {
       });
       expect(q.breakdown.washValuePhp.toFixed(2)).toBe('75.00'); // 25 × 3
     });
+
+    it('prices a Large SCHEDULED quote (no ceiling, wash ₱225)', async () => {
+      repo.findActiveShopServices.mockResolvedValue([makeShopService()] as never);
+      const q = await service.quoteOrder({
+        pickupLat: 6.9111,
+        pickupLng: 122.0794,
+        loadCategory: 'L',
+        serviceType: 'SCHEDULED',
+      });
+      expect(q.breakdown.washValuePhp.toFixed(2)).toBe('225.00'); // 25 × 9
+    });
   });
 
   describe('assignRider', () => {

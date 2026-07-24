@@ -112,9 +112,17 @@ export class OrdersService {
     const { expressWeightThresholdKg } = await this.config.getValues();
     if (!isExpressEligible(cat, expressWeightThresholdKg)) {
       throw new BadRequestException(
-        `${cat.label} loads exceed the ${expressWeightThresholdKg}kg Express limit — use our Scheduled service (coming soon).`,
+        `${cat.label} loads exceed the ${expressWeightThresholdKg}kg Express limit — use our Scheduled service.`,
       );
     }
+    return cat.estimateKg;
+  }
+
+  // Scheduled (Tier 1) has no weight ceiling — any category maps straight to its
+  // estimate kg for the quote.
+  private scheduledLoadKg(key: LoadCategoryKey): number {
+    const cat = loadCategory(key);
+    if (!cat) throw new BadRequestException('Unknown load category');
     return cat.estimateKg;
   }
 
@@ -166,7 +174,10 @@ export class OrdersService {
   // POST /orders/quote — resolve the shop (nearest, or the override) + full
   // price breakdown (distance delivery fee). Powers the checkout screen.
   async quoteOrder(dto: QuoteOrderDto): Promise<OrderQuoteResult> {
-    const estimateKg = await this.resolveExpressLoadKg(dto.loadCategory);
+    const estimateKg =
+      dto.serviceType === 'SCHEDULED'
+        ? this.scheduledLoadKg(dto.loadCategory)
+        : await this.resolveExpressLoadKg(dto.loadCategory);
     const pickup = { lat: dto.pickupLat, lng: dto.pickupLng };
     let ss: ShopService & { shop: Shop };
     let km: number;

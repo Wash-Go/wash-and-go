@@ -85,6 +85,11 @@ export class QuoteOrderDto {
   @IsIn(LOAD_KEYS)
   loadCategory!: LoadCategoryKey;
 
+  @ApiProperty({ required: false, enum: ServiceType, default: ServiceType.EXPRESS, description: 'SCHEDULED skips the express weight ceiling when pricing.' })
+  @IsOptional()
+  @IsEnum(ServiceType)
+  serviceType?: ServiceType;
+
   @ApiProperty({ required: false, description: 'Override shop; omitted → auto-resolve nearest' })
   @IsOptional()
   @IsString()

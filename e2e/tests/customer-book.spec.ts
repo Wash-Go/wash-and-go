@@ -57,4 +57,35 @@ test.describe('customer booking', () => {
     await expect(page.getByText(/WG-\d{4}-\d+/)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Total')).toBeVisible();
   });
+
+  test('books a Large load as Scheduled: pick slot → checkout shows pickup time → confirm', async ({
+    page,
+  }) => {
+    await customerLogin(page);
+    await page.getByRole('button', { name: /Book a wash/ }).click();
+
+    // Large is now selectable and routes to Scheduled (Tier 1).
+    await expect(page.getByTestId('bucket-L')).toBeVisible();
+    await page.getByTestId('bucket-L').click();
+
+    // A pickup-window picker appears; choose the first slot.
+    await expect(page.getByTestId('slot-0')).toBeVisible();
+    await page.getByTestId('slot-0').click();
+
+    await page.getByPlaceholder('Pickup address (street, barangay)').fill('Tetuan, Zamboanga City');
+    await page.getByText('Find this address').click();
+
+    const cont = page.getByText('Continue', { exact: true });
+    await expect(cont).toBeEnabled({ timeout: 30_000 });
+    await cont.click();
+
+    // Checkout prices the Large scheduled order (no ceiling) + shows the pickup time.
+    const confirm = page.getByText('Confirm booking');
+    await expect(confirm).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('scheduled-pickup')).toBeVisible();
+    await expect(page.getByTestId('service-badge')).toHaveText('Scheduled');
+
+    await confirm.click();
+    await expect(page.getByText(/WG-\d{4}-\d+/)).toBeVisible({ timeout: 30_000 });
+  });
 });

@@ -24,6 +24,8 @@ export default function CheckoutScreen() {
     pickupLng: string;
     pickupAddress: string;
     shopServiceId?: string;
+    serviceType?: 'EXPRESS' | 'SCHEDULED';
+    scheduledPickupAt?: string;
   }>();
   const loadCategory = p.loadCategory;
   const cat = findLoadCategory(loadCategory);
@@ -32,6 +34,18 @@ export default function CheckoutScreen() {
   const pickupLat = Number(p.pickupLat);
   const pickupLng = Number(p.pickupLng);
   const pickupAddress = p.pickupAddress ?? '';
+  const isScheduled = p.serviceType === 'SCHEDULED';
+  const scheduledPickupAt = p.scheduledPickupAt;
+  const scheduledLabel =
+    isScheduled && scheduledPickupAt
+      ? new Date(scheduledPickupAt).toLocaleString([], {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        })
+      : null;
 
   const [quote, setQuote] = useState<OrderQuote | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,6 +60,7 @@ export default function CheckoutScreen() {
         pickupLat,
         pickupLng,
         loadCategory,
+        serviceType: isScheduled ? 'SCHEDULED' : undefined,
         shopServiceId: p.shopServiceId || undefined,
       });
       setQuote(q);
@@ -54,7 +69,7 @@ export default function CheckoutScreen() {
     } finally {
       setLoading(false);
     }
-  }, [pickupLat, pickupLng, loadCategory, p.shopServiceId]);
+  }, [pickupLat, pickupLng, loadCategory, isScheduled, p.shopServiceId]);
 
   useEffect(() => {
     loadQuote();
@@ -71,6 +86,8 @@ export default function CheckoutScreen() {
         pickupLat,
         pickupLng,
         loadCategory,
+        serviceType: isScheduled ? 'SCHEDULED' : undefined,
+        ...(isScheduled && scheduledPickupAt ? { scheduledPickupAt } : {}),
       });
       router.replace(`/orders/${order.id}`);
     } catch (e) {
@@ -78,7 +95,7 @@ export default function CheckoutScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [quote, pickupAddress, pickupLat, pickupLng, loadCategory]);
+  }, [quote, pickupAddress, pickupLat, pickupLng, loadCategory, isScheduled, scheduledPickupAt]);
 
   if (loading) {
     return (
@@ -125,6 +142,8 @@ export default function CheckoutScreen() {
                   pickupLng: String(pickupLng),
                   pickupAddress,
                   current: quote.shopServiceId,
+                  ...(isScheduled ? { serviceType: 'SCHEDULED' } : {}),
+                  ...(scheduledPickupAt ? { scheduledPickupAt } : {}),
                 },
               })
             }
@@ -136,10 +155,20 @@ export default function CheckoutScreen() {
 
       <Text style={styles.eyebrow}>Order</Text>
       <Card>
-        <Text style={[type.body, { color: colors.text, fontWeight: '600' }]}>
-          {catLabel} · ~{estKg}kg load
-        </Text>
+        <View style={styles.rowBetween}>
+          <Text style={[type.body, { color: colors.text, fontWeight: '600' }]}>
+            {catLabel} · ~{estKg}kg load
+          </Text>
+          <View testID="service-badge" style={[styles.badge, isScheduled && styles.badgeSched]}>
+            <Text style={styles.badgeT}>{isScheduled ? 'Scheduled' : 'Express'}</Text>
+          </View>
+        </View>
         <Muted>{pickupAddress}</Muted>
+        {scheduledLabel ? (
+          <Text testID="scheduled-pickup" style={styles.sched}>
+            🗓  Pickup {scheduledLabel}
+          </Text>
+        ) : null}
       </Card>
 
       <Card>
@@ -202,7 +231,9 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 5,
   },
+  badgeSched: { backgroundColor: colors.navy },
   badgeT: { color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 0.4 },
+  sched: { color: colors.navy, fontWeight: '700', fontSize: 13, marginTop: space.xs },
   change: { color: colors.terraDark, fontWeight: '700', fontSize: 13 },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginVertical: space.xs },
   est: { color: colors.terraDark, fontSize: 12, fontWeight: '600' },
