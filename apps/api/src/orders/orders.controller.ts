@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   Post,
   Query,
@@ -59,10 +60,14 @@ export class OrdersController {
   @Post()
   @Roles('CUSTOMER')
   @ApiOperation({ summary: 'Book an order (customer) — Express (default) or Scheduled' })
-  create(@CurrentUser() user: User, @Body() dto: CreateOrderDto) {
+  create(
+    @CurrentUser() user: User,
+    @Body() dto: CreateOrderDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
     return dto.serviceType === 'SCHEDULED'
-      ? this.orders.createScheduledOrder(user, dto)
-      : this.orders.createExpressOrder(user, dto);
+      ? this.orders.createScheduledOrder(user, dto, idempotencyKey)
+      : this.orders.createExpressOrder(user, dto, idempotencyKey);
   }
 
   @Post(':id/assign-rider')

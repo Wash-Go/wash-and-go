@@ -16,6 +16,7 @@ describe('RiderCashService', () => {
       collectedByRider: jest.fn(),
       depositedByRider: jest.fn(),
       createDeposit: jest.fn(),
+      findDepositByIdempotencyKey: jest.fn().mockResolvedValue(null),
       listDeposits: jest.fn(),
       findRider: jest.fn(),
     } as unknown as jest.Mocked<RiderCashRepository>;
@@ -103,6 +104,39 @@ describe('RiderCashService', () => {
       );
       const arg = repo.createDeposit.mock.calls[0][0];
       expect(new Prisma.Decimal(String(arg.amountPhp)).toFixed(2)).toBe('800.00');
+    });
+
+    it('is idempotent — a repeated key returns the existing deposit, no double-count', async () => {
+      repo.findDepositByIdempotencyKey.mockResolvedValue({ id: 'd1' } as never);
+      const out = await service.recordDeposit('r1', 800, 'admin1', undefined, undefined, 'idem-1');
+      expect(out).toEqual({ id: 'd1' });
+      expect(repo.createDeposit).not.toHaveBeenCalled(); // no second row
+      expect(repo.findRider).not.toHaveBeenCalled();
+    });
+
+    it('passes the idempotency key through to the created deposit', async () => {
+      repo.findRider.mockResolvedValue({ id: 'r1', roles: ['RIDER'] } as never);
+      repo.createDeposit.mockResolvedValue({ id: 'd2' } as never);
+      await service.recordDeposit('r1', 500, 'admin1', undefined, undefined, 'idem-2');
+      expect(repo.createDeposit).toHaveBeenCalledWith(
+        expect.objectContaining({ idempotencyKey: 'idem-2' }),
+      );
+    });
+
+    it('returns the winner if it loses a concurrent race on the same key', async () => {
+      repo.findRider.mockResolvedValue({ id: 'r1', roles: ['RIDER'] } as never);
+      repo.findDepositByIdempotencyKey
+        .mockResolvedValueOnce(null) // pre-check: not seen yet
+        .mockResolvedValueOnce({ id: 'winner' } as never); // after the race
+      repo.createDeposit.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('dup', {
+          code: 'P2002',
+          clientVersion: 'x',
+          meta: { target: 'RiderCashDeposit_idempotencyKey_key' },
+        }),
+      );
+      const out = await service.recordDeposit('r1', 500, 'admin1', undefined, undefined, 'idem-3');
+      expect(out).toEqual({ id: 'winner' });
     });
   });
 });

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User } from '@prisma/client';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -43,6 +43,7 @@ export class RiderCashController {
     @CurrentUser() user: User,
     @Param('id') id: string,
     @Body() dto: RecordDepositDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
     return this.cash.recordDeposit(
       id,
@@ -50,6 +51,7 @@ export class RiderCashController {
       user.firebaseUid,
       dto.reference,
       dto.note,
+      idempotencyKey,
     );
   }
 }

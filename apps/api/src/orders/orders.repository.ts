@@ -22,6 +22,10 @@ export class OrdersRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   // ── catalog / membership reads (no tx needed) ───────────────────────────
+  findByIdempotencyKey(key: string): Promise<Order | null> {
+    return this.prisma.order.findUnique({ where: { idempotencyKey: key } });
+  }
+
   findShopServiceWithShop(
     shopServiceId: string,
   ): Promise<(ShopService & { shop: Shop }) | null> {

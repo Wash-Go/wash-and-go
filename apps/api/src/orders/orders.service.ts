@@ -16,6 +16,7 @@ import {
 } from '@prisma/client';
 import { isExpressEligible, loadCategory, LoadCategoryKey } from './load';
 import { rankShopCandidates, ShopCandidate } from './shop-match';
+import { isUniqueViolation } from '../common/prisma-errors';
 import { PrismaService } from '../prisma/prisma.service';
 import { pricePreview, PricingBreakdown, PricingError } from '../pricing/pricing';
 import { PlatformConfigService } from '../platform-config/platform-config.service';
@@ -240,7 +241,16 @@ export class OrdersService {
   }
 
   // POST /orders — customer books an express order.
-  async createExpressOrder(actor: User, dto: CreateOrderDto): Promise<Order> {
+  async createExpressOrder(
+    actor: User,
+    dto: CreateOrderDto,
+    idempotencyKey?: string,
+  ): Promise<Order> {
+    // Idempotency: a retried booking returns the same order (no second slot burn).
+    if (idempotencyKey) {
+      const seen = await this.repo.findByIdempotencyKey(idempotencyKey);
+      if (seen) return seen;
+    }
     // Backstop the Express weight ceiling before any work (the client gates it too).
     const estimateKg = await this.resolveExpressLoadKg(dto.loadCategory);
 
@@ -267,7 +277,8 @@ export class OrdersService {
     const window = manilaDayWindow(new Date());
     const cfg = await this.config.getValues(); // read once; used for auto-dispatch below
 
-    return this.prisma.$transaction(async (tx) => {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
       // T1: lock the shop-day BEFORE counting, so concurrent bookings serialize.
       await this.repo.lockShopDay(tx, shop.id, window.dateStr);
       const used = await this.repo.countExpressOrdersForShopDay(
@@ -283,6 +294,7 @@ export class OrdersService {
       const code = await this.repo.mintOrderCode(tx);
       const order = await this.repo.createOrder(tx, {
         code,
+        idempotencyKey,
         serviceType: ServiceType.EXPRESS,
         status: OrderStatus.BOOKED,
         pickupAddress: dto.pickupAddress,
@@ -329,7 +341,15 @@ export class OrdersService {
       }
 
       return order;
-    });
+      });
+    } catch (e) {
+      // Lost a concurrent race on the same key — return the winning order.
+      if (idempotencyKey && isUniqueViolation(e, 'idempotencyKey')) {
+        const seen = await this.repo.findByIdempotencyKey(idempotencyKey);
+        if (seen) return seen;
+      }
+      throw e;
+    }
   }
 
   private validateScheduledTime(iso?: string): Date {
@@ -352,7 +372,15 @@ export class OrdersService {
   // Express: no weight ceiling (any load category), no express slot/advisory
   // lock (batch capacity + route consolidation land in P2), and it carries a
   // requested pickup time. Same coverage check + pricing engine.
-  async createScheduledOrder(actor: User, dto: CreateOrderDto): Promise<Order> {
+  async createScheduledOrder(
+    actor: User,
+    dto: CreateOrderDto,
+    idempotencyKey?: string,
+  ): Promise<Order> {
+    if (idempotencyKey) {
+      const seen = await this.repo.findByIdempotencyKey(idempotencyKey);
+      if (seen) return seen;
+    }
     const when = this.validateScheduledTime(dto.scheduledPickupAt);
     const cat = loadCategory(dto.loadCategory);
     if (!cat) throw new BadRequestException('Unknown load category');
@@ -378,10 +406,12 @@ export class OrdersService {
       km,
     );
 
-    return this.prisma.$transaction(async (tx) => {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
       const code = await this.repo.mintOrderCode(tx);
       const order = await this.repo.createOrder(tx, {
         code,
+        idempotencyKey,
         serviceType: ServiceType.SCHEDULED,
         status: OrderStatus.BOOKED,
         pickupAddress: dto.pickupAddress,
@@ -408,7 +438,14 @@ export class OrdersService {
       });
 
       return order;
-    });
+      });
+    } catch (e) {
+      if (idempotencyKey && isUniqueViolation(e, 'idempotencyKey')) {
+        const seen = await this.repo.findByIdempotencyKey(idempotencyKey);
+        if (seen) return seen;
+      }
+      throw e;
+    }
   }
 
   // POST /orders/:id/assign-rider — admin manual dispatch (BOOKED → ASSIGNED).

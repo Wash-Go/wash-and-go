@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { newIdempotencyKey } from '@wash-and-go/api-client';
 import { loadCategory as findLoadCategory } from '@wash-and-go/domain';
 import type { LoadCategoryKey, OrderQuote } from '@wash-and-go/domain';
 import {
@@ -51,6 +52,8 @@ export default function CheckoutScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // One key per checkout mount — a retried confirm dedupes to a single order.
+  const idempotencyKey = useMemo(() => newIdempotencyKey(), []);
 
   const loadQuote = useCallback(async () => {
     setLoading(true);
@@ -80,22 +83,25 @@ export default function CheckoutScreen() {
     setSubmitting(true);
     setError(null);
     try {
-      const order = await api.createOrder({
-        shopServiceId: quote.shopServiceId,
-        pickupAddress,
-        pickupLat,
-        pickupLng,
-        loadCategory,
-        serviceType: isScheduled ? 'SCHEDULED' : undefined,
-        ...(isScheduled && scheduledPickupAt ? { scheduledPickupAt } : {}),
-      });
+      const order = await api.createOrder(
+        {
+          shopServiceId: quote.shopServiceId,
+          pickupAddress,
+          pickupLat,
+          pickupLng,
+          loadCategory,
+          serviceType: isScheduled ? 'SCHEDULED' : undefined,
+          ...(isScheduled && scheduledPickupAt ? { scheduledPickupAt } : {}),
+        },
+        idempotencyKey,
+      );
       router.replace(`/orders/${order.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not place your order.');
     } finally {
       setSubmitting(false);
     }
-  }, [quote, pickupAddress, pickupLat, pickupLng, loadCategory, isScheduled, scheduledPickupAt]);
+  }, [quote, pickupAddress, pickupLat, pickupLng, loadCategory, isScheduled, scheduledPickupAt, idempotencyKey]);
 
   if (loading) {
     return (

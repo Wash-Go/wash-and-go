@@ -174,6 +174,22 @@ describe('Orders integration (Docker Postgres)', () => {
     }
   });
 
+  it('is idempotent — a repeated idempotency key returns the same order', async () => {
+    const { shopServiceId } = await makeShop(5);
+    const key = `idem-${SUFFIX}`;
+    const body = {
+      shopServiceId,
+      pickupAddress: 'Tetuan',
+      ...PICKUP,
+      loadCategory: 'M' as const,
+    };
+    const first = await service.createExpressOrder(customer, body, key);
+    const second = await service.createExpressOrder(customer, body, key);
+    expect(second.id).toBe(first.id);
+    const count = await prisma.order.count({ where: { idempotencyKey: key } });
+    expect(count).toBe(1);
+  });
+
   it('runs a full express lifecycle and writes remittance on DELIVERED', async () => {
     const { shopServiceId } = await makeShop(5);
     const order = await book(shopServiceId);

@@ -147,6 +147,9 @@ model ShopService {
 model Order {
   id          String      @id @default(cuid())
   code        String      @unique // "WG-2026-000001" via global sequence
+  // Client-supplied idempotency key (idempotency-key header) — a retried booking
+  // returns the same order instead of creating a second one + burning a slot.
+  idempotencyKey String?  @unique
   customerId  String
   customer    User        @relation("CustomerOrders", fields: [customerId], references: [id])
   serviceType ServiceType
@@ -246,6 +249,9 @@ model RiderCashDeposit {
   reference   String? // deposit slip / GCash ref / envelope no.
   note        String?
   recordedByUid String
+  // Idempotency key (idempotency-key header) — a retried "record deposit" returns
+  // the existing row instead of double-counting cash handed back.
+  idempotencyKey String? @unique
   createdAt   DateTime @default(now())
 
   @@index([riderId, createdAt])

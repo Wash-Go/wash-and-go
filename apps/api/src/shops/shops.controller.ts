@@ -1,6 +1,7 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { parseFiniteNumber } from '../common/parse-num';
 import { ShopsService } from './shops.service';
 
 @ApiTags('shops')
@@ -20,7 +21,7 @@ export class ShopsController {
   list(@Query('lat') lat?: string, @Query('lng') lng?: string) {
     const loc =
       lat != null && lng != null && lat !== '' && lng !== ''
-        ? { lat: Number(lat), lng: Number(lng) }
+        ? { lat: parseFiniteNumber(lat, 'lat'), lng: parseFiniteNumber(lng, 'lng') }
         : undefined;
     return this.shops.listActiveWithServices(loc);
   }

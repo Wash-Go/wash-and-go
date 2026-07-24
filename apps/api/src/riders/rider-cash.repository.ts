@@ -61,6 +61,12 @@ export class RiderCashRepository {
     return this.prisma.riderCashDeposit.create({ data });
   }
 
+  findDepositByIdempotencyKey(key: string): Promise<RiderCashDeposit | null> {
+    return this.prisma.riderCashDeposit.findUnique({
+      where: { idempotencyKey: key },
+    });
+  }
+
   listDeposits(riderId: string): Promise<RiderCashDeposit[]> {
     return this.prisma.riderCashDeposit.findMany({
       where: { riderId },

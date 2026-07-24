@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { isUniqueViolation } from '../common/prisma-errors';
 import { RiderCashRepository } from './rider-cash.repository';
 
 export interface RiderCashBalance {
@@ -43,7 +44,13 @@ export class RiderCashService {
     actorUid: string,
     reference?: string,
     note?: string,
+    idempotencyKey?: string,
   ) {
+    // Idempotency: a retried "record deposit" must not double-count cash returned.
+    if (idempotencyKey) {
+      const seen = await this.repo.findDepositByIdempotencyKey(idempotencyKey);
+      if (seen) return seen;
+    }
     if (!Number.isFinite(amount) || amount <= 0) {
       throw new BadRequestException('Deposit amount must be a positive number');
     }
@@ -52,13 +59,23 @@ export class RiderCashService {
     if (!rider.roles.includes('RIDER')) {
       throw new BadRequestException('User is not a rider');
     }
-    return this.repo.createDeposit({
-      riderId,
-      amountPhp: new Prisma.Decimal(amount),
-      reference,
-      note,
-      recordedByUid: actorUid,
-    });
+    try {
+      return await this.repo.createDeposit({
+        riderId,
+        amountPhp: new Prisma.Decimal(amount),
+        reference,
+        note,
+        recordedByUid: actorUid,
+        idempotencyKey,
+      });
+    } catch (e) {
+      // Lost a concurrent race on the same key — return the row that won.
+      if (idempotencyKey && isUniqueViolation(e, 'idempotencyKey')) {
+        const seen = await this.repo.findDepositByIdempotencyKey(idempotencyKey);
+        if (seen) return seen;
+      }
+      throw e;
+    }
   }
 
   listDeposits(riderId: string) {

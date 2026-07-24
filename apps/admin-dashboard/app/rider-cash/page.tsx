@@ -1,6 +1,7 @@
 'use client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { newIdempotencyKey } from '@wash-and-go/api-client';
 import { peso, type Rider, type RiderCashBalance } from '@wash-and-go/domain';
 import { api, API_BASE_URL } from '../../lib/api';
 import { c } from '../../lib/theme';
@@ -106,14 +107,21 @@ function RiderRow({
   const [amount, setAmount] = useState('');
   const [ref, setRef] = useState('');
   const outstanding = Number(row.outstandingPhp);
+  // One key per deposit — a double-click / retry dedupes to a single row; reset
+  // after a success so the next deposit gets a fresh key.
+  const keyRef = useRef<string | null>(null);
 
   const save = useMutation({
-    mutationFn: () =>
-      api.recordRiderDeposit(row.riderId, {
-        amountPhp: Number(amount),
-        reference: ref.trim() || undefined,
-      }),
+    mutationFn: () => {
+      if (!keyRef.current) keyRef.current = newIdempotencyKey();
+      return api.recordRiderDeposit(
+        row.riderId,
+        { amountPhp: Number(amount), reference: ref.trim() || undefined },
+        keyRef.current,
+      );
+    },
     onSuccess: () => {
+      keyRef.current = null;
       setAmount('');
       setRef('');
       qc.invalidateQueries({ queryKey: ['rider-cash'] });

@@ -13,6 +13,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { parseFiniteNumber } from '../common/parse-num';
 import { CreateZoneDto, SetZoneActiveDto } from './dto/zones.dto';
 import { ZonesService } from './zones.service';
 
@@ -52,7 +53,10 @@ export class ZonesController {
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Which zone contains a point (or null)' })
   resolve(@Query('lat') lat: string, @Query('lng') lng: string) {
-    return this.zones.resolve({ lat: Number(lat), lng: Number(lng) });
+    return this.zones.resolve({
+      lat: parseFiniteNumber(lat, 'lat'),
+      lng: parseFiniteNumber(lng, 'lng'),
+    });
   }
 
   @Delete(':id')

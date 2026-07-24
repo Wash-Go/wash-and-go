@@ -122,6 +122,7 @@ describe('OrdersService', () => {
 
   beforeEach(() => {
     repo = {
+      findByIdempotencyKey: jest.fn().mockResolvedValue(null),
       findShopServiceWithShop: jest.fn(),
       findActiveShopServices: jest.fn(),
       countExpressUsedByShopForDay: jest.fn().mockResolvedValue(new Map()),
@@ -310,6 +311,31 @@ describe('OrdersService', () => {
       const order = await service.createExpressOrder(makeUser(['CUSTOMER']), dto);
       expect(order.status).toBe('BOOKED');
       expect(repo.pickAutoDispatchRider).not.toHaveBeenCalled();
+    });
+
+    it('is idempotent — a repeated key returns the existing order, no new booking', async () => {
+      repo.findByIdempotencyKey.mockResolvedValue({ id: 'existing' } as never);
+      const order = await service.createExpressOrder(
+        makeUser(['CUSTOMER']),
+        dto,
+        'key-123',
+      );
+      expect(order).toEqual({ id: 'existing' });
+      // short-circuited before any work
+      expect(repo.findShopServiceWithShop).not.toHaveBeenCalled();
+      expect(repo.createOrder).not.toHaveBeenCalled();
+    });
+
+    it('persists the idempotency key on a fresh booking', async () => {
+      repo.findShopServiceWithShop.mockResolvedValue(makeShopService() as never);
+      repo.countExpressOrdersForShopDay.mockResolvedValue(0);
+      repo.createOrder.mockImplementation((_tx, data) =>
+        Promise.resolve({ id: 'o1', ...data } as never),
+      );
+      await service.createExpressOrder(makeUser(['CUSTOMER']), dto, 'key-abc');
+      expect(repo.createOrder.mock.calls[0][1]).toEqual(
+        expect.objectContaining({ idempotencyKey: 'key-abc' }),
+      );
     });
   });
 

@@ -81,6 +81,9 @@ export class ApiClient {
     // undefined = first attempt (fetch a fresh token); set = retry using the
     // exact token refreshToken() returned.
     retry?: { token: string | null },
+    // Idempotency key — a retried mutating call returns the same result instead
+    // of creating a duplicate (booking / cash deposit).
+    idempotencyKey?: string,
   ): Promise<T> {
     const token = retry ? retry.token : await this.tokens.getToken();
     const headers: Record<string, string> = {};
@@ -90,6 +93,7 @@ export class ApiClient {
     if (body !== undefined) headers['content-type'] = 'application/json';
     if (token) headers['authorization'] = `Bearer ${token}`;
     if (this.devUid) headers['x-dev-uid'] = this.devUid;
+    if (idempotencyKey) headers['idempotency-key'] = idempotencyKey;
 
     const res = await this.fetchFn(`${this.baseUrl}${path}`, {
       method,
@@ -103,7 +107,7 @@ export class ApiClient {
     if (res.status === 401 && !retry) {
       const refreshed = await this.tokens.refreshToken();
       if (refreshed) {
-        return this.request<T>(method, path, body, { token: refreshed });
+        return this.request<T>(method, path, body, { token: refreshed }, idempotencyKey);
       }
     }
 
@@ -159,8 +163,8 @@ export class ApiClient {
     return this.request('POST', '/orders/preview', body);
   }
 
-  createOrder(body: CreateOrderBody): Promise<OrderView> {
-    return this.request('POST', '/orders', body);
+  createOrder(body: CreateOrderBody, idempotencyKey?: string): Promise<OrderView> {
+    return this.request('POST', '/orders', body, undefined, idempotencyKey);
   }
 
   getOrder(id: string): Promise<OrderView> {
@@ -260,11 +264,17 @@ export class ApiClient {
     return this.request('GET', `/admin/riders/${encodeURIComponent(riderId)}/cash`);
   }
 
-  recordRiderDeposit(riderId: string, body: RecordDepositBody): Promise<unknown> {
+  recordRiderDeposit(
+    riderId: string,
+    body: RecordDepositBody,
+    idempotencyKey?: string,
+  ): Promise<unknown> {
     return this.request(
       'POST',
       `/admin/riders/${encodeURIComponent(riderId)}/cash/deposit`,
       body,
+      undefined,
+      idempotencyKey,
     );
   }
 
