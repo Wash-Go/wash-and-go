@@ -1,4 +1,7 @@
+import { Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
+
+const logger = new Logger('Sentry');
 
 /*
  * Sentry error tracking, env-gated (Tier 1 observability). Ships INERT: with no
@@ -15,14 +18,16 @@ let enabled = false;
 export function initSentry(): boolean {
   const dsn = process.env.SENTRY_DSN;
   if (!dsn) return false;
+  const environment =
+    process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV ?? 'development';
   Sentry.init({
     dsn,
-    environment:
-      process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV ?? 'development',
+    environment,
     release: process.env.SENTRY_RELEASE,
     tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE ?? 0),
   });
   enabled = true;
+  logger.log(`Error tracking enabled (env=${environment})`);
   return true;
 }
 
