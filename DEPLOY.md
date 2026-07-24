@@ -82,4 +82,6 @@ project's domain to the API's `CORS_ORIGINS`.
 | `MAPS_PROVIDER` | no | `tomtom` (default) |
 | `CORS_ORIGINS` | yes (prod) | comma-separated web origins |
 | `PORT` | no | Railway injects it |
+| `SENTRY_DSN` | no | free Sentry Node project → 5xx error reporting; unset = off |
+| `SENTRY_ENVIRONMENT` | no | defaults to `NODE_ENV` |
 | `REDIS_URL` | no | Phase D |

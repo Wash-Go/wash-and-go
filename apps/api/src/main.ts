@@ -8,8 +8,13 @@ import helmet from '@fastify/helmet';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { initSentry } from './observability/sentry';
 
 async function bootstrap() {
+  // Init error tracking first so failures during boot are captured too (no-op
+  // when SENTRY_DSN is unset — ships inert).
+  initSentry();
+
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter(),

@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { captureException } from '../../observability/sentry';
 
 /*
  * A3 (P1): one global filter so nothing leaks a raw stack trace or an unmapped
@@ -34,6 +35,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
         `[${reqId}] ${req?.method} ${req?.url} → ${status}`,
         exception instanceof Error ? exception.stack : String(exception),
       );
+      // Report genuine server errors to Sentry (no-op until a DSN is set). 4xx
+      // are expected client errors and are never reported.
+      captureException(exception, {
+        requestId: reqId,
+        method: req?.method,
+        url: req?.url,
+      });
     } else {
       this.logger.warn(`[${reqId}] ${req?.method} ${req?.url} → ${status} ${message}`);
     }
