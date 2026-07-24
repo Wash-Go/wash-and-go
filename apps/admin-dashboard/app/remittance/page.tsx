@@ -189,6 +189,7 @@ function BatchRow({
               value={ref}
               onChange={(e) => setRef(e.target.value)}
               placeholder="Transfer ref"
+              aria-label="Transfer reference"
               className="field-input"
               style={{ width: 130 }}
             />
@@ -207,6 +208,11 @@ function BatchRow({
             >
               {pay.isPending ? '…' : 'Mark paid'}
             </button>
+            {pay.isError ? (
+              <span style={{ color: c.danger, fontSize: 12 }}>
+                {pay.error instanceof Error ? pay.error.message : 'Failed'}
+              </span>
+            ) : null}
           </div>
         )}
       </td>

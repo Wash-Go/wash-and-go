@@ -148,6 +148,7 @@ function RiderRow({
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="₱ amount"
+            aria-label={`Deposit amount for ${name}`}
             inputMode="decimal"
             className="field-input"
             style={{ width: 100 }}
@@ -156,6 +157,7 @@ function RiderRow({
             value={ref}
             onChange={(e) => setRef(e.target.value)}
             placeholder="ref"
+            aria-label={`Deposit reference for ${name}`}
             className="field-input"
             style={{ width: 90 }}
           />
@@ -174,6 +176,11 @@ function RiderRow({
           >
             {save.isPending ? '…' : 'Deposit'}
           </button>
+          {save.isError ? (
+            <span style={{ color: c.danger, fontSize: 12 }}>
+              {save.error instanceof Error ? save.error.message : 'Deposit failed'}
+            </span>
+          ) : null}
         </div>
       </td>
     </tr>

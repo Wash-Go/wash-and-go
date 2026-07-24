@@ -32,7 +32,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </a>
           ))}
         </nav>
-        <div className="sidebar-foot">Signed in · dev-admin</div>
+        <div className="sidebar-foot">Admin console</div>
       </aside>
       <main className="content">{children}</main>
     </div>

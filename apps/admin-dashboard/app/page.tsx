@@ -192,7 +192,11 @@ function AssignCell({ order, riders }: { order: OrderView; riders: Rider[] }) {
 
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-      <select value={riderId} onChange={(e) => setRiderId(e.target.value)}>
+      <select
+        value={riderId}
+        onChange={(e) => setRiderId(e.target.value)}
+        aria-label={`Assign rider to order ${order.code}`}
+      >
         <option value="">Pick rider…</option>
         {riders.map((r) => (
           <option key={r.id} value={r.id}>
