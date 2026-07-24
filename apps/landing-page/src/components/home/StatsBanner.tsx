@@ -13,21 +13,22 @@ type StatCardProps = StatItem & {
   isActive: boolean
 }
 
+// Honest value props (pre-launch — no fabricated metrics).
 const STATS: StatItem[] = [
   {
     icon: laundryCleanedIcon,
-    number: '100,000+',
-    description: 'Pounds of laundry cleaned',
+    number: 'Same-day',
+    description: 'Express pickup & delivery',
   },
   {
     icon: orderedServiceIcon,
-    number: '500+',
-    description: 'Orders Serviced',
+    number: 'Any size',
+    description: 'Scheduled & business pickups',
   },
   {
     icon: satisfiedClientsIcon,
-    number: '1000+',
-    description: 'Satisfied Clients',
+    number: 'Upfront',
+    description: 'See your price before you confirm',
   },
 ]
 

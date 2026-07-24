@@ -9,36 +9,27 @@ export const Route = createFileRoute('/pricing')({
 })
 
 /*
- * PRICING IS PROPOSED / INDICATIVE ONLY.
- * Per BUSINESS_RULES_PROPOSED (Notion): the 12% commission, ₱40 scheduled
- * delivery, express fee range, and ₱7 service fee are planning assumptions.
- * The founders must approve the rate card. This page shows how pricing works
- * transparently, with figures clearly marked as indicative — do NOT present
- * as a firm price list until the rate card is approved.
+ * No fixed figures — each partner laundry sets its own rate, and the app shows
+ * the exact total (wash + delivery + service fee) before the customer confirms.
+ * This page explains HOW the price is built, not a firm price list.
  */
 
 const BREAKDOWN = [
   {
-    label: 'Wash value',
-    value: '≈ ₱25 / kg',
-    note: 'Set by your chosen service and the shop’s weigh-in',
+    label: 'Wash',
+    value: 'Set by the shop',
+    note: 'Each partner laundry sets its own rate; weight-based services are priced on the weighed load.',
   },
   {
-    label: 'Delivery fee',
-    value: '₱40 · Scheduled',
-    note: '₱65–80 for Express (premium, on-demand)',
+    label: 'Delivery',
+    value: 'By distance',
+    note: 'Calculated from your pickup to the nearest partner shop.',
   },
   {
     label: 'Service fee',
-    value: '₱7 flat',
-    note: 'Covers order processing',
+    value: 'Flat',
+    note: 'A small fee that covers order processing.',
   },
-] as const
-
-const EXAMPLE = [
-  { label: 'Wash, dry & fold — 6 kg', amount: '₱150' },
-  { label: 'Delivery (Scheduled)', amount: '₱40' },
-  { label: 'Service fee', amount: '₱7' },
 ] as const
 
 function PricingPage() {
@@ -51,15 +42,6 @@ function PricingPage() {
           </h1>
           <p className="mt-4 font-['Montserrat'] text-base text-[#444] sm:text-lg">
             You see every line before you pay. No surprises at the door.
-          </p>
-        </div>
-
-        {/* Proposed-rates disclaimer */}
-        <div className="mx-auto mt-8 max-w-2xl rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
-          <p className="font-['Montserrat'] text-xs text-amber-800">
-            <span className="font-semibold">Indicative rates.</span> Figures
-            below are proposed and pending final approval. Weight-based prices
-            are confirmed by the partner shop’s measured weight at weigh-in.
           </p>
         </div>
 
@@ -88,46 +70,27 @@ function PricingPage() {
           </div>
         </div>
 
-        {/* Worked example */}
+        {/* One clear total */}
         <div className="mt-14">
-          <h2 className="text-center font-['Unbounded'] text-2xl font-bold text-gray-900">
-            An Example Order
-          </h2>
-          <div className="mx-auto mt-8 max-w-md rounded-3xl border border-gray-100 bg-white p-8">
-            <ul className="space-y-3">
-              {EXAMPLE.map((e) => (
-                <li
-                  key={e.label}
-                  className="flex items-center justify-between font-['Montserrat'] text-sm text-gray-600"
-                >
-                  <span>{e.label}</span>
-                  <span className="font-medium text-gray-900">{e.amount}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4">
-              <span className="font-['Unbounded'] text-sm font-bold text-gray-900">
-                Total
-              </span>
-              <span className="font-['Unbounded'] text-xl font-bold text-[#D07A29]">
-                ₱197
-              </span>
-            </div>
-            <p className="mt-3 font-['Montserrat'] text-xs text-gray-400">
-              6 kg wash, dry &amp; fold on Scheduled service. Express delivery
-              would replace the ₱40 delivery fee with a ₱65–80 premium fee.
+          <div className="mx-auto max-w-2xl rounded-3xl border border-gray-100 bg-white p-8 text-center">
+            <p className="font-['Unbounded'] text-lg font-bold text-gray-900">
+              Wash + Delivery + Service fee ={' '}
+              <span className="text-[#D07A29]">your total</span>
+            </p>
+            <p className="mt-3 font-['Montserrat'] text-sm text-gray-600">
+              You see the full breakdown before you confirm. For weight-based
+              services the total is re-confirmed after the partner shop weighs
+              your laundry — never a surprise at the door.
             </p>
           </div>
         </div>
 
-        {/* Payment methods */}
+        {/* Payment */}
         <div className="mt-14 rounded-2xl border border-gray-100 bg-white p-6 text-center">
           <p className="font-['Montserrat'] text-sm text-gray-600">
-            Pay securely in the app with{' '}
-            <span className="font-semibold text-gray-900">GCash</span>,{' '}
-            <span className="font-semibold text-gray-900">Maya</span>, or{' '}
-            <span className="font-semibold text-gray-900">card</span> — after
-            your laundry is weighed, never before.
+            Pay <span className="font-semibold text-gray-900">cash on delivery</span>{' '}
+            when your clean laundry arrives. In-app payment (GCash, Maya, card) is
+            coming soon.
           </p>
         </div>
       </section>

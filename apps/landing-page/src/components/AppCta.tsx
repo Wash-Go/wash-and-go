@@ -5,7 +5,7 @@
  */
 export function AppCta({
   title = 'Ready to skip laundry day?',
-  subtitle = 'Book pickups, track orders, and pay securely in the Wash & Go app.',
+  subtitle = 'Book pickups and track your orders in the Wash & Go app.',
 }: {
   title?: string
   subtitle?: string
@@ -20,13 +20,14 @@ export function AppCta({
           {subtitle}
         </p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <a
-            href="#"
+          <button
+            type="button"
+            disabled
             aria-disabled="true"
-            className="inline-flex items-center gap-2 rounded-full bg-[#D07A29] px-8 py-3.5 font-['Montserrat'] text-sm font-semibold text-white transition-all duration-150 hover:bg-[#c46e24] hover:shadow-md active:scale-[0.97]"
+            className="inline-flex cursor-not-allowed items-center gap-2 rounded-full bg-[#D07A29]/70 px-8 py-3.5 font-['Montserrat'] text-sm font-semibold text-white"
           >
             Get the Customer App
-          </a>
+          </button>
           <span className="font-['Montserrat'] text-xs text-white/60">
             Coming soon to Google Play and the App Store
           </span>

@@ -2,15 +2,10 @@
 
 React frontend application built with TanStack Router, Vite, and TailwindCSS.
 
-> **Migration status:** This incomplete customer-web prototype was migrated
-> from the legacy `ClydeQue/Wash-Go` repository on 2026-07-17. The canonical
-> source is now `Wash-Go/wash-and-go/frontend`. Do not make new changes in the
-> legacy repository.
-
-This application is preserved for its implemented routes, components, and
-assets. ADR-002 classifies it as an archived reference prototype: reusable
-content and design ideas may be moved into the onboarding site or React Native
-apps, but this application is not deployed as a Wash & Go product surface.
+This is the **public landing / onboarding site** for Wash & Go (Zamboanga City).
+It explains the service, the three offerings (Express, Scheduled, Business), and
+how pricing works, then hands off to the mobile apps for booking and tracking.
+Deployed as a static site on Vercel.
 
 ## Folder Structure
 

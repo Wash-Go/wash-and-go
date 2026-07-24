@@ -31,8 +31,8 @@ const STEPS = [
   },
   {
     n: '04',
-    title: 'Pay securely',
-    body: 'Pay in the app once your laundry is weighed — GCash, Maya, or card. No cash to fumble with at the door.',
+    title: 'Pay on delivery',
+    body: 'Pay cash when your clean laundry arrives — you see the full price before you confirm. In-app payment (GCash, Maya, card) is coming soon.',
   },
   {
     n: '05',
@@ -81,9 +81,8 @@ function HowItWorksPage() {
 
         <div className="mt-12 rounded-2xl border border-[#3D5975]/20 bg-[#3D5975]/5 p-6 text-center">
           <p className="font-['Montserrat'] text-sm text-[#3D5975]">
-            Booking, payment, and live tracking all happen in the Wash & Go
-            customer app. This site is where you learn about the service and
-            check if we cover your area.
+            Booking and order tracking happen in the Wash & Go customer app.
+            This site is where you learn about the service and how it works.
           </p>
         </div>
       </section>

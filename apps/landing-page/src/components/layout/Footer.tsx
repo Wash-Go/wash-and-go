@@ -55,7 +55,7 @@ export function Footer() {
             Get the App
           </h3>
           <p className="mt-4 font-['Montserrat'] text-sm text-gray-600">
-            Booking, payment, and live tracking live in the Wash & Go mobile app.
+            Booking and order tracking live in the Wash & Go mobile app.
           </p>
           <div className="mt-4 flex flex-col gap-2">
             <span className="inline-flex w-fit items-center rounded-full bg-gray-100 px-4 py-2 font-['Montserrat'] text-xs font-medium text-gray-500">
