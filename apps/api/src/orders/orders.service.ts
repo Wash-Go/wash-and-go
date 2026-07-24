@@ -15,6 +15,7 @@ import {
   User,
 } from '@prisma/client';
 import { isExpressEligible, loadCategory, LoadCategoryKey } from './load';
+import { rankShopCandidates, ShopCandidate } from './shop-match';
 import { PrismaService } from '../prisma/prisma.service';
 import { pricePreview, PricingBreakdown, PricingError } from '../pricing/pricing';
 import { PlatformConfigService } from '../platform-config/platform-config.service';
@@ -152,23 +153,50 @@ export class OrdersService {
     );
   }
 
-  // Resolve the nearest active shop-service to a pickup point (haversine). MVP:
-  // nearest within a max radius; express capacity is enforced at create.
-  // Fallback ranking + live-GPS + dynamic-config radius land with the maps slice.
-  private async resolveNearest(pickup: { lat: number; lng: number }): Promise<{
-    ss: ShopService & { shop: Shop };
-    km: number;
-  }> {
-    const ranked = (await this.repo.findActiveShopServices())
-      .map((ss) => ({ ss, km: this.kmToShop(pickup, ss.shop) }))
-      .sort((a, b) => a.km - b.km);
-    const nearest = ranked[0];
-    if (!nearest) throw new BadRequestException('No laundry shops available');
+  // Resolve the best active shop-service for a pickup (P4b, multi-factor).
+  // Within the max radius, rank by: Express capacity (skip shops already at their
+  // daily cap so we don't quote a shop that will 409), then distance, then
+  // turnaround. Scheduled (Tier 1) ignores the Express cap. If every in-range
+  // shop is full we still return the best one so the customer gets a quote; the
+  // create then reports the capacity conflict.
+  private async resolveBestShop(
+    pickup: { lat: number; lng: number },
+    serviceType: ServiceType | undefined,
+  ): Promise<{ ss: ShopService & { shop: Shop }; km: number }> {
+    const all = await this.repo.findActiveShopServices();
+    if (all.length === 0) {
+      throw new BadRequestException('No laundry shops available');
+    }
     const { maxResolveKm } = await this.config.getValues();
-    if (nearest.km > maxResolveKm) {
+    const inRange = all
+      .map((ss) => ({ ss, km: this.kmToShop(pickup, ss.shop) }))
+      .filter((x) => x.km <= maxResolveKm);
+    if (inRange.length === 0) {
       throw new BadRequestException('Pickup location is outside coverage');
     }
-    return nearest;
+
+    const capacityAware = serviceType !== ServiceType.SCHEDULED;
+    let used = new Map<string, number>();
+    if (capacityAware) {
+      const window = manilaDayWindow(new Date());
+      used = await this.repo.countExpressUsedByShopForDay(
+        inRange.map((x) => x.ss.shop.id),
+        window.dayStartUtc,
+        window.dayEndUtc,
+      );
+    }
+
+    const candidates: ShopCandidate[] = inRange.map((x) => ({
+      shopServiceId: x.ss.id,
+      shopId: x.ss.shop.id,
+      km: x.km,
+      turnaroundHours: x.ss.turnaroundHours,
+      slotsPerDay: x.ss.shop.expressSlotsPerDay,
+      usedToday: used.get(x.ss.shop.id) ?? 0,
+    }));
+    const best = rankShopCandidates(candidates, capacityAware)[0];
+    const chosen = inRange.find((x) => x.ss.id === best.shopServiceId)!;
+    return { ss: chosen.ss, km: chosen.km };
   }
 
   // POST /orders/quote — resolve the shop (nearest, or the override) + full
@@ -189,7 +217,7 @@ export class OrdersService {
       ss = chosen;
       km = this.kmToShop(pickup, chosen.shop);
     } else {
-      const n = await this.resolveNearest(pickup);
+      const n = await this.resolveBestShop(pickup, dto.serviceType);
       ss = n.ss;
       km = n.km;
     }

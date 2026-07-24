@@ -122,6 +122,7 @@ describe('OrdersService', () => {
     repo = {
       findShopServiceWithShop: jest.fn(),
       findActiveShopServices: jest.fn(),
+      countExpressUsedByShopForDay: jest.fn().mockResolvedValue(new Map()),
       isShopMember: jest.fn(),
       userHasRole: jest.fn(),
       lockShopDay: jest.fn().mockResolvedValue(undefined),
@@ -409,6 +410,37 @@ describe('OrdersService', () => {
         serviceType: 'SCHEDULED',
       });
       expect(q.breakdown.washValuePhp.toFixed(2)).toBe('225.00'); // 25 × 9
+    });
+
+    it('prefers an available shop over a nearer one at its express cap', async () => {
+      repo.findActiveShopServices.mockResolvedValue([
+        makeShopService(), // near (0 km), cap 8
+        farShopService(), // far
+      ] as never);
+      // near shop is full today; far shop (not in the map) has room.
+      repo.countExpressUsedByShopForDay.mockResolvedValue(new Map([['shop1', 8]]));
+      const q = await service.quoteOrder({
+        pickupLat: 6.9111,
+        pickupLng: 122.0794,
+        loadCategory: 'M',
+      });
+      expect(q.shopServiceId).toBe('shopsvc-far');
+    });
+
+    it('ignores express capacity for SCHEDULED — nearest wins even if full', async () => {
+      repo.findActiveShopServices.mockResolvedValue([
+        makeShopService(),
+        farShopService(),
+      ] as never);
+      repo.countExpressUsedByShopForDay.mockResolvedValue(new Map([['shop1', 8]]));
+      const q = await service.quoteOrder({
+        pickupLat: 6.9111,
+        pickupLng: 122.0794,
+        loadCategory: 'L',
+        serviceType: 'SCHEDULED',
+      });
+      expect(q.shopServiceId).toBe('shopsvc1'); // nearest, capacity ignored
+      expect(repo.countExpressUsedByShopForDay).not.toHaveBeenCalled();
     });
   });
 

@@ -38,6 +38,29 @@ export class OrdersRepository {
     });
   }
 
+  // P4b: today's Express order count per shop (Manila-day window), for the
+  // capacity-aware shop match. No tx — a read used during quote resolution.
+  async countExpressUsedByShopForDay(
+    shopIds: string[],
+    dayStartUtc: Date,
+    dayEndUtc: Date,
+  ): Promise<Map<string, number>> {
+    if (shopIds.length === 0) return new Map();
+    const grouped = await this.prisma.order.groupBy({
+      by: ['shopId'],
+      where: {
+        shopId: { in: shopIds },
+        serviceType: ServiceType.EXPRESS,
+        status: { not: OrderStatus.CANCELLED },
+        createdAt: { gte: dayStartUtc, lt: dayEndUtc },
+      },
+      _count: { _all: true },
+    });
+    const m = new Map<string, number>();
+    for (const g of grouped) if (g.shopId) m.set(g.shopId, g._count._all);
+    return m;
+  }
+
   async isShopMember(userId: string, shopId: string): Promise<boolean> {
     const m = await this.prisma.shopMember.findUnique({
       where: { shopId_userId: { shopId, userId } },
