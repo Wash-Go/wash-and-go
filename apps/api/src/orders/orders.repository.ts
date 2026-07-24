@@ -222,11 +222,16 @@ export class OrdersRepository {
 
   findManyWithRelations(
     where: Prisma.OrderWhereInput,
+    opts: { take?: number; cursorId?: string } = {},
   ): Promise<OrderWithRelations[]> {
     return this.prisma.order.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      // Stable keyset order (createdAt desc, id as tiebreak) so cursor paging is
+      // correct even when two orders share a createdAt.
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       include: { shop: true, customer: true, assignedRider: true },
+      take: opts.take,
+      ...(opts.cursorId ? { cursor: { id: opts.cursorId }, skip: 1 } : {}),
     });
   }
 }

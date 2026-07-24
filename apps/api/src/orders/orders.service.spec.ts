@@ -874,6 +874,32 @@ describe('OrdersService', () => {
       const w = await whereFor(makeUser([], 'ghost'));
       expect(w.OR).toEqual([{ id: '__none__' }]);
     });
+
+    it('filters by status and searches the order code', async () => {
+      repo.findManyWithRelations.mockResolvedValue([] as never);
+      await service.listOrders(makeUser(['ADMIN']), { status: 'BOOKED', q: 'WG-2026' });
+      const where = repo.findManyWithRelations.mock.calls[0][0];
+      expect(where.status).toBe('BOOKED');
+      expect(where.code).toEqual({ contains: 'WG-2026', mode: 'insensitive' });
+    });
+
+    it('defaults the page size to 50 (was unbounded)', async () => {
+      repo.findManyWithRelations.mockResolvedValue([] as never);
+      await service.listOrders(makeUser(['ADMIN']));
+      expect(repo.findManyWithRelations.mock.calls[0][1]).toEqual({
+        take: 50,
+        cursorId: undefined,
+      });
+    });
+
+    it('clamps the page size to 100 and forwards the cursor', async () => {
+      repo.findManyWithRelations.mockResolvedValue([] as never);
+      await service.listOrders(makeUser(['ADMIN']), { limit: 999, before: 'ord-cursor' });
+      expect(repo.findManyWithRelations.mock.calls[0][1]).toEqual({
+        take: 100,
+        cursorId: 'ord-cursor',
+      });
+    });
   });
 
   // ── previously-untested gate branches (B7) ───────────────────────────────

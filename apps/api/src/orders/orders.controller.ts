@@ -118,8 +118,22 @@ export class OrdersController {
 
   @Get()
   @ApiQuery({ name: 'status', enum: OrderStatus, required: false })
-  @ApiOperation({ summary: 'List orders visible to the caller' })
-  list(@CurrentUser() user: User, @Query('status') status?: OrderStatus) {
-    return this.orders.listOrders(user, status);
+  @ApiQuery({ name: 'q', required: false, description: 'search by order code' })
+  @ApiQuery({ name: 'limit', required: false, description: 'page size (default 50, max 100)' })
+  @ApiQuery({ name: 'before', required: false, description: 'order id cursor for the next page' })
+  @ApiOperation({ summary: 'List orders visible to the caller (paged, newest first)' })
+  list(
+    @CurrentUser() user: User,
+    @Query('status') status?: OrderStatus,
+    @Query('q') q?: string,
+    @Query('limit') limit?: string,
+    @Query('before') before?: string,
+  ) {
+    return this.orders.listOrders(user, {
+      status,
+      q,
+      limit: limit != null && limit !== '' ? Number(limit) : undefined,
+      before: before || undefined,
+    });
   }
 }

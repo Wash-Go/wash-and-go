@@ -190,6 +190,27 @@ describe('Orders integration (Docker Postgres)', () => {
     expect(count).toBe(1);
   });
 
+  it('paginates the order list — limit caps the page, cursor returns the next', async () => {
+    const { shopServiceId } = await makeShop(5);
+    await book(shopServiceId);
+    await book(shopServiceId);
+    await book(shopServiceId); // customer now has >= 3 orders
+
+    const page1 = await service.listOrders(customer, { limit: 2 });
+    expect(page1).toHaveLength(2);
+
+    const cursor = page1[1].id;
+    const page2 = await service.listOrders(customer, { limit: 2, before: cursor });
+    const page1Ids = new Set(page1.map((o) => o.id));
+    // No overlap, and the next page is older than the cursor row.
+    for (const o of page2) {
+      expect(page1Ids.has(o.id)).toBe(false);
+      expect(o.createdAt.getTime()).toBeLessThanOrEqual(
+        page1[1].createdAt.getTime(),
+      );
+    }
+  });
+
   it('runs a full express lifecycle and writes remittance on DELIVERED', async () => {
     const { shopServiceId } = await makeShop(5);
     const order = await book(shopServiceId);

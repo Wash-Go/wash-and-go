@@ -173,9 +173,21 @@ export class ApiClient {
     return this.request('GET', `/orders/${encodeURIComponent(id)}`);
   }
 
-  listOrders(status?: OrderStatus): Promise<OrderView[]> {
-    const q = status ? `?status=${encodeURIComponent(status)}` : '';
-    return this.request('GET', `/orders${q}`);
+  // Paged, newest-first. `q` searches the order code; `before` is an order id
+  // cursor for the next page. Back-compatible: listOrders() / listOrders(status).
+  listOrders(
+    status?: OrderStatus,
+    q?: string,
+    limit?: number,
+    before?: string,
+  ): Promise<OrderView[]> {
+    const p = new URLSearchParams();
+    if (status) p.set('status', status);
+    if (q) p.set('q', q);
+    if (limit != null) p.set('limit', String(limit));
+    if (before) p.set('before', before);
+    const s = p.toString();
+    return this.request('GET', `/orders${s ? `?${s}` : ''}`);
   }
 
   // Drive a legal status transition (rider/shop/admin). Server enforces legality

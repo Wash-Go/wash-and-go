@@ -14,7 +14,11 @@ import { STATUS_FILTERS, canAssign, filterOrders } from '../lib/orders';
 
 export default function AdminPage() {
   const [filter, setFilter] = useState<OrderStatus | 'ALL'>('ALL');
-  const orders = useQuery({ queryKey: ['orders'], queryFn: () => api.listOrders() });
+  const [search, setSearch] = useState('');
+  const orders = useQuery({
+    queryKey: ['orders', search],
+    queryFn: () => api.listOrders(undefined, search.trim() || undefined),
+  });
   const riders = useQuery({ queryKey: ['riders'], queryFn: () => api.getRiders() });
 
   const rows = orders.data ? filterOrders(orders.data, filter) : [];
@@ -29,6 +33,15 @@ export default function AdminPage() {
           exception path, not routine dispatch.
         </p>
       </div>
+
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search by order code (e.g. WG-2026-000123)…"
+        aria-label="Search orders by code"
+        className="field-input"
+        style={{ width: 320, maxWidth: '100%', marginBottom: 12 }}
+      />
 
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
         {STATUS_FILTERS.map((s) => (

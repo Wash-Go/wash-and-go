@@ -631,9 +631,21 @@ export class OrdersService {
     return this.toDetail(actor, order);
   }
 
-  async listOrders(actor: User, status?: OrderStatus): Promise<OrderDetail[]> {
+  async listOrders(
+    actor: User,
+    filter: {
+      status?: OrderStatus;
+      q?: string;
+      limit?: number;
+      before?: string;
+    } = {},
+  ): Promise<OrderDetail[]> {
     const where: Prisma.OrderWhereInput = {};
-    if (status) where.status = status;
+    if (filter.status) where.status = filter.status;
+    // Free-text search on the order code (WG-YYYY-NNNNNN).
+    if (filter.q && filter.q.trim()) {
+      where.code = { contains: filter.q.trim(), mode: 'insensitive' };
+    }
 
     if (!actor.roles.includes('ADMIN')) {
       const scopes: Prisma.OrderWhereInput[] = [];
@@ -653,7 +665,15 @@ export class OrdersService {
       where.OR = scopes.length > 0 ? scopes : [{ id: '__none__' }];
     }
 
-    const orders = await this.repo.findManyWithRelations(where);
+    // Bound the result (was unbounded). Default 50, hard cap 100; `before` is an
+    // order id cursor for the next page.
+    const take = Number.isFinite(filter.limit)
+      ? Math.min(Math.max(filter.limit as number, 1), 100)
+      : 50;
+    const orders = await this.repo.findManyWithRelations(where, {
+      take,
+      cursorId: filter.before,
+    });
     return Promise.all(orders.map((o) => this.toDetail(actor, o)));
   }
 
