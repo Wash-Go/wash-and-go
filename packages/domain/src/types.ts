@@ -131,6 +131,22 @@ export interface RateOrderBody {
   comment?: string;
 }
 
+// In-app notification inbox.
+export interface NotificationView {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  orderId: string | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface NotificationList {
+  items: NotificationView[];
+  unread: number;
+}
+
 export interface PreviewOrderBody {
   shopServiceId: string;
   weightKg: number;

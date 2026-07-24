@@ -11,6 +11,7 @@ import { PlatformConfigModule } from './platform-config/platform-config.module';
 import { RemittanceModule } from './remittance/remittance.module';
 import { MapsModule } from './maps/maps.module';
 import { ZonesModule } from './zones/zones.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { HealthController } from './health.controller';
 import { envValidationSchema, envValidationOptions } from './config/env.validation';
 
@@ -41,6 +42,7 @@ import { envValidationSchema, envValidationOptions } from './config/env.validati
     RemittanceModule,
     MapsModule,
     ZonesModule,
+    NotificationsModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

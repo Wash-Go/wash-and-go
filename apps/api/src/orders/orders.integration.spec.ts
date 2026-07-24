@@ -5,6 +5,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PlatformConfigService } from '../platform-config/platform-config.service';
 import { ZonesService } from '../zones/zones.service';
 import { ZonesRepository } from '../zones/zones.repository';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationsRepository } from '../notifications/notifications.repository';
 import { OrdersRepository } from './orders.repository';
 import { OrdersService } from './orders.service';
 
@@ -33,7 +35,10 @@ describe('Orders integration (Docker Postgres)', () => {
   // Real zones against the same Postgres — empty table falls back to the pilot
   // ring, so the central-ZC PICKUP is covered.
   const zones = new ZonesService(new ZonesRepository(prisma));
-  const service = new OrdersService(prisma, repo, config, zones);
+  const notifications = new NotificationsService(
+    new NotificationsRepository(prisma),
+  );
+  const service = new OrdersService(prisma, repo, config, zones, notifications);
 
   const createdShopIds: string[] = [];
   let customer: User;
@@ -93,6 +98,9 @@ describe('Orders integration (Docker Postgres)', () => {
       await prisma.shopService.deleteMany({ where: { shopId } });
       await prisma.shop.delete({ where: { id: shopId } });
     }
+    await prisma.notification.deleteMany({
+      where: { userId: { in: [customer.id, rider.id, admin.id] } },
+    });
     await prisma.user.deleteMany({
       where: { id: { in: [customer.id, rider.id, admin.id] } },
     });
@@ -265,6 +273,13 @@ describe('Orders integration (Docker Postgres)', () => {
     await expect(
       service.rateOrder(customer, order.id, { stars: 3 }),
     ).rejects.toBeInstanceOf(ConflictException);
+
+    // Each status change emitted an in-app notification to the customer.
+    const notifs = await prisma.notification.findMany({
+      where: { userId: customer.id, orderId: order.id },
+    });
+    expect(notifs.length).toBeGreaterThan(0);
+    expect(notifs.some((n) => n.body.includes('delivered'))).toBe(true);
   });
 
   it('capacity: two concurrent creates on a 1-slot shop → exactly one wins', async () => {

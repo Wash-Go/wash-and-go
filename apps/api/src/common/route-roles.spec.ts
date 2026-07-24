@@ -11,6 +11,7 @@ import { RiderCashController } from '../riders/rider-cash.controller';
 import { ShopsController } from '../shops/shops.controller';
 import { ZonesController } from '../zones/zones.controller';
 import { GeocodeController } from '../maps/geocode.controller';
+import { NotificationsController } from '../notifications/notifications.controller';
 
 /*
  * B6: lock the coarse role matrix. RolesGuard reads @Roles metadata off each
@@ -102,6 +103,13 @@ describe('route role matrix', () => {
     const c = AdminUsersController.prototype;
     for (const m of ['list', 'setRoles', 'disable', 'enable']) {
       expect(rolesOf(c, m)).toEqual(['ADMIN']);
+    }
+  });
+
+  it('notification routes are any-authenticated (ownership-scoped)', () => {
+    const c = NotificationsController.prototype;
+    for (const m of ['list', 'read', 'readAll']) {
+      expect(rolesOf(c, m)).toBeUndefined();
     }
   });
 

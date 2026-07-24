@@ -7,6 +7,7 @@ import type {
   CreateOrderBody,
   CreateZoneBody,
   GeocodeHit,
+  NotificationList,
   RecordDepositBody,
   RiderCashBalance,
   RiderCashDetail,
@@ -133,6 +134,19 @@ export class ApiClient {
   async postSession(): Promise<{ id: string; roles: string[] }> {
     const token = await this.tokens.getToken();
     return this.request('POST', '/auth/session', { idToken: token });
+  }
+
+  // --- In-app notifications (own inbox) ---
+  getNotifications(): Promise<NotificationList> {
+    return this.request('GET', '/me/notifications');
+  }
+
+  markNotificationRead(id: string): Promise<unknown> {
+    return this.request('POST', `/me/notifications/${encodeURIComponent(id)}/read`);
+  }
+
+  markAllNotificationsRead(): Promise<unknown> {
+    return this.request('POST', '/me/notifications/read-all');
   }
 
   getShops(loc?: { lat: number; lng: number }): Promise<ShopView[]> {

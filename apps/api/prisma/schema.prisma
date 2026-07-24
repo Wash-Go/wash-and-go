@@ -59,6 +59,23 @@ model User {
   orderEvents     OrderEvent[]
   addresses       Address[]
   cashDeposits    RiderCashDeposit[] @relation("RiderCashDeposits")
+  notifications   Notification[]
+}
+
+// In-app notification (e.g. an order status change) for one user. Push/SMS is a
+// fast-follow; this is the in-app inbox the apps poll.
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  type      String // "ORDER_UPDATE"
+  title     String
+  body      String
+  orderId   String? // deep-link target
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
 }
 
 // Service coverage area (formalizes the hardcoded pilot polygon). A pickup is

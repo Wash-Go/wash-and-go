@@ -63,6 +63,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="addresses" options={{ title: 'Saved addresses' }} />
+        <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
         <Stack.Screen name="book" options={{ title: 'Book pickup' }} />
         <Stack.Screen name="checkout" options={{ title: 'Review & confirm' }} />
         <Stack.Screen name="change-laundry" options={{ title: 'Choose a laundry' }} />

@@ -40,12 +40,16 @@ export default function ProfileScreen() {
         <Muted>Signed in as</Muted>
         <Text style={[type.title, { color: colors.text }]}>{email ?? '—'}</Text>
       </Card>
+      <Card testID="open-notifications" onPress={() => router.push('/notifications')}>
+        <Text style={[type.title, { color: colors.text }]}>Notifications</Text>
+        <Muted>Order updates and alerts.</Muted>
+      </Card>
       <Card testID="manage-addresses" onPress={() => router.push('/addresses')}>
         <Text style={[type.title, { color: colors.text }]}>Saved addresses</Text>
         <Muted>Manage your pickup addresses for faster booking.</Muted>
       </Card>
       <Card>
-        <Muted>Payment methods and notifications are coming soon.</Muted>
+        <Muted>Payment methods are coming soon.</Muted>
       </Card>
       <PrimaryButton label="Sign out" onPress={confirmSignOut} />
     </Screen>

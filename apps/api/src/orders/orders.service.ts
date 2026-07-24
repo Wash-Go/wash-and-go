@@ -18,7 +18,20 @@ import {
 import { isExpressEligible, loadCategory, LoadCategoryKey } from './load';
 import { rankShopCandidates, ShopCandidate } from './shop-match';
 import { isUniqueViolation } from '../common/prisma-errors';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
+
+// Human-facing message per status, for the customer's in-app notification.
+const STATUS_MSG: Partial<Record<OrderStatus, string>> = {
+  ASSIGNED: 'A rider has been assigned',
+  PICKED_UP: 'Your laundry was picked up',
+  AT_SHOP: 'Your laundry arrived at the shop',
+  PROCESSING: 'Your laundry is being washed',
+  READY_FOR_RETURN: 'Your laundry is ready for return',
+  OUT_FOR_RETURN: 'Your laundry is out for delivery',
+  DELIVERED: 'Your laundry was delivered',
+  CANCELLED: 'Your order was cancelled',
+};
 import { pricePreview, PricingBreakdown, PricingError } from '../pricing/pricing';
 import { PlatformConfigService } from '../platform-config/platform-config.service';
 import { computeDeliveryFee, haversineKm } from '../pricing/distance';
@@ -73,6 +86,7 @@ export class OrdersService {
     private readonly repo: OrdersRepository,
     private readonly config: PlatformConfigService,
     private readonly zones: ZonesService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private async price(
@@ -586,6 +600,15 @@ export class OrdersService {
         status: to,
         actorUserId: actor.id,
         meta: to === OrderStatus.CANCELLED && dto.reason ? { reason: dto.reason } : undefined,
+      });
+
+      // In-app notification to the customer, in the same tx as the status change.
+      await this.notifications.emit(tx, {
+        userId: order.customerId,
+        type: 'ORDER_UPDATE',
+        title: `Order ${order.code}`,
+        body: STATUS_MSG[to] ?? `Status: ${to}`,
+        orderId: order.id,
       });
 
       // S2: remittance in the same tx as the DELIVERED transition. unique(orderId)

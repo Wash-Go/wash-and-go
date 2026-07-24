@@ -9,6 +9,7 @@ import { OrdersService } from './orders.service';
 import type { OrdersRepository } from './orders.repository';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { PlatformConfigService } from '../platform-config/platform-config.service';
+import type { NotificationsService } from '../notifications/notifications.service';
 import { ZonesService } from '../zones/zones.service';
 import type { ZonesRepository } from '../zones/zones.repository';
 
@@ -180,7 +181,11 @@ describe('OrdersService', () => {
       findActive: async () => [],
     } as unknown as ZonesRepository);
 
-    service = new OrdersService(prisma, repo, config, zones);
+    const notifications = {
+      emit: jest.fn().mockResolvedValue({ id: 'n1' }),
+    } as unknown as NotificationsService;
+
+    service = new OrdersService(prisma, repo, config, zones, notifications);
   });
 
   describe('createExpressOrder', () => {
