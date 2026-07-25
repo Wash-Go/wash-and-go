@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import type {
   AddShopMemberDto,
   AddShopServiceDto,
@@ -68,7 +69,10 @@ export interface ServiceCatalogView {
 
 @Injectable()
 export class AdminShopsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async list(): Promise<AdminShopView[]> {
     const shops = await this.prisma.shop.findMany({
@@ -76,6 +80,70 @@ export class AdminShopsService {
       include: { _count: { select: { services: true, members: true } } },
     });
     return shops.map((s) => this.shape(s, s._count.services, s._count.members));
+  }
+
+  // The review queue: shops the owner submitted, oldest-first (FIFO).
+  async listApplications(): Promise<AdminShopView[]> {
+    const shops = await this.prisma.shop.findMany({
+      where: { status: 'SUBMITTED' },
+      orderBy: { submittedAt: 'asc' },
+      include: { _count: { select: { services: true, members: true } } },
+    });
+    return shops.map((s) => this.shape(s, s._count.services, s._count.members));
+  }
+
+  async verify(id: string): Promise<AdminShopView> {
+    const shop = await this.prisma.shop.findUnique({ where: { id } });
+    if (!shop) throw new NotFoundException('Shop not found');
+    if (shop.status !== 'SUBMITTED') {
+      throw new ConflictException('Only a submitted shop can be verified');
+    }
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const s = await tx.shop.update({
+        where: { id },
+        data: { status: 'VERIFIED', active: true, verifiedAt: new Date(), rejectionReason: null },
+        include: { _count: { select: { services: true, members: true } } },
+      });
+      await this.notifyOwner(tx, id, {
+        type: 'SHOP_VERIFIED',
+        title: 'Your shop is verified',
+        body: `${s.name} is live — you can start receiving orders.`,
+      });
+      return s;
+    });
+    return this.shape(updated, updated._count.services, updated._count.members);
+  }
+
+  async reject(id: string, reason: string): Promise<AdminShopView> {
+    const shop = await this.prisma.shop.findUnique({ where: { id } });
+    if (!shop) throw new NotFoundException('Shop not found');
+    if (shop.status !== 'SUBMITTED') {
+      throw new ConflictException('Only a submitted shop can be rejected');
+    }
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const s = await tx.shop.update({
+        where: { id },
+        data: { status: 'REJECTED', rejectionReason: reason },
+        include: { _count: { select: { services: true, members: true } } },
+      });
+      await this.notifyOwner(tx, id, {
+        type: 'SHOP_REJECTED',
+        title: 'Your shop needs changes',
+        body: reason,
+      });
+      return s;
+    });
+    return this.shape(updated, updated._count.services, updated._count.members);
+  }
+
+  // Notify the shop's OWNER member (if any) inside the caller's transaction.
+  private async notifyOwner(
+    tx: Prisma.TransactionClient,
+    shopId: string,
+    data: { type: string; title: string; body: string },
+  ): Promise<void> {
+    const owner = await tx.shopMember.findFirst({ where: { shopId, role: 'OWNER' } });
+    if (owner) await this.notifications.emit(tx, { userId: owner.userId, ...data });
   }
 
   async get(id: string): Promise<AdminShopDetail> {

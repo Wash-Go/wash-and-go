@@ -20,6 +20,7 @@ import {
   UpdateShopDto,
   UpdateShopServiceDto,
 } from './dto/admin-shops.dto';
+import { RejectShopDto } from './dto/shop-onboarding.dto';
 
 /*
  * Shop administration (checkpoint C). ADMIN-only CRUD over shops, their priced
@@ -45,6 +46,13 @@ export class AdminShopsController {
   @ApiOperation({ summary: 'List the service catalog (to attach to a shop)' })
   catalog() {
     return this.shops.listCatalog();
+  }
+
+  @Get('applications')
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Review queue — shops submitted for verification' })
+  applications() {
+    return this.shops.listApplications();
   }
 
   @Get(':id')
@@ -84,6 +92,20 @@ export class AdminShopsController {
     @Body() dto: UpdateShopServiceDto,
   ) {
     return this.shops.updateService(id, shopServiceId, dto);
+  }
+
+  @Post(':id/verify')
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Approve a submitted shop → VERIFIED + live' })
+  verify(@Param('id') id: string) {
+    return this.shops.verify(id);
+  }
+
+  @Post(':id/reject')
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Reject a submitted shop with a reason' })
+  reject(@Param('id') id: string, @Body() dto: RejectShopDto) {
+    return this.shops.reject(id, dto.reason);
   }
 
   @Post(':id/members')

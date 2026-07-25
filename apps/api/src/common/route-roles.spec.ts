@@ -11,6 +11,7 @@ import { RiderCashController } from '../riders/rider-cash.controller';
 import { MeCashController } from '../riders/me-cash.controller';
 import { ShopsController } from '../shops/shops.controller';
 import { AdminShopsController } from '../shops/admin-shops.controller';
+import { ShopOnboardingController } from '../shops/shop-onboarding.controller';
 import { ZonesController } from '../zones/zones.controller';
 import { GeocodeController } from '../maps/geocode.controller';
 import { NotificationsController } from '../notifications/notifications.controller';
@@ -119,15 +120,25 @@ describe('route role matrix', () => {
     for (const m of [
       'list',
       'catalog',
+      'applications',
       'get',
       'create',
       'update',
       'addService',
       'updateService',
+      'verify',
+      'reject',
       'addMember',
       'removeMember',
     ]) {
       expect(rolesOf(c, m)).toEqual(['ADMIN']);
+    }
+  });
+
+  it('self-serve shop onboarding is any-authenticated (ownership-scoped)', () => {
+    const c = ShopOnboardingController.prototype;
+    for (const m of ['mine', 'start', 'update', 'submit']) {
+      expect(rolesOf(c, m)).toBeUndefined();
     }
   });
 

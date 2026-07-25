@@ -104,6 +104,40 @@ export interface AddShopMemberBody {
   userId: string;
   role: 'OWNER' | 'STAFF';
 }
+
+// Self-serve shop onboarding (portal owner view — no margin fields).
+export interface OwnerShopView {
+  id: string;
+  name: string;
+  address: string;
+  lat: string;
+  lng: string;
+  status: ShopStatus;
+  rejectionReason: string | null;
+  permitKey: string | null;
+  photoKeys: string[];
+  submittedAt: string | null;
+  verifiedAt: string | null;
+}
+
+export interface UpdateOnboardingBody {
+  name?: string;
+  address?: string;
+  lat?: number;
+  lng?: number;
+  permitKey?: string;
+  photoKeys?: string[];
+}
+
+export interface RejectShopBody {
+  reason: string;
+}
+
+// R2 upload brokering.
+export interface PresignUploadResult {
+  key: string;
+  putUrl: string;
+}
 // ServiceType re-used below for the create body.
 
 // Wire shapes returned by the Nest API. Money is a STRING over the wire (Prisma

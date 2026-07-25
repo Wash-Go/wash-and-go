@@ -12,9 +12,16 @@ function makeService(overrides: Record<string, unknown> = {}) {
     shopMember: {},
     serviceCatalogItem: {},
     user: {},
+    // $transaction runs the callback with the same stub as the tx client.
+    $transaction: (fn: (tx: unknown) => unknown) => fn(prisma),
     ...overrides,
   } as unknown as PrismaService;
-  return { svc: new AdminShopsService(prisma), prisma: prisma as never };
+  const notifications = { emit: jest.fn().mockResolvedValue(undefined) };
+  return {
+    svc: new AdminShopsService(prisma, notifications as never),
+    prisma: prisma as never,
+    notifications,
+  };
 }
 
 const D = (n: number) => new Prisma.Decimal(n);
@@ -101,5 +108,51 @@ describe('AdminShopsService', () => {
     });
     await expect(svc.removeMember('s1', 'm1')).rejects.toBeInstanceOf(NotFoundException);
     expect(del).not.toHaveBeenCalled();
+  });
+
+  const verifiedRow = (status: string) => ({
+    ...rawShop,
+    status,
+    _count: { services: 1, members: 1 },
+  });
+
+  it('verify rejects a shop that is not SUBMITTED', async () => {
+    const { svc } = makeService({
+      shop: { findUnique: jest.fn().mockResolvedValue({ status: 'VERIFIED' }) },
+    });
+    await expect(svc.verify('s1')).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('verify flips SUBMITTED → VERIFIED and notifies the owner', async () => {
+    const { svc, notifications } = makeService({
+      shop: {
+        findUnique: jest.fn().mockResolvedValue({ status: 'SUBMITTED' }),
+        update: jest.fn().mockResolvedValue(verifiedRow('VERIFIED')),
+      },
+      shopMember: { findFirst: jest.fn().mockResolvedValue({ userId: 'owner1' }) },
+    });
+    const view = await svc.verify('s1');
+    expect(view.status).toBe('VERIFIED');
+    expect(notifications.emit).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ userId: 'owner1', type: 'SHOP_VERIFIED' }),
+    );
+  });
+
+  it('reject sets REJECTED + reason and notifies the owner', async () => {
+    const update = jest.fn().mockResolvedValue(verifiedRow('REJECTED'));
+    const { svc, notifications } = makeService({
+      shop: { findUnique: jest.fn().mockResolvedValue({ status: 'SUBMITTED' }), update },
+      shopMember: { findFirst: jest.fn().mockResolvedValue({ userId: 'owner1' }) },
+    });
+    await svc.reject('s1', 'blurry permit');
+    expect(update.mock.calls[0][0].data).toMatchObject({
+      status: 'REJECTED',
+      rejectionReason: 'blurry permit',
+    });
+    expect(notifications.emit).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ type: 'SHOP_REJECTED', body: 'blurry permit' }),
+    );
   });
 });

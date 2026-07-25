@@ -9,7 +9,10 @@ import type {
   AdminUserView,
   CloseRemittanceBody,
   CreateShopBody,
+  OwnerShopView,
+  PresignUploadResult,
   ServiceCatalogView,
+  UpdateOnboardingBody,
   UpdateShopBody,
   UpdateShopServiceBody,
   ConfigAuditEntry,
@@ -423,6 +426,48 @@ export class ApiClient {
       'DELETE',
       `/admin/shops/${encodeURIComponent(id)}/members/${encodeURIComponent(memberId)}`,
     );
+  }
+
+  // --- Admin: shop verification review queue ---
+
+  listShopApplications(): Promise<AdminShopView[]> {
+    return this.request('GET', '/admin/shops/applications');
+  }
+
+  verifyShop(id: string): Promise<AdminShopView> {
+    return this.request('POST', `/admin/shops/${encodeURIComponent(id)}/verify`);
+  }
+
+  rejectShop(id: string, reason: string): Promise<AdminShopView> {
+    return this.request('POST', `/admin/shops/${encodeURIComponent(id)}/reject`, { reason });
+  }
+
+  // --- Self-serve shop onboarding (laundry portal) ---
+
+  getMyShopOnboarding(): Promise<OwnerShopView | null> {
+    return this.request('GET', '/shop/onboarding');
+  }
+
+  startShopOnboarding(): Promise<OwnerShopView> {
+    return this.request('POST', '/shop/onboarding/start');
+  }
+
+  updateShopOnboarding(body: UpdateOnboardingBody): Promise<OwnerShopView> {
+    return this.request('PATCH', '/shop/onboarding', body);
+  }
+
+  submitShopOnboarding(): Promise<OwnerShopView> {
+    return this.request('POST', '/shop/onboarding/submit');
+  }
+
+  // --- Uploads (presigned R2) ---
+
+  presignUpload(contentType: string): Promise<PresignUploadResult> {
+    return this.request('POST', '/uploads/presign', { contentType });
+  }
+
+  uploadViewUrl(key: string): Promise<{ url: string }> {
+    return this.request('GET', `/uploads/url?key=${encodeURIComponent(key)}`);
   }
 }
 
