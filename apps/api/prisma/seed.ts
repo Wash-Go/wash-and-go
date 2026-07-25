@@ -25,8 +25,8 @@ async function main() {
 
   // Two partner shops with express capacity
   const shopSeeds = [
-    { name: 'Tetuan Laundry Hub', address: 'Tetuan, Zamboanga City', lat: 6.9111, lng: 122.0794, expressSlotsPerDay: 8 },
-    { name: 'Guiwan Wash Center', address: 'Guiwan, Zamboanga City', lat: 6.9245, lng: 122.0865, expressSlotsPerDay: 5 },
+    { name: 'Tetuan Laundry Hub', address: 'Tetuan, Zamboanga City', lat: 6.9111, lng: 122.0794, expressSlotsPerDay: 8, status: 'VERIFIED' as const, verifiedAt: new Date('2026-07-01') },
+    { name: 'Guiwan Wash Center', address: 'Guiwan, Zamboanga City', lat: 6.9245, lng: 122.0865, expressSlotsPerDay: 5, status: 'VERIFIED' as const, verifiedAt: new Date('2026-07-01') },
   ];
   for (const shop of shopSeeds) {
     const existing = await prisma.shop.findFirst({ where: { name: shop.name } });

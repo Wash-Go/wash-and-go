@@ -62,10 +62,11 @@ export class OrdersRepository {
     });
   }
 
-  // Candidate shop-services for auto-resolve: active service at an active shop.
+  // Candidate shop-services for auto-resolve: active service at a VERIFIED,
+  // active shop. Unverified (self-serve, not-yet-reviewed) shops never match.
   findActiveShopServices(): Promise<(ShopService & { shop: Shop })[]> {
     return this.prisma.shopService.findMany({
-      where: { active: true, shop: { active: true } },
+      where: { active: true, shop: { active: true, status: 'VERIFIED' } },
       include: { shop: true },
     });
   }

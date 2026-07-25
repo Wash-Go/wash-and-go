@@ -17,7 +17,7 @@ describe('ShopsService', () => {
     prisma.shop.findMany.mockResolvedValue([]);
     await service.listActiveWithServices();
     const arg = prisma.shop.findMany.mock.calls[0][0];
-    expect(arg.where).toEqual({ active: true });
+    expect(arg.where).toEqual({ active: true, status: 'VERIFIED' });
     expect(arg.include.services.where).toEqual({ active: true });
     expect(arg.include.services.include.service).toBe(true);
   });

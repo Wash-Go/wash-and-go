@@ -26,21 +26,27 @@ const rawShop = {
   lat: D(6.9),
   lng: D(122.07),
   active: true,
+  status: 'VERIFIED',
+  submittedAt: null,
+  verifiedAt: new Date('2026-07-25T00:00:00Z'),
+  rejectionReason: null,
   commissionPct: D(12),
   expressSlotsPerDay: 3,
   createdAt: new Date('2026-07-25T00:00:00Z'),
 };
 
 describe('AdminShopsService', () => {
-  it('create shapes decimals to strings and defaults counts to 0', async () => {
-    const { svc } = makeService({
-      shop: { create: jest.fn().mockResolvedValue(rawShop) },
-    });
+  it('create shapes decimals to strings, defaults counts to 0, and is VERIFIED (admin-trusted)', async () => {
+    const create = jest.fn().mockResolvedValue(rawShop);
+    const { svc } = makeService({ shop: { create } });
     const view = await svc.create({ name: 'Suds', address: 'Tetuan', lat: 6.9, lng: 122.07 });
     expect(view.commissionPct).toBe('12.00');
     expect(view.lat).toBe('6.9');
     expect(view.serviceCount).toBe(0);
     expect(view.memberCount).toBe(0);
+    expect(view.status).toBe('VERIFIED');
+    // admin-created shops skip onboarding straight to VERIFIED
+    expect(create.mock.calls[0][0].data).toMatchObject({ status: 'VERIFIED' });
   });
 
   it('addService rejects an unknown catalog id', async () => {

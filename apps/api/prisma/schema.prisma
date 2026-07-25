@@ -109,13 +109,34 @@ model Address {
   @@index([userId])
 }
 
+// Verification lifecycle (self-serve onboarding). A shop the owner just signed up
+// for is DRAFT; SUBMITTED once they file proof + location; admin moves it to
+// VERIFIED (visible to customers) or REJECTED. Admin-created shops skip to
+// VERIFIED. Customer discovery requires VERIFIED AND active.
+enum ShopStatus {
+  DRAFT
+  SUBMITTED
+  VERIFIED
+  REJECTED
+}
+
 model Shop {
   id                 String   @id @default(cuid())
   name               String
   address            String
   lat                Decimal  @db.Decimal(9, 6)
   lng                Decimal  @db.Decimal(9, 6)
+  // Admin manual suspend switch, independent of verification.
   active             Boolean  @default(true)
+  // Verification state (owner self-serve → admin review). New rows default DRAFT;
+  // the migration backfilled pre-existing shops to VERIFIED.
+  status             ShopStatus @default(DRAFT)
+  submittedAt        DateTime?
+  verifiedAt         DateTime?
+  rejectionReason    String?
+  // R2 object keys for submitted proof (business permit + storefront photos).
+  permitKey          String?
+  photoKeys          String[]  @default([])
   // PENDING founder rate card — 12% is the planning assumption
   commissionPct      Decimal  @default(12.00) @db.Decimal(5, 2)
   // Reserved express queue capacity (Logistics v1.1). Count check runs inside

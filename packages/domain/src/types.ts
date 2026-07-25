@@ -19,6 +19,8 @@ export interface SetUserRolesBody {
 // Admin shop administration (checkpoint C — shop onboarding, code side). Margin
 // fields (commissionPct, expressSlotsPerDay) ARE exposed here (ADMIN-only),
 // unlike the customer-facing ShopView. Decimals are strings over the wire.
+export type ShopStatus = 'DRAFT' | 'SUBMITTED' | 'VERIFIED' | 'REJECTED';
+
 export interface AdminShopView {
   id: string;
   name: string;
@@ -26,6 +28,10 @@ export interface AdminShopView {
   lat: string;
   lng: string;
   active: boolean;
+  status: ShopStatus;
+  submittedAt: string | null;
+  verifiedAt: string | null;
+  rejectionReason: string | null;
   commissionPct: string;
   expressSlotsPerDay: number;
   serviceCount: number;

@@ -25,6 +25,10 @@ export interface AdminShopView {
   lat: string;
   lng: string;
   active: boolean;
+  status: string; // DRAFT | SUBMITTED | VERIFIED | REJECTED
+  submittedAt: string | null;
+  verifiedAt: string | null;
+  rejectionReason: string | null;
   commissionPct: string;
   expressSlotsPerDay: number;
   serviceCount: number;
@@ -111,6 +115,9 @@ export class AdminShopsService {
         address: dto.address,
         lat: new Prisma.Decimal(dto.lat),
         lng: new Prisma.Decimal(dto.lng),
+        // Admin-created shops are trusted → skip onboarding straight to VERIFIED.
+        status: 'VERIFIED',
+        verifiedAt: new Date(),
         ...(dto.commissionPct != null
           ? { commissionPct: new Prisma.Decimal(dto.commissionPct) }
           : {}),
@@ -262,6 +269,10 @@ export class AdminShopsService {
       lat: Prisma.Decimal;
       lng: Prisma.Decimal;
       active: boolean;
+      status: string;
+      submittedAt: Date | null;
+      verifiedAt: Date | null;
+      rejectionReason: string | null;
       commissionPct: Prisma.Decimal;
       expressSlotsPerDay: number;
       createdAt: Date;
@@ -276,6 +287,10 @@ export class AdminShopsService {
       lat: s.lat.toString(),
       lng: s.lng.toString(),
       active: s.active,
+      status: s.status,
+      submittedAt: s.submittedAt ? s.submittedAt.toISOString() : null,
+      verifiedAt: s.verifiedAt ? s.verifiedAt.toISOString() : null,
+      rejectionReason: s.rejectionReason,
       commissionPct: s.commissionPct.toFixed(2),
       expressSlotsPerDay: s.expressSlotsPerDay,
       serviceCount,

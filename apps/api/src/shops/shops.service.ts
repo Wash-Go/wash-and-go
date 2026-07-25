@@ -39,7 +39,8 @@ export class ShopsService {
     lng: number;
   }): Promise<ShopView[]> {
     const shops = await this.prisma.shop.findMany({
-      where: { active: true },
+      // VERIFIED + active only — customers never see a shop still in onboarding.
+      where: { active: true, status: 'VERIFIED' },
       orderBy: { name: 'asc' },
       include: {
         services: {
