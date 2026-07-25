@@ -10,6 +10,11 @@ test.describe('admin shops', () => {
   test('creates a shop, prices a service, then deactivates it', async ({ page }) => {
     await page.goto(`${ADMIN_URL}/shops`);
 
+    // Seed shops exist → the overview map renders (Leaflet tiles, key-free OSM).
+    await expect(page.getByTestId('shops-map').locator('.leaflet-container')).toBeVisible({
+      timeout: 15_000,
+    });
+
     const name = `Smoke Laundry ${Date.now()}`;
     await page.getByLabel('Shop name').fill(name);
     // Address is now a TomTom typeahead — type, wait for a candidate, pick it

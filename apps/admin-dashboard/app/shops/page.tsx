@@ -1,5 +1,6 @@
 'use client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
 import type { GeocodeHit } from '@wash-and-go/domain';
 import type {
@@ -10,6 +11,12 @@ import type {
 import { api, API_BASE_URL } from '../../lib/api';
 import { TableSkeleton } from '../Skeleton';
 import { c } from '../../lib/theme';
+
+// Leaflet touches window — load the map client-only.
+const ShopsMap = dynamic(() => import('../ShopsMap'), {
+  ssr: false,
+  loading: () => <div className="wg-skel" style={{ height: 320, borderRadius: 12 }} />,
+});
 
 // Shop onboarding console (checkpoint C). List/create shops, then drill into one
 // to price services (from the catalog) and manage staff. Grant the platform
@@ -38,6 +45,12 @@ export default function ShopsPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20 }}>
         <NewShop onSaved={flash} />
+
+        {rows.length > 0 ? (
+          <div data-testid="shops-map">
+            <ShopsMap shops={rows} />
+          </div>
+        ) : null}
 
         {shops.isLoading ? (
           <TableSkeleton rows={6} cols={8} />
