@@ -147,10 +147,11 @@ function AppCard({ shop, onSaved }: { shop: AdminShopView; onSaved: (m: string) 
 
           <div style={{ display: 'flex', gap: 14, marginTop: 12, flexWrap: 'wrap' }}>
             <a href={mapUrl} target="_blank" rel="noreferrer" style={{ color: c.brand, fontWeight: 600, fontSize: 13 }}>
-              📍 {shop.lat}, {shop.lng} — view on map ↗
+              📍 {shop.lat}, {shop.lng} — open larger ↗
             </a>
             <ProofLink objectKey={shop.permitKey} />
           </div>
+          <PinMap lat={shop.lat} lng={shop.lng} />
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
@@ -281,6 +282,32 @@ function RiderCard({ rider, onSaved }: { rider: RiderApplicationView; onSaved: (
         </div>
       ) : null}
     </div>
+  );
+}
+
+// Inline location map so the reviewer can eyeball the pinned spot. Key-free
+// OpenStreetMap embed — swap the src for a TomTom tile URL once that SDK lands.
+function PinMap({ lat, lng }: { lat: string; lng: string }) {
+  const la = Number(lat);
+  const lo = Number(lng);
+  if (!Number.isFinite(la) || !Number.isFinite(lo) || (la === 0 && lo === 0)) return null;
+  const d = 0.004; // ~450m box around the pin
+  const bbox = `${lo - d}%2C${la - d}%2C${lo + d}%2C${la + d}`;
+  const src = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${la}%2C${lo}`;
+  return (
+    <iframe
+      title="Submitted shop location"
+      src={src}
+      loading="lazy"
+      style={{
+        width: '100%',
+        maxWidth: 440,
+        height: 180,
+        border: `1px solid ${c.border}`,
+        borderRadius: 8,
+        marginTop: 10,
+      }}
+    />
   );
 }
 

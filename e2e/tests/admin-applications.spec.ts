@@ -16,8 +16,9 @@ test.describe('admin applications', () => {
     const id = (await card.getAttribute('data-testid'))!.replace('app-', '');
 
     // Location + proof affordances present.
-    await expect(card.getByText(/view on map/i)).toBeVisible();
+    await expect(card.getByText(/open larger/i)).toBeVisible();
     await expect(card.getByText(/view permit|no permit/i)).toBeVisible();
+    await expect(card.locator('iframe[title="Submitted shop location"]')).toBeVisible();
 
     // Approve button is there (we don't click it — would drain the queue).
     await expect(page.getByTestId(`verify-${id}`)).toBeVisible();
