@@ -51,6 +51,43 @@ describe('TomTomProvider', () => {
     });
   });
 
+  describe('search (autocomplete)', () => {
+    it('maps every candidate and applies limit + PH/Zamboanga bias', async () => {
+      const fetchFn = mockFetch((url) => {
+        expect(url).toContain('/search/2/search/');
+        expect(url).toContain('countrySet=PH');
+        expect(url).toContain('limit=6');
+        expect(url).toContain('lat=6.9214');
+        return {
+          ok: true,
+          status: 200,
+          body: {
+            results: [
+              { position: { lat: 6.9, lon: 122.08 }, address: { freeformAddress: 'A' }, score: 9 },
+              { position: { lat: 6.91, lon: 122.09 }, address: { freeformAddress: 'B' }, score: 8 },
+            ],
+          },
+        };
+      });
+      const r = await new TomTomProvider(KEY, fetchFn).search('Tetuan', 6);
+      expect(r).toEqual([
+        { point: { lat: 6.9, lng: 122.08 }, label: 'A', score: 9 },
+        { point: { lat: 6.91, lng: 122.09 }, label: 'B', score: 8 },
+      ]);
+    });
+
+    it('drops candidates with no position and degrades to [] on error', async () => {
+      const partial = mockFetch(() => ({
+        ok: true,
+        status: 200,
+        body: { results: [{ address: { freeformAddress: 'no-pos' } }] },
+      }));
+      expect(await new TomTomProvider(KEY, partial).search('x')).toEqual([]);
+      const err = mockFetch(() => ({ ok: false, status: 429, body: {} }));
+      expect(await new TomTomProvider(KEY, err).search('x')).toEqual([]);
+    });
+  });
+
   describe('route', () => {
     it('converts routing meters → km and reads the duration', async () => {
       const fetchFn = mockFetch((url) => {

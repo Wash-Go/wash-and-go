@@ -18,6 +18,10 @@ export class HaversineProvider implements MapsProvider {
     return null;
   }
 
+  async search(_query: string, _limit?: number): Promise<GeocodeResult[]> {
+    return [];
+  }
+
   async reverseGeocode(_point: GeoPoint): Promise<string | null> {
     return null;
   }

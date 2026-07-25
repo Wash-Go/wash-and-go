@@ -15,6 +15,7 @@ describe('GeocodeController', () => {
     maps = {
       name: 'stub',
       geocode: jest.fn().mockResolvedValue(result),
+      search: jest.fn().mockResolvedValue([result]),
       reverseGeocode: jest.fn(),
       route: jest.fn(),
     };
@@ -35,5 +36,25 @@ describe('GeocodeController', () => {
   it('passes through a null (no-match) result', async () => {
     maps.geocode.mockResolvedValue(null);
     expect(await ctrl.geocode('nowhere')).toBeNull();
+  });
+
+  describe('search (autocomplete)', () => {
+    it('delegates a trimmed query with the requested limit', async () => {
+      expect(await ctrl.search('  Tetuan  ', '6')).toEqual([result]);
+      expect(maps.search).toHaveBeenCalledWith('Tetuan', 6);
+    });
+
+    it('short-circuits to [] for < 3 chars without hitting the provider', async () => {
+      expect(await ctrl.search('ab')).toEqual([]);
+      expect(await ctrl.search()).toEqual([]);
+      expect(maps.search).not.toHaveBeenCalled();
+    });
+
+    it('defaults to a limit of 5 when limit is absent or invalid', async () => {
+      await ctrl.search('Tetuan');
+      await ctrl.search('Tetuan', 'abc');
+      expect(maps.search).toHaveBeenNthCalledWith(1, 'Tetuan', 5);
+      expect(maps.search).toHaveBeenNthCalledWith(2, 'Tetuan', 5);
+    });
   });
 });

@@ -308,6 +308,14 @@ export class ApiClient {
     return this.request('GET', `/geocode?q=${encodeURIComponent(query)}`);
   }
 
+  // Address autocomplete — ranked candidates for a typeahead (admin shop editor).
+  geocodeSearch(query: string, limit = 5): Promise<GeocodeHit[]> {
+    return this.request(
+      'GET',
+      `/geocode/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+    );
+  }
+
   // --- Admin: rider cash reconciliation ---
 
   getRiderCashSummary(): Promise<RiderCashBalance[]> {

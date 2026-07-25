@@ -1,6 +1,7 @@
 'use client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { GeocodeHit } from '@wash-and-go/domain';
 import type {
   AdminShopDetail,
   AdminShopServiceView,
@@ -109,21 +110,24 @@ const btn = (bg: string, fg = '#fff'): React.CSSProperties => ({
 
 function NewShop({ onSaved }: { onSaved: (m: string) => void }) {
   const qc = useQueryClient();
-  const [f, setF] = useState({ name: '', address: '', lat: '', lng: '' });
-  const valid =
-    f.name.trim() && f.address.trim() && f.lat.trim() !== '' && f.lng.trim() !== '';
+  const [name, setName] = useState('');
+  const [picked, setPicked] = useState<{ address: string; lat: number; lng: number } | null>(
+    null,
+  );
+  const valid = name.trim() && picked != null;
 
   const create = useMutation({
     mutationFn: () =>
       api.createShop({
-        name: f.name.trim(),
-        address: f.address.trim(),
-        lat: Number(f.lat),
-        lng: Number(f.lng),
+        name: name.trim(),
+        address: picked!.address,
+        lat: picked!.lat,
+        lng: picked!.lng,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['shops'] });
-      setF({ name: '', address: '', lat: '', lng: '' });
+      setName('');
+      setPicked(null);
       onSaved('Shop created');
     },
   });
@@ -131,38 +135,15 @@ function NewShop({ onSaved }: { onSaved: (m: string) => void }) {
   return (
     <div className="card" style={{ padding: 16 }}>
       <h3 style={{ margin: '0 0 12px' }}>New shop</h3>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <input
           className="field-input"
           placeholder="Name"
           aria-label="Shop name"
-          value={f.name}
-          onChange={(e) => setF({ ...f, name: e.target.value })}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
         />
-        <input
-          className="field-input"
-          placeholder="Address"
-          aria-label="Shop address"
-          value={f.address}
-          onChange={(e) => setF({ ...f, address: e.target.value })}
-          style={{ width: 220 }}
-        />
-        <input
-          className="field-input"
-          placeholder="Lat"
-          aria-label="Latitude"
-          value={f.lat}
-          onChange={(e) => setF({ ...f, lat: e.target.value })}
-          style={{ width: 100 }}
-        />
-        <input
-          className="field-input"
-          placeholder="Lng"
-          aria-label="Longitude"
-          value={f.lng}
-          onChange={(e) => setF({ ...f, lng: e.target.value })}
-          style={{ width: 100 }}
-        />
+        <AddressAutocomplete onPick={setPicked} picked={picked} />
         <button
           data-testid="create-shop"
           onClick={() => create.mutate()}
@@ -175,6 +156,113 @@ function NewShop({ onSaved }: { onSaved: (m: string) => void }) {
           <span style={{ color: c.danger, fontSize: 12 }}>failed — check inputs</span>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+// TomTom address typeahead. Debounced query → ranked candidates → pick fills the
+// address + lat/lng, so ops never type coordinates by hand.
+function AddressAutocomplete({
+  onPick,
+  picked,
+}: {
+  onPick: (p: { address: string; lat: number; lng: number } | null) => void;
+  picked: { address: string; lat: number; lng: number } | null;
+}) {
+  const [text, setText] = useState('');
+  const [debounced, setDebounced] = useState('');
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(text.trim()), 300);
+    return () => clearTimeout(t);
+  }, [text]);
+
+  const hits = useQuery({
+    queryKey: ['geocode-search', debounced],
+    queryFn: () => api.geocodeSearch(debounced, 6),
+    enabled: debounced.length >= 3,
+    staleTime: 60_000,
+  });
+
+  // Close the dropdown on an outside click.
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, []);
+
+  const choose = (h: GeocodeHit) => {
+    onPick({ address: h.label, lat: h.point.lat, lng: h.point.lng });
+    setText(h.label);
+    setOpen(false);
+  };
+
+  return (
+    <div ref={box} style={{ position: 'relative', width: 300 }}>
+      <input
+        className="field-input"
+        placeholder="Search address…"
+        aria-label="Shop address"
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          setOpen(true);
+          if (picked) onPick(null); // typing invalidates the previous pick
+        }}
+        onFocus={() => setOpen(true)}
+        style={{ width: '100%' }}
+      />
+      {picked ? (
+        <div style={{ color: c.success, fontSize: 11, marginTop: 3 }}>
+          ✓ {picked.lat.toFixed(5)}, {picked.lng.toFixed(5)}
+        </div>
+      ) : debounced.length >= 3 && hits.isFetching ? (
+        <div style={{ color: c.muted, fontSize: 11, marginTop: 3 }}>Searching…</div>
+      ) : null}
+      {open && !picked && (hits.data?.length ?? 0) > 0 ? (
+        <div
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            zIndex: 20,
+            background: c.surface,
+            border: `1px solid ${c.border}`,
+            borderRadius: 8,
+            marginTop: 4,
+            maxHeight: 220,
+            overflowY: 'auto',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+          }}
+        >
+          {hits.data!.map((h, i) => (
+            <button
+              key={`${h.label}-${i}`}
+              data-testid={`geo-hit-${i}`}
+              onClick={() => choose(h)}
+              style={{
+                display: 'block',
+                width: '100%',
+                textAlign: 'left',
+                padding: '8px 12px',
+                border: 'none',
+                borderTop: i === 0 ? 'none' : `1px solid ${c.border}`,
+                background: 'transparent',
+                color: c.text,
+                fontSize: 13,
+                cursor: 'pointer',
+              }}
+            >
+              {h.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

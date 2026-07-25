@@ -12,9 +12,12 @@ test.describe('admin shops', () => {
 
     const name = `Smoke Laundry ${Date.now()}`;
     await page.getByLabel('Shop name').fill(name);
-    await page.getByLabel('Shop address').fill('Smoke St, Zamboanga');
-    await page.getByLabel('Latitude').fill('6.9100');
-    await page.getByLabel('Longitude').fill('122.0790');
+    // Address is now a TomTom typeahead — type, wait for a candidate, pick it
+    // (fills lat/lng). Depends on live TomTom; re-run if the geocode flakes.
+    await page.getByLabel('Shop address').fill('Tetuan Zamboanga');
+    const firstHit = page.getByTestId('geo-hit-0');
+    await expect(firstHit).toBeVisible({ timeout: 15_000 });
+    await firstHit.click();
     await page.getByTestId('create-shop').click();
     await expect(page.getByText('Shop created')).toBeVisible({ timeout: 15_000 });
 

@@ -35,4 +35,18 @@ export class GeocodeController {
     }
     return this.maps.geocode(query);
   }
+
+  // Typeahead: up to `limit` ranked candidates for an address autocomplete
+  // (admin shop editor). Empty array on no match. Any-authenticated like geocode.
+  @Get('search')
+  @ApiOperation({ summary: 'Address autocomplete — ranked candidates' })
+  async search(
+    @Query('q') q?: string,
+    @Query('limit') limit?: string,
+  ): Promise<GeocodeResult[]> {
+    const query = (q ?? '').trim();
+    if (query.length < 3) return [];
+    const n = Number(limit);
+    return this.maps.search(query, Number.isFinite(n) && n > 0 ? n : 5);
+  }
 }

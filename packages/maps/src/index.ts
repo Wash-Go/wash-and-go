@@ -28,6 +28,12 @@ export interface MapsProvider {
   /** Address text → best-match coordinates, or null if nothing matched. */
   geocode(query: string): Promise<GeocodeResult | null>;
 
+  /**
+   * Address text → up to `limit` ranked candidates (typeahead / autocomplete).
+   * Empty array when nothing matches or the provider can't search.
+   */
+  search(query: string, limit?: number): Promise<GeocodeResult[]>;
+
   /** Coordinates → a human-readable address, or null if unavailable. */
   reverseGeocode(point: GeoPoint): Promise<string | null>;
 

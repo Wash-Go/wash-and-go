@@ -59,6 +59,40 @@ export class TomTomProvider implements MapsProvider {
     }
   }
 
+  async search(query: string, limit = 5): Promise<GeocodeResult[]> {
+    // Same fuzzy-search product as geocode(), but keep every candidate for a
+    // typeahead. countrySet=PH + a Zamboanga lat/lon bias rank local hits first.
+    const capped = Math.min(Math.max(limit, 1), 10);
+    const url =
+      `${this.base}/search/2/search/${encodeURIComponent(query)}.json` +
+      `?key=${this.apiKey}&countrySet=PH&limit=${capped}` +
+      `&lat=6.9214&lon=122.0790`;
+    try {
+      const res = await this.fetchFn(url);
+      if (!res.ok) {
+        this.warnNull('search', res.status, query);
+        return [];
+      }
+      const body = (await res.json()) as {
+        results?: {
+          position?: { lat: number; lon: number };
+          address?: { freeformAddress?: string };
+          score?: number;
+        }[];
+      };
+      return (body.results ?? [])
+        .filter((r) => r.position)
+        .map((r) => ({
+          point: { lat: r.position!.lat, lng: r.position!.lon },
+          label: r.address?.freeformAddress ?? query,
+          score: r.score,
+        }));
+    } catch (e) {
+      this.logger.warn(`search error for "${query}": ${String(e)}`);
+      return [];
+    }
+  }
+
   async reverseGeocode(point: GeoPoint): Promise<string | null> {
     const url =
       `${this.base}/search/2/reverseGeocode/${point.lat},${point.lng}.json` +
