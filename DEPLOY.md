@@ -84,4 +84,5 @@ project's domain to the API's `CORS_ORIGINS`.
 | `PORT` | no | Railway injects it |
 | `SENTRY_DSN` | no | free Sentry Node project → 5xx error reporting; unset = off |
 | `SENTRY_ENVIRONMENT` | no | defaults to `NODE_ENV` |
+| `R2_ENDPOINT` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET` | no | Cloudflare R2 for onboarding proof uploads; unset = uploads disabled |
 | `REDIS_URL` | no | Phase D |

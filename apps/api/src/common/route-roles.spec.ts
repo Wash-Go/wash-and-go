@@ -14,6 +14,7 @@ import { AdminShopsController } from '../shops/admin-shops.controller';
 import { ZonesController } from '../zones/zones.controller';
 import { GeocodeController } from '../maps/geocode.controller';
 import { NotificationsController } from '../notifications/notifications.controller';
+import { UploadsController } from '../uploads/uploads.controller';
 
 /*
  * B6: lock the coarse role matrix. RolesGuard reads @Roles metadata off each
@@ -135,6 +136,11 @@ describe('route role matrix', () => {
     for (const m of ['list', 'read', 'readAll']) {
       expect(rolesOf(c, m)).toBeUndefined();
     }
+  });
+
+  it('upload routes are any-authenticated (key-namespace + owner/admin gate)', () => {
+    expect(rolesOf(UploadsController.prototype, 'presign')).toBeUndefined();
+    expect(rolesOf(UploadsController.prototype, 'view')).toBeUndefined();
   });
 
   it('shop-facing remittance is SHOP_OWNER/STAFF only', () => {
