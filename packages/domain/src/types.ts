@@ -32,6 +32,8 @@ export interface AdminShopView {
   submittedAt: string | null;
   verifiedAt: string | null;
   rejectionReason: string | null;
+  permitKey: string | null;
+  photoKeys: string[];
   commissionPct: string;
   expressSlotsPerDay: number;
   serviceCount: number;

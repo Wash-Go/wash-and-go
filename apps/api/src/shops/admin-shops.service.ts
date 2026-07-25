@@ -30,6 +30,8 @@ export interface AdminShopView {
   submittedAt: string | null;
   verifiedAt: string | null;
   rejectionReason: string | null;
+  permitKey: string | null;
+  photoKeys: string[];
   commissionPct: string;
   expressSlotsPerDay: number;
   serviceCount: number;
@@ -341,6 +343,8 @@ export class AdminShopsService {
       submittedAt: Date | null;
       verifiedAt: Date | null;
       rejectionReason: string | null;
+      permitKey: string | null;
+      photoKeys: string[];
       commissionPct: Prisma.Decimal;
       expressSlotsPerDay: number;
       createdAt: Date;
@@ -359,6 +363,8 @@ export class AdminShopsService {
       submittedAt: s.submittedAt ? s.submittedAt.toISOString() : null,
       verifiedAt: s.verifiedAt ? s.verifiedAt.toISOString() : null,
       rejectionReason: s.rejectionReason,
+      permitKey: s.permitKey,
+      photoKeys: s.photoKeys,
       commissionPct: s.commissionPct.toFixed(2),
       expressSlotsPerDay: s.expressSlotsPerDay,
       serviceCount,

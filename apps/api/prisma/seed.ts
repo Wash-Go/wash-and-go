@@ -48,6 +48,7 @@ async function main() {
     { firebaseUid: 'dev-rider-2', phone: '+639170000003', displayName: 'Rider Two', roles: ['RIDER'] as const },
     { firebaseUid: 'dev-admin', phone: '+639170000004', displayName: 'Dev Admin', roles: ['ADMIN'] as const },
     { firebaseUid: 'dev-shop-owner', phone: '+639170000005', displayName: 'Shop Owner', roles: ['SHOP_OWNER'] as const },
+    { firebaseUid: 'dev-pending-owner', phone: '+639170000006', displayName: 'Pending Owner', roles: ['SHOP_OWNER'] as const },
   ];
   for (const u of users) {
     await prisma.user.upsert({
@@ -66,6 +67,27 @@ async function main() {
       where: { shopId_userId: { shopId: tetuan.id, userId: shopOwner.id } },
       create: { shopId: tetuan.id, userId: shopOwner.id, role: 'OWNER' },
       update: { role: 'OWNER' },
+    });
+  }
+
+  // A pending application so the admin review queue (onboarding C) has something
+  // to show in dev / e2e. Owner = dev-pending-owner; SUBMITTED, awaiting review.
+  const pendingOwner = await prisma.user.findUnique({ where: { firebaseUid: 'dev-pending-owner' } });
+  let pending = await prisma.shop.findFirst({ where: { name: 'Ayala Suds (pending)' } });
+  if (!pending) {
+    pending = await prisma.shop.create({
+      data: {
+        name: 'Ayala Suds (pending)', address: 'Ayala, Zamboanga City',
+        lat: 6.935, lng: 122.062, status: 'SUBMITTED', submittedAt: new Date(),
+        permitKey: 'uploads/dev-pending-owner/permit.pdf',
+      },
+    });
+  }
+  if (pendingOwner) {
+    await prisma.shopMember.upsert({
+      where: { shopId_userId: { shopId: pending.id, userId: pendingOwner.id } },
+      create: { shopId: pending.id, userId: pendingOwner.id, role: 'OWNER' },
+      update: {},
     });
   }
 

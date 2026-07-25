@@ -9,6 +9,7 @@ import { useAuth } from '../lib/useAuth';
 
 const NAV = [
   { href: '/', label: 'Dispatch' },
+  { href: '/applications', label: 'Applications' },
   { href: '/shops', label: 'Shops' },
   { href: '/users', label: 'Users' },
   { href: '/remittance', label: 'Payouts' },
@@ -20,6 +21,7 @@ const NAV = [
 // Warm each page's primary query on hover so the click lands on cached data.
 // Keys/fns must match exactly what the target page's useQuery uses.
 const PREFETCH: Record<string, { queryKey: unknown[]; queryFn: () => Promise<unknown> }> = {
+  '/applications': { queryKey: ['applications'], queryFn: () => api.listShopApplications() },
   '/shops': { queryKey: ['shops'], queryFn: () => api.listShops() },
   '/users': { queryKey: ['users', '', ''], queryFn: () => api.listUsers(undefined, undefined) },
   '/rider-cash': { queryKey: ['rider-cash'], queryFn: () => api.getRiderCashSummary() },

@@ -37,6 +37,8 @@ const rawShop = {
   submittedAt: null,
   verifiedAt: new Date('2026-07-25T00:00:00Z'),
   rejectionReason: null,
+  permitKey: null,
+  photoKeys: [],
   commissionPct: D(12),
   expressSlotsPerDay: 3,
   createdAt: new Date('2026-07-25T00:00:00Z'),
