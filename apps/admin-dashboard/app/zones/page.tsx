@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import type { ZoneView } from '@wash-and-go/domain';
 import { api, API_BASE_URL } from '../../lib/api';
+import { CardsSkeleton } from '../Skeleton';
 import { c } from '../../lib/theme';
 import { parseVertices, polygonSvgPoints } from '../../lib/zones';
 
@@ -40,7 +41,7 @@ export default function ZonesPage() {
         Zones
       </div>
       {zones.isLoading ? (
-        <p style={{ color: c.muted }}>Loading…</p>
+        <CardsSkeleton count={4} />
       ) : zones.isError ? (
         <p style={{ color: c.danger }}>
           Could not load. Is the API running on {API_BASE_URL}?

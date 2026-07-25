@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from 'react';
 import { newIdempotencyKey } from '@wash-and-go/api-client';
 import { peso, type Rider, type RiderCashBalance } from '@wash-and-go/domain';
 import { api, API_BASE_URL } from '../../lib/api';
+import { TableSkeleton } from '../Skeleton';
 import { c } from '../../lib/theme';
 import { totalOutstandingPhp } from '../../lib/rider-cash';
 
@@ -45,7 +46,7 @@ export default function RiderCashPage() {
       </div>
 
       {cash.isLoading ? (
-        <p style={{ color: c.muted }}>Loading…</p>
+        <TableSkeleton rows={5} cols={5} />
       ) : cash.isError ? (
         <p style={{ color: c.danger }}>
           Could not load. Is the API running on {API_BASE_URL}?

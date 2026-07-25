@@ -10,6 +10,7 @@ import {
 } from '@wash-and-go/domain';
 import { api, API_BASE_URL } from '../lib/api';
 import { c, statusColor } from '../lib/theme';
+import { TableSkeleton } from './Skeleton';
 import { STATUS_FILTERS, canAssign, filterOrders } from '../lib/orders';
 
 export default function AdminPage() {
@@ -21,6 +22,7 @@ export default function AdminPage() {
     queryKey: ['orders', search],
     queryFn: () => api.listOrders(undefined, search.trim() || undefined),
     refetchInterval: 5000,
+    refetchOnMount: 'always',
     staleTime: 0,
   });
   const riders = useQuery({ queryKey: ['riders'], queryFn: () => api.getRiders() });
@@ -68,7 +70,7 @@ export default function AdminPage() {
       </div>
 
       {orders.isLoading ? (
-        <p style={{ color: c.muted }}>Loading orders…</p>
+        <TableSkeleton rows={6} cols={5} />
       ) : orders.isError ? (
         <p style={{ color: c.danger }}>
           Could not load orders. Is the API running on {API_BASE_URL}?

@@ -8,6 +8,7 @@ import type {
   AdminShopView,
 } from '@wash-and-go/domain';
 import { api, API_BASE_URL } from '../../lib/api';
+import { TableSkeleton } from '../Skeleton';
 import { c } from '../../lib/theme';
 
 // Shop onboarding console (checkpoint C). List/create shops, then drill into one
@@ -39,7 +40,7 @@ export default function ShopsPage() {
         <NewShop onSaved={flash} />
 
         {shops.isLoading ? (
-          <p style={{ color: c.muted }}>Loading shops…</p>
+          <TableSkeleton rows={6} cols={8} />
         ) : shops.isError ? (
           <p style={{ color: c.danger }}>
             Could not load shops. Is the API running on {API_BASE_URL}?

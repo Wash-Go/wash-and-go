@@ -7,6 +7,7 @@ import {
   type UserRole,
 } from '@wash-and-go/domain';
 import { api, API_BASE_URL } from '../../lib/api';
+import { TableSkeleton } from '../Skeleton';
 import { c } from '../../lib/theme';
 
 export default function UsersPage() {
@@ -59,7 +60,7 @@ export default function UsersPage() {
       </div>
 
       {users.isLoading ? (
-        <p style={{ color: c.muted }}>Loading users…</p>
+        <TableSkeleton rows={6} cols={5} />
       ) : users.isError ? (
         <p style={{ color: c.danger }}>
           Could not load users. Is the API running on {API_BASE_URL}?

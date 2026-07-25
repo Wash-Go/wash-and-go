@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { peso, type RemittanceBatchView } from '@wash-and-go/domain';
 import { api, API_BASE_URL } from '../../lib/api';
+import { TableSkeleton } from '../Skeleton';
 import { c } from '../../lib/theme';
 import { countByStatus, lastWeekPeriod, pendingTotalPhp } from '../../lib/remittance';
 
@@ -95,7 +96,7 @@ export default function RemittancePage() {
       </div>
 
       {batches.isLoading ? (
-        <p style={{ color: c.muted }}>Loading…</p>
+        <TableSkeleton rows={5} cols={5} />
       ) : batches.isError ? (
         <p style={{ color: c.danger }}>
           Could not load batches. Is the API running on {API_BASE_URL}?
