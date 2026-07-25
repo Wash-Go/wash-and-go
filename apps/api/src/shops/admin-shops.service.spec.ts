@@ -58,6 +58,65 @@ describe('AdminShopsService', () => {
     expect(create.mock.calls[0][0].data).toMatchObject({ status: 'VERIFIED' });
   });
 
+  it('list shapes each shop with service + member counts', async () => {
+    const { svc } = makeService({
+      shop: {
+        findMany: jest.fn().mockResolvedValue([
+          { ...rawShop, _count: { services: 2, members: 3 } },
+        ]),
+      },
+    });
+    const [view] = await svc.list();
+    expect(view).toMatchObject({ status: 'VERIFIED', serviceCount: 2, memberCount: 3 });
+    expect(view.commissionPct).toBe('12.00');
+  });
+
+  it('get returns the shop with shaped services + members', async () => {
+    const { svc } = makeService({
+      shop: {
+        findUnique: jest.fn().mockResolvedValue({
+          ...rawShop,
+          services: [
+            { id: 'ss1', serviceId: 'wdf', ratePhp: D(25), turnaroundHours: 24, active: true, service: { code: 'WDF', name: 'Wash & Fold' } },
+          ],
+          members: [
+            { id: 'm1', userId: 'u1', role: 'OWNER', user: { displayName: 'Owner', phone: '+63917' } },
+          ],
+        }),
+      },
+    });
+    const detail = await svc.get('s1');
+    expect(detail.services).toHaveLength(1);
+    expect(detail.services[0]).toMatchObject({ code: 'WDF', ratePhp: '25.00' });
+    expect(detail.members[0]).toMatchObject({ role: 'OWNER', displayName: 'Owner' });
+  });
+
+  it('get 404s a missing shop', async () => {
+    const { svc } = makeService({ shop: { findUnique: jest.fn().mockResolvedValue(null) } });
+    await expect(svc.get('nope')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('update applies partial fields and re-shapes', async () => {
+    const update = jest.fn().mockResolvedValue({
+      ...rawShop,
+      expressSlotsPerDay: 9,
+      _count: { services: 0, members: 0 },
+    });
+    const { svc } = makeService({
+      shop: { findUnique: jest.fn().mockResolvedValue({ id: 's1' }), update },
+    });
+    const view = await svc.update('s1', { expressSlotsPerDay: 9 });
+    expect(view.expressSlotsPerDay).toBe(9);
+    expect(update.mock.calls[0][0].data).toMatchObject({ expressSlotsPerDay: 9 });
+  });
+
+  it('update 404s a missing shop', async () => {
+    const { svc } = makeService({ shop: { findUnique: jest.fn().mockResolvedValue(null) } });
+    await expect(svc.update('nope', { active: false })).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
   it('addService rejects an unknown catalog id', async () => {
     const { svc } = makeService({
       shop: { findUnique: jest.fn().mockResolvedValue({ id: 's1' }) },

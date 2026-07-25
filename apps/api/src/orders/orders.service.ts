@@ -271,7 +271,9 @@ export class OrdersService {
     // Idempotency: a retried booking returns the same order (no second slot burn).
     if (idempotencyKey) {
       const seen = await this.repo.findByIdempotencyKey(idempotencyKey);
-      if (seen) return seen;
+      // Only the original booker's order is returned for a reused key — never
+      // another actor's (a guessed/collided key must not disclose it).
+      if (seen && seen.customerId === actor.id) return seen;
     }
     // Backstop the Express weight ceiling before any work (the client gates it too).
     const estimateKg = await this.resolveExpressLoadKg(dto.loadCategory);
@@ -376,7 +378,9 @@ export class OrdersService {
       // Lost a concurrent race on the same key — return the winning order.
       if (idempotencyKey && isUniqueViolation(e, 'idempotencyKey')) {
         const seen = await this.repo.findByIdempotencyKey(idempotencyKey);
-        if (seen) return seen;
+        // Only the original booker's order is returned for a reused key — never
+      // another actor's (a guessed/collided key must not disclose it).
+      if (seen && seen.customerId === actor.id) return seen;
       }
       throw e;
     }
@@ -409,7 +413,9 @@ export class OrdersService {
   ): Promise<Order> {
     if (idempotencyKey) {
       const seen = await this.repo.findByIdempotencyKey(idempotencyKey);
-      if (seen) return seen;
+      // Only the original booker's order is returned for a reused key — never
+      // another actor's (a guessed/collided key must not disclose it).
+      if (seen && seen.customerId === actor.id) return seen;
     }
     const when = this.validateScheduledTime(dto.scheduledPickupAt);
     const cat = loadCategory(dto.loadCategory);
@@ -473,7 +479,9 @@ export class OrdersService {
     } catch (e) {
       if (idempotencyKey && isUniqueViolation(e, 'idempotencyKey')) {
         const seen = await this.repo.findByIdempotencyKey(idempotencyKey);
-        if (seen) return seen;
+        // Only the original booker's order is returned for a reused key — never
+      // another actor's (a guessed/collided key must not disclose it).
+      if (seen && seen.customerId === actor.id) return seen;
       }
       throw e;
     }

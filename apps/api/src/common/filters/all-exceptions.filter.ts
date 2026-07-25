@@ -40,7 +40,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
       captureException(exception, {
         requestId: reqId,
         method: req?.method,
-        url: req?.url,
+        // Path only — the query string can carry PII (a home address in
+        // /geocode?q=…, coordinates in ?lat&lng). Never ship it to Sentry.
+        url: req?.url?.split('?')[0],
       });
     } else {
       this.logger.warn(`[${reqId}] ${req?.method} ${req?.url} → ${status} ${message}`);

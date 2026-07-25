@@ -325,13 +325,13 @@ describe('OrdersService', () => {
     });
 
     it('is idempotent — a repeated key returns the existing order, no new booking', async () => {
-      repo.findByIdempotencyKey.mockResolvedValue({ id: 'existing' } as never);
+      repo.findByIdempotencyKey.mockResolvedValue({ id: 'existing', customerId: 'usr' } as never);
       const order = await service.createExpressOrder(
         makeUser(['CUSTOMER']),
         dto,
         'key-123',
       );
-      expect(order).toEqual({ id: 'existing' });
+      expect(order).toEqual({ id: 'existing', customerId: 'usr' });
       // short-circuited before any work
       expect(repo.findShopServiceWithShop).not.toHaveBeenCalled();
       expect(repo.createOrder).not.toHaveBeenCalled();

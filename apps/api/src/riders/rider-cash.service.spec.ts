@@ -107,9 +107,9 @@ describe('RiderCashService', () => {
     });
 
     it('is idempotent — a repeated key returns the existing deposit, no double-count', async () => {
-      repo.findDepositByIdempotencyKey.mockResolvedValue({ id: 'd1' } as never);
+      repo.findDepositByIdempotencyKey.mockResolvedValue({ id: 'd1', riderId: 'r1' } as never);
       const out = await service.recordDeposit('r1', 800, 'admin1', undefined, undefined, 'idem-1');
-      expect(out).toEqual({ id: 'd1' });
+      expect(out).toEqual({ id: 'd1', riderId: 'r1' });
       expect(repo.createDeposit).not.toHaveBeenCalled(); // no second row
       expect(repo.findRider).not.toHaveBeenCalled();
     });
@@ -127,7 +127,7 @@ describe('RiderCashService', () => {
       repo.findRider.mockResolvedValue({ id: 'r1', roles: ['RIDER'] } as never);
       repo.findDepositByIdempotencyKey
         .mockResolvedValueOnce(null) // pre-check: not seen yet
-        .mockResolvedValueOnce({ id: 'winner' } as never); // after the race
+        .mockResolvedValueOnce({ id: 'winner', riderId: 'r1' } as never); // after the race
       repo.createDeposit.mockRejectedValue(
         new Prisma.PrismaClientKnownRequestError('dup', {
           code: 'P2002',
@@ -136,7 +136,7 @@ describe('RiderCashService', () => {
         }),
       );
       const out = await service.recordDeposit('r1', 500, 'admin1', undefined, undefined, 'idem-3');
-      expect(out).toEqual({ id: 'winner' });
+      expect(out).toEqual({ id: 'winner', riderId: 'r1' });
     });
   });
 });

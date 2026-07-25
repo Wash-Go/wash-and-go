@@ -49,7 +49,9 @@ export class RiderCashService {
     // Idempotency: a retried "record deposit" must not double-count cash returned.
     if (idempotencyKey) {
       const seen = await this.repo.findDepositByIdempotencyKey(idempotencyKey);
-      if (seen) return seen;
+      // Scope the reused-key hit to the same rider — never return another
+      // rider's deposit on a collided/guessed key.
+      if (seen && seen.riderId === riderId) return seen;
     }
     if (!Number.isFinite(amount) || amount <= 0) {
       throw new BadRequestException('Deposit amount must be a positive number');
@@ -72,7 +74,9 @@ export class RiderCashService {
       // Lost a concurrent race on the same key — return the row that won.
       if (idempotencyKey && isUniqueViolation(e, 'idempotencyKey')) {
         const seen = await this.repo.findDepositByIdempotencyKey(idempotencyKey);
-        if (seen) return seen;
+        // Scope the reused-key hit to the same rider — never return another
+      // rider's deposit on a collided/guessed key.
+      if (seen && seen.riderId === riderId) return seen;
       }
       throw e;
     }
