@@ -31,4 +31,18 @@ test.describe('admin applications', () => {
     await page.getByRole('button', { name: 'Cancel' }).click();
     await expect(reason).toBeHidden();
   });
+
+  test('shows a submitted rider with approve + reject controls', async ({ page }) => {
+    await page.goto(`${ADMIN_URL}/applications`);
+    const card = page
+      .locator('div[data-testid^="rider-app-"]')
+      .filter({ hasText: 'Pending Rider' })
+      .first();
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    const id = (await card.getAttribute('data-testid'))!.replace('rider-app-', '');
+    await expect(card.getByText(/motorcycle/i)).toBeVisible();
+    await expect(page.getByTestId(`verify-rider-${id}`)).toBeVisible();
+    await page.getByTestId(`reject-rider-open-${id}`).click();
+    await expect(page.getByLabel('Rider rejection reason')).toBeVisible();
+  });
 });

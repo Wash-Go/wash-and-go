@@ -49,6 +49,7 @@ async function main() {
     { firebaseUid: 'dev-admin', phone: '+639170000004', displayName: 'Dev Admin', roles: ['ADMIN'] as const },
     { firebaseUid: 'dev-shop-owner', phone: '+639170000005', displayName: 'Shop Owner', roles: ['SHOP_OWNER'] as const },
     { firebaseUid: 'dev-pending-owner', phone: '+639170000006', displayName: 'Pending Owner', roles: ['SHOP_OWNER'] as const },
+    { firebaseUid: 'dev-pending-rider', phone: '+639170000007', displayName: 'Pending Rider', roles: ['RIDER'] as const },
   ];
   for (const u of users) {
     await prisma.user.upsert({
@@ -73,6 +74,21 @@ async function main() {
         update: { status: 'VERIFIED' },
       });
     }
+  }
+
+  // A pending rider application so the admin review queue (onboarding D) has
+  // something to show in dev / e2e.
+  const pendingRider = await prisma.user.findUnique({ where: { firebaseUid: 'dev-pending-rider' } });
+  if (pendingRider) {
+    await prisma.riderProfile.upsert({
+      where: { userId: pendingRider.id },
+      create: {
+        userId: pendingRider.id, status: 'SUBMITTED', submittedAt: new Date(),
+        vehicleType: 'motorcycle', vehiclePlate: 'ABC-1234',
+        licenseKey: 'uploads/dev-pending-rider/license.jpg', idKey: 'uploads/dev-pending-rider/id.jpg',
+      },
+      update: {},
+    });
   }
 
   // Make dev-shop-owner a member of the Tetuan shop so the laundry-portal has
