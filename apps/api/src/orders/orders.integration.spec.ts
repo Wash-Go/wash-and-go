@@ -74,6 +74,8 @@ describe('Orders integration (Docker Postgres)', () => {
         phone: `+638${SUFFIX.slice(-9)}`,
         displayName: 'Int Rider',
         roles: ['RIDER'],
+        // Dispatchable only when VERIFIED (onboarding D gate).
+        riderProfile: { create: { status: 'VERIFIED', verifiedAt: new Date() } },
       },
     });
     admin = await prisma.user.create({
@@ -99,6 +101,10 @@ describe('Orders integration (Docker Postgres)', () => {
       await prisma.shop.delete({ where: { id: shopId } });
     }
     await prisma.notification.deleteMany({
+      where: { userId: { in: [customer.id, rider.id, admin.id] } },
+    });
+    // RiderProfile FK is RESTRICT — remove it before deleting the rider user.
+    await prisma.riderProfile.deleteMany({
       where: { userId: { in: [customer.id, rider.id, admin.id] } },
     });
     await prisma.user.deleteMany({
