@@ -265,7 +265,7 @@ function moneyDoc() {
 function costsDoc() {
   const summ = [
     ['Today (dev)', '$0/mo', C.ink, 'Local Docker + every service on its free tier'],
-    ['At launch — recurring', '~$45/mo', C.navy, 'Railway ~$20 + Vercel $20 + Firebase SMS ~$5'],
+    ['At launch — recurring', '~$45/mo', C.navy, 'Railway ~$20 + Vercel $20 + Firebase SMS ~$5 · DB on Neon (free) for now'],
     ['One-time / yearly', '$124', C.terra, 'Apple $99/yr + Google $25 once (+ domain ~$12/yr)'],
   ];
   const summCell = ([lbl, big, color, sub]) => new TableCell({
@@ -307,7 +307,8 @@ function costsDoc() {
     rows: [
       new TableRow({ children: [th('Service'), th('Free tier'), th('Now', AlignmentType.RIGHT), th('At launch', AlignmentType.RIGHT), th('Notes')] }),
       grp('Hosting & infrastructure'),
-      row('Railway', 'API (NestJS) + Postgres', '$5 trial credit, no card', '$0', '~$20/mo', 'usage-based; small API + DB'),
+      row('Railway', 'API (NestJS) container', '$5 trial credit, no card', '$0', '~$5–20/mo', 'Docker deploy. Postgres moves here once on the Hobby plan (colocate API + DB).'),
+      row('Neon (temporary)', 'Postgres — DB, for now', 'Free tier (Singapore)', '$0', '$0', 'DB lives here today (external, free). Migrate to Railway Postgres on the Hobby plan per the Docker deploy plan.'),
       row('Vercel', 'Web: admin, portal, landing', 'Hobby free (non-commercial)', '$0', '$20/mo', 'Pro required for commercial · 1 seat, $20 usage incl.'),
       row('Redis', 'Jobs, realtime, throttle', 'Upstash free / Railway usage', '$0', '$0', 'Not needed until Phase D (realtime/push) — fast-follow'),
       grp('Maps'),
@@ -337,6 +338,7 @@ function costsDoc() {
         cover('Platform costs · Zamboanga City pilot', 'Cost & platform matrix', 'Every third-party service the stack uses, its free tier, what it costs today (all local + free tiers) and at the express launch. Deploy plan: Railway for the API, Vercel for the web apps.'),
         spacer(160), summTable, spacer(200), matrix, spacer(200),
         foot('Reading it:', 'the express (cash-only) launch runs on ~$45/mo recurring plus the one-time store accounts. Everything else stays $0 until it’s needed.'),
+        foot('Database — Neon now, Railway later:', 'the Postgres DB is temporarily on Neon’s free tier (Singapore region, external) while the Railway trial is used up. Once the Railway Hobby plan is provisioned, the DB moves onto Railway alongside the API (Docker deploy plan) so API and DB are colocated — lower per-query latency, one bill, one platform. The app change is just DATABASE_URL; no schema or code change.'),
         foot('What scales with volume:', 'TomTom (only past 2.5k geocode/routing calls a day), Firebase phone-OTP SMS (per signup), Railway/Vercel usage (past their included credits), and Expo EAS if you build often.'),
         foot('Fast-follow costs (not at launch):', 'Redis (Phase D realtime/push), PayMongo (% of revenue when online payments go live), possibly EAS Starter ($19/mo).'),
         foot('PayMongo is revenue-linked, not fixed:', 'GCash 2.23%, QR Ph ~1.34%, cards 3.125% + ₱13.39 — a cut of each online order, nothing when it’s cash.'),
