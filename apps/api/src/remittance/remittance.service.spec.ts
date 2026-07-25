@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { RemittanceService } from './remittance.service';
 import type { RemittanceRepository } from './remittance.repository';
@@ -32,7 +32,10 @@ describe('RemittanceService', () => {
       findUnbatchedLines: jest.fn(),
       distinctUnbatchedShops: jest.fn(),
       createBatch: jest.fn(),
-      assignLinesToBatch: jest.fn().mockResolvedValue({ count: 0 }),
+      // Default happy path: every requested line is claimed (count === ids.length).
+      assignLinesToBatch: jest
+        .fn()
+        .mockImplementation((_tx: unknown, ids: string[]) => Promise.resolve({ count: ids.length })),
       findBatchById: jest.fn(),
       markBatchPaid: jest.fn(),
       listBatches: jest.fn(),
@@ -90,6 +93,21 @@ describe('RemittanceService', () => {
         'batch1',
       );
       expect(batch?.id).toBe('batch1');
+    });
+
+    it('throws (rolls back) when a concurrent close already claimed some lines', async () => {
+      repo.findUnbatchedLines.mockResolvedValue([
+        line('l1', '132'),
+        line('l2', '88'),
+      ] as never);
+      repo.createBatch.mockImplementation((_tx, data) =>
+        Promise.resolve({ id: 'b1', status: 'PENDING', ...data } as never),
+      );
+      // Only 1 of the 2 lines was still unbatched — the other lost the race.
+      repo.assignLinesToBatch.mockResolvedValue({ count: 1 } as never);
+      await expect(service.closeBatch('shop1', period)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
     });
 
     it('returns null and writes nothing when there are no unbatched lines', async () => {

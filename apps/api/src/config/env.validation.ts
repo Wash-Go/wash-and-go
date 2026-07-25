@@ -4,16 +4,21 @@ import Joi from 'joi';
  * A2 (P1): boot-time env schema. Guarantees the vars the auth fail-safe (A1) and
  * the money path rely on are present and well-typed before the app starts —
  * missing/typo'd NODE_ENV or DATABASE_URL fails fast instead of silently
- * degrading. NODE_ENV defaults to 'development' so local/dev keeps working;
- * production MUST set NODE_ENV=production (and then AUTH_DEV_BYPASS must be 0,
- * enforced by assertAuthConfigSafe).
+ * degrading.
+ *
+ * NODE_ENV is REQUIRED (no default). A default would be written back into
+ * process.env by @nestjs/config, masking an unset NODE_ENV as 'development' and
+ * letting AUTH_DEV_BYPASS slip through the A1 fail-safe on a deploy that never
+ * set it. Requiring it means such a deploy refuses to boot outright — the
+ * strongest form of the fail-safe. Dev (.env) and prod (Docker ENV) both set it;
+ * jest sets NODE_ENV=test.
  *
  * allowUnknown lets unrelated env vars through; only the keys below are checked.
  */
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid('development', 'test', 'production')
-    .default('development'),
+    .required(),
   PORT: Joi.number().port().default(4000),
   DATABASE_URL: Joi.string()
     .uri({ scheme: ['postgresql', 'postgres'] })

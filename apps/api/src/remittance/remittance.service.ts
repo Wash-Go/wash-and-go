@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma, RemittanceBatch } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RemittanceRepository } from './remittance.repository';
@@ -80,11 +85,20 @@ export class RemittanceService {
       totalPhp: total,
       lineCount: lines.length,
     });
-    await this.repo.assignLinesToBatch(
+    const assigned = await this.repo.assignLinesToBatch(
       tx,
       lines.map((l) => l.id),
       batch.id,
     );
+    // Concurrency guard: assignLinesToBatch only claims lines still unbatched
+    // (batchId IS NULL). If a concurrent close grabbed some/all of them first,
+    // count < lines.length — throw to roll back this whole tx, so we never leave
+    // a phantom batch (totalPhp set, lines missing) that markPaid would double-pay.
+    if (assigned.count !== lines.length) {
+      throw new ConflictException(
+        'This payout period was closed concurrently — please retry.',
+      );
+    }
     return batch;
   }
 
