@@ -1,5 +1,5 @@
 'use client';
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
 import { useState } from 'react';
@@ -35,8 +35,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
 
   if (!persister) {
-    // SSR / prerender: render children without the persistence wrapper.
-    return <>{children}</>;
+    // SSR / prerender: a plain QueryClientProvider (still a provider — just no
+    // localStorage persistence, which is client-only). Persistence layers on in
+    // the browser branch below.
+    return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
   }
 
   return (
