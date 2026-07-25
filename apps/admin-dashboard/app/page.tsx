@@ -15,9 +15,13 @@ import { STATUS_FILTERS, canAssign, filterOrders } from '../lib/orders';
 export default function AdminPage() {
   const [filter, setFilter] = useState<OrderStatus | 'ALL'>('ALL');
   const [search, setSearch] = useState('');
+  // The dispatch board is the one live view — poll it every 5s (staleTime 0 so the
+  // poll actually refetches). Every other page uses the cached default.
   const orders = useQuery({
     queryKey: ['orders', search],
     queryFn: () => api.listOrders(undefined, search.trim() || undefined),
+    refetchInterval: 5000,
+    staleTime: 0,
   });
   const riders = useQuery({ queryKey: ['riders'], queryFn: () => api.getRiders() });
 

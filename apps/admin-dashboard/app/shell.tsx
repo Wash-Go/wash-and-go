@@ -1,7 +1,9 @@
 'use client';
+import { useQueryClient } from '@tanstack/react-query';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { signOut } from 'firebase/auth';
+import { api } from '../lib/api';
 import { auth } from '../lib/firebase';
 import { useAuth } from '../lib/useAuth';
 
@@ -15,9 +17,24 @@ const NAV = [
   { href: '/config', label: 'Business rules' },
 ];
 
+// Warm each page's primary query on hover so the click lands on cached data.
+// Keys/fns must match exactly what the target page's useQuery uses.
+const PREFETCH: Record<string, { queryKey: unknown[]; queryFn: () => Promise<unknown> }> = {
+  '/shops': { queryKey: ['shops'], queryFn: () => api.listShops() },
+  '/users': { queryKey: ['users', '', ''], queryFn: () => api.listUsers(undefined, undefined) },
+  '/rider-cash': { queryKey: ['rider-cash'], queryFn: () => api.getRiderCashSummary() },
+  '/zones': { queryKey: ['zones'], queryFn: () => api.getZones() },
+  '/config': { queryKey: ['config'], queryFn: () => api.getConfig() },
+};
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user, devBypass } = useAuth();
+  const qc = useQueryClient();
+  const prefetch = (href: string) => {
+    const p = PREFETCH[href];
+    if (p) void qc.prefetchQuery({ ...p, staleTime: 30_000 });
+  };
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -31,6 +48,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               key={n.href}
               href={n.href}
               className="nav-link"
+              onMouseEnter={() => prefetch(n.href)}
               data-active={n.href === '/' ? pathname === '/' : pathname.startsWith(n.href)}
             >
               <span className="nav-dot" />
