@@ -14,6 +14,10 @@ export class ZonesRepository {
     return this.prisma.zone.findMany({ orderBy: { createdAt: 'asc' } });
   }
 
+  countAll(): Promise<number> {
+    return this.prisma.zone.count();
+  }
+
   create(data: Prisma.ZoneUncheckedCreateInput): Promise<Zone> {
     return this.prisma.zone.create({ data });
   }

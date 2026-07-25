@@ -135,6 +135,7 @@ describe('OrdersService', () => {
       countExpressUsedByShopForDay: jest.fn().mockResolvedValue(new Map()),
       isShopMember: jest.fn(),
       userHasRole: jest.fn(),
+      isRiderVerified: jest.fn().mockResolvedValue(true),
       lockShopDay: jest.fn().mockResolvedValue(undefined),
       countExpressOrdersForShopDay: jest.fn(),
       pickAutoDispatchRider: jest.fn().mockResolvedValue(null),
@@ -180,6 +181,7 @@ describe('OrdersService', () => {
     // giving true coverage behavior (central ZC in, Manila out) without mocking.
     const zones = new ZonesService({
       findActive: async () => [],
+      countAll: async () => 0, // empty table → pilot-ring fallback (in-coverage)
     } as unknown as ZonesRepository);
 
     const notifications = {
@@ -547,6 +549,14 @@ describe('OrdersService', () => {
       repo.userHasRole.mockResolvedValue(false);
       await expect(
         service.assignRider(makeUser(['ADMIN']), 'o1', { riderId: 'x' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects assigning an unverified rider (parity with auto-dispatch gate)', async () => {
+      repo.userHasRole.mockResolvedValue(true);
+      repo.isRiderVerified.mockResolvedValue(false);
+      await expect(
+        service.assignRider(makeUser(['ADMIN']), 'o1', { riderId: 'draft-rider' }),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 

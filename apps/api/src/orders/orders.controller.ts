@@ -4,6 +4,7 @@ import {
   Get,
   Headers,
   Param,
+  ParseEnumPipe,
   Post,
   Query,
   UseGuards,
@@ -138,7 +139,9 @@ export class OrdersController {
   @ApiOperation({ summary: 'List orders visible to the caller (paged, newest first)' })
   list(
     @CurrentUser() user: User,
-    @Query('status') status?: OrderStatus,
+    // Validate the enum so a garbage ?status=foo is a 400, not a Prisma 500.
+    @Query('status', new ParseEnumPipe(OrderStatus, { optional: true }))
+    status?: OrderStatus,
     @Query('q') q?: string,
     @Query('limit') limit?: string,
     @Query('before') before?: string,

@@ -7,6 +7,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import type { GeocodeResult, MapsProvider } from '@wash-and-go/maps';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { MAPS_PROVIDER } from './maps.constants';
@@ -38,6 +39,9 @@ export class GeocodeController {
 
   // Typeahead: up to `limit` ranked candidates for an address autocomplete
   // (admin shop editor). Empty array on no match. Any-authenticated like geocode.
+  // Each call is a billed TomTom request — cap it tighter than the global 60/min
+  // so any authenticated token can't burn the maps quota via the typeahead.
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Get('search')
   @ApiOperation({ summary: 'Address autocomplete — ranked candidates' })
   async search(

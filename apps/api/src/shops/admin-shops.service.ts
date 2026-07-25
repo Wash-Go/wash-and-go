@@ -246,14 +246,20 @@ export class AdminShopsService {
     if (existing) {
       throw new ConflictException('This shop already offers that service');
     }
-    const ss = await this.prisma.shopService.create({
-      data: {
-        shopId,
-        serviceId: dto.serviceId,
-        ratePhp: new Prisma.Decimal(dto.ratePhp),
-        turnaroundHours: dto.turnaroundHours,
-      },
-    });
+    const ss = await this.prisma.shopService
+      .create({
+        data: {
+          shopId,
+          serviceId: dto.serviceId,
+          ratePhp: new Prisma.Decimal(dto.ratePhp),
+          turnaroundHours: dto.turnaroundHours,
+        },
+      })
+      // A concurrent add races past the check above → map the P2002 to 409, not 500.
+      .catch((e) => {
+        if (isP2002(e)) throw new ConflictException('This shop already offers that service');
+        throw e;
+      });
     return {
       id: ss.id,
       serviceId: service.id,
@@ -306,9 +312,12 @@ export class AdminShopsService {
     if (existing) {
       throw new ConflictException('This user is already a member of this shop');
     }
-    const member = await this.prisma.shopMember.create({
-      data: { shopId, userId: dto.userId, role: dto.role },
-    });
+    const member = await this.prisma.shopMember
+      .create({ data: { shopId, userId: dto.userId, role: dto.role } })
+      .catch((e) => {
+        if (isP2002(e)) throw new ConflictException('This user is already a member of this shop');
+        throw e;
+      });
     return {
       id: member.id,
       userId: user.id,
@@ -372,4 +381,8 @@ export class AdminShopsService {
       createdAt: s.createdAt.toISOString(),
     };
   }
+}
+
+function isP2002(e: unknown): boolean {
+  return e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002';
 }

@@ -495,6 +495,10 @@ export class OrdersService {
   ): Promise<Order> {
     const riderOk = await this.repo.userHasRole(dto.riderId, 'RIDER');
     if (!riderOk) throw new BadRequestException('Assignee is not a rider');
+    // Only VERIFIED riders are dispatchable — parity with auto-dispatch, so a
+    // draft/rejected rider (no verified license/ID) is never handed platform cash.
+    const verified = await this.repo.isRiderVerified(dto.riderId);
+    if (!verified) throw new BadRequestException('Rider is not verified yet');
 
     return this.prisma.$transaction(async (tx) => {
       const order = await this.repo.findByIdForUpdate(tx, orderId);

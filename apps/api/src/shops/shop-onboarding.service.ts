@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma, Shop, User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { assertOwnedKey } from '../uploads/object-key';
 import type { UpdateOnboardingDto } from './dto/shop-onboarding.dto';
 
 // Owner-facing view — NO margin fields (commission/slots stay server-side).
@@ -69,6 +70,12 @@ export class ShopOnboardingService {
           : 'A verified shop is edited from the admin console',
       );
     }
+    // Proof keys must live under the caller's own upload prefix — otherwise a
+    // crafted key would make the reviewing admin (who can presign-GET any key)
+    // fetch someone else's private object.
+    if (dto.permitKey != null) assertOwnedKey(user.id, dto.permitKey);
+    (dto.photoKeys ?? []).forEach((k) => assertOwnedKey(user.id, k));
+
     const updated = await this.prisma.shop.update({
       where: { id: shop.id },
       data: {

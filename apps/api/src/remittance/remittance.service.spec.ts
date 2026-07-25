@@ -63,7 +63,8 @@ describe('RemittanceService', () => {
       expect(repo.listBatches).toHaveBeenCalledWith({
         shopId: { in: ['shopA', 'shopB'] },
       });
-      expect(out).toEqual([{ id: 'b1' }]);
+      // paidByUid is stripped for the shop-facing response.
+      expect(out).toEqual([{ id: 'b1', paidByUid: null }]);
     });
   });
 

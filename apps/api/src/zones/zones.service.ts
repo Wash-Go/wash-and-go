@@ -15,10 +15,15 @@ export class ZonesService {
 
   async isCovered(point: LatLng): Promise<boolean> {
     const zones = await this.repo.findActive();
-    if (zones.length === 0) {
-      return pointInPolygon(point, ZAMBOANGA_PILOT_RING);
+    if (zones.length > 0) {
+      return zones.some((z) => pointInPolygon(point, this.ring(z)));
     }
-    return zones.some((z) => pointInPolygon(point, this.ring(z)));
+    // No ACTIVE zones. Distinguish two cases so deactivating zones actually
+    // restricts coverage instead of silently reopening the whole pilot ring:
+    //   - table empty (never configured) → bootstrap fallback to the pilot ring
+    //   - zones exist but all deactivated (admin closed coverage) → fail CLOSED
+    const total = await this.repo.countAll();
+    return total === 0 ? pointInPolygon(point, ZAMBOANGA_PILOT_RING) : false;
   }
 
   // The active zone containing the point, or null (out of coverage).

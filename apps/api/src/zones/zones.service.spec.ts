@@ -28,6 +28,7 @@ describe('ZonesService', () => {
     repo = {
       findActive: jest.fn(),
       findAll: jest.fn(),
+      countAll: jest.fn().mockResolvedValue(0),
       create: jest.fn(),
       setActive: jest.fn(),
     } as unknown as jest.Mocked<ZonesRepository>;
@@ -35,10 +36,17 @@ describe('ZonesService', () => {
   });
 
   describe('isCovered', () => {
-    it('falls back to the pilot ring when no zones exist (central ZC covered)', async () => {
+    it('falls back to the pilot ring when the table is empty (central ZC covered)', async () => {
       repo.findActive.mockResolvedValue([]);
+      repo.countAll.mockResolvedValue(0);
       expect(await service.isCovered(CENTRAL_ZC)).toBe(true);
       expect(await service.isCovered(MANILA)).toBe(false);
+    });
+
+    it('fails CLOSED when zones exist but all are deactivated (no reopen)', async () => {
+      repo.findActive.mockResolvedValue([]);
+      repo.countAll.mockResolvedValue(3); // admin turned every zone off
+      expect(await service.isCovered(CENTRAL_ZC)).toBe(false);
     });
 
     it('is covered when the point is in an active zone', async () => {

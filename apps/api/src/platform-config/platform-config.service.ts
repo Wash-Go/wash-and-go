@@ -83,8 +83,12 @@ export class PlatformConfigService {
   ) {}
 
   private envNum(key: string, def: number): number {
-    const v = Number(this.env.get<string>(key));
-    return Number.isFinite(v) && v !== 0 ? v : def;
+    // Presence check, not `!== 0` — a deliberate 0 (e.g. SERVICE_FEE_PHP=0) is a
+    // valid override, not "unset". Missing/blank/garbage → the code default.
+    const raw = this.env.get<string>(key);
+    if (raw == null || String(raw).trim() === '') return def;
+    const v = Number(raw);
+    return Number.isFinite(v) ? v : def;
   }
 
   // Bootstrap defaults (env-overridable) used only when the row does not exist.

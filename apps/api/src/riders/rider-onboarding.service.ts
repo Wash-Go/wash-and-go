@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { RiderProfile, User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { assertOwnedKey } from '../uploads/object-key';
 import type { UpdateRiderOnboardingDto } from './dto/rider-onboarding.dto';
 
 // Rider's own onboarding view.
@@ -57,6 +58,9 @@ export class RiderOnboardingService {
           : 'Your profile is verified',
       );
     }
+    if (dto.licenseKey != null) assertOwnedKey(user.id, dto.licenseKey);
+    if (dto.idKey != null) assertOwnedKey(user.id, dto.idKey);
+
     const updated = await this.prisma.riderProfile.update({
       where: { userId: user.id },
       data: {

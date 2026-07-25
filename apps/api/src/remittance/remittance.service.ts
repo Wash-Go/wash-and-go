@@ -102,11 +102,14 @@ export class RemittanceService {
     return batch;
   }
 
-  // Shop-facing: only the caller's own shop payout batches.
+  // Shop-facing: only the caller's own shop payout batches. Strip paidByUid — a
+  // shop has no business seeing which admin's Firebase UID marked the transfer
+  // (the reference + paidAt are enough proof of payment).
   async listBatchesForMember(userId: string): Promise<RemittanceBatch[]> {
     const shopIds = await this.repo.shopIdsForMember(userId);
     if (shopIds.length === 0) return [];
-    return this.repo.listBatches({ shopId: { in: shopIds } });
+    const batches = await this.repo.listBatches({ shopId: { in: shopIds } });
+    return batches.map((b) => ({ ...b, paidByUid: null }));
   }
 
   async listBatches(filter: {

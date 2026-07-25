@@ -133,6 +133,13 @@ export class OrdersRepository {
     return u !== null && !u.disabledAt && u.roles.includes(role as never);
   }
 
+  // A rider is dispatchable only with a VERIFIED profile (onboarding D). Manual
+  // admin assign gates on this too, not just auto-dispatch.
+  async isRiderVerified(userId: string): Promise<boolean> {
+    const p = await this.prisma.riderProfile.findUnique({ where: { userId } });
+    return p?.status === 'VERIFIED';
+  }
+
   // ── capacity path (all take tx) ─────────────────────────────────────────
 
   // T1: serialize concurrent bookings per (shop, Manila-day). Transaction-scoped
