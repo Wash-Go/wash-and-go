@@ -140,6 +140,42 @@ export interface PresignUploadResult {
   key: string;
   putUrl: string;
 }
+
+// Self-serve rider onboarding.
+export type RiderStatus = 'DRAFT' | 'SUBMITTED' | 'VERIFIED' | 'REJECTED';
+
+export interface RiderProfileView {
+  id: string;
+  status: RiderStatus;
+  rejectionReason: string | null;
+  licenseKey: string | null;
+  idKey: string | null;
+  vehicleType: string | null;
+  vehiclePlate: string | null;
+  submittedAt: string | null;
+  verifiedAt: string | null;
+}
+
+export interface UpdateRiderOnboardingBody {
+  licenseKey?: string;
+  idKey?: string;
+  vehicleType?: string;
+  vehiclePlate?: string;
+}
+
+// Admin view of a rider application.
+export interface RiderApplicationView {
+  id: string;
+  userId: string;
+  displayName: string;
+  phone: string;
+  status: RiderStatus;
+  vehicleType: string | null;
+  vehiclePlate: string | null;
+  licenseKey: string | null;
+  idKey: string | null;
+  submittedAt: string | null;
+}
 // ServiceType re-used below for the create body.
 
 // Wire shapes returned by the Nest API. Money is a STRING over the wire (Prisma

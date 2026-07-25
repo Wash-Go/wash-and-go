@@ -12,6 +12,8 @@ import { MeCashController } from '../riders/me-cash.controller';
 import { ShopsController } from '../shops/shops.controller';
 import { AdminShopsController } from '../shops/admin-shops.controller';
 import { ShopOnboardingController } from '../shops/shop-onboarding.controller';
+import { RiderOnboardingController } from '../riders/rider-onboarding.controller';
+import { AdminRidersController } from '../riders/admin-riders.controller';
 import { ZonesController } from '../zones/zones.controller';
 import { GeocodeController } from '../maps/geocode.controller';
 import { NotificationsController } from '../notifications/notifications.controller';
@@ -139,6 +141,20 @@ describe('route role matrix', () => {
     const c = ShopOnboardingController.prototype;
     for (const m of ['mine', 'start', 'update', 'submit']) {
       expect(rolesOf(c, m)).toBeUndefined();
+    }
+  });
+
+  it('self-serve rider onboarding is any-authenticated (ownership-scoped)', () => {
+    const c = RiderOnboardingController.prototype;
+    for (const m of ['mine', 'start', 'update', 'submit']) {
+      expect(rolesOf(c, m)).toBeUndefined();
+    }
+  });
+
+  it('admin rider verification routes are ADMIN-only', () => {
+    const c = AdminRidersController.prototype;
+    for (const m of ['applications', 'verify', 'reject']) {
+      expect(rolesOf(c, m)).toEqual(['ADMIN']);
     }
   });
 

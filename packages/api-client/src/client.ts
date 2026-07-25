@@ -11,8 +11,11 @@ import type {
   CreateShopBody,
   OwnerShopView,
   PresignUploadResult,
+  RiderApplicationView,
+  RiderProfileView,
   ServiceCatalogView,
   UpdateOnboardingBody,
+  UpdateRiderOnboardingBody,
   UpdateShopBody,
   UpdateShopServiceBody,
   ConfigAuditEntry,
@@ -468,6 +471,38 @@ export class ApiClient {
 
   uploadViewUrl(key: string): Promise<{ url: string }> {
     return this.request('GET', `/uploads/url?key=${encodeURIComponent(key)}`);
+  }
+
+  // --- Self-serve rider onboarding (rider app) ---
+
+  getMyRiderOnboarding(): Promise<RiderProfileView | null> {
+    return this.request('GET', '/rider/onboarding');
+  }
+
+  startRiderOnboarding(): Promise<RiderProfileView> {
+    return this.request('POST', '/rider/onboarding/start');
+  }
+
+  updateRiderOnboarding(body: UpdateRiderOnboardingBody): Promise<RiderProfileView> {
+    return this.request('PATCH', '/rider/onboarding', body);
+  }
+
+  submitRiderOnboarding(): Promise<RiderProfileView> {
+    return this.request('POST', '/rider/onboarding/submit');
+  }
+
+  // --- Admin: rider verification review queue ---
+
+  listRiderApplications(): Promise<RiderApplicationView[]> {
+    return this.request('GET', '/admin/riders/applications');
+  }
+
+  verifyRider(id: string): Promise<RiderApplicationView> {
+    return this.request('POST', `/admin/riders/${encodeURIComponent(id)}/verify`);
+  }
+
+  rejectRider(id: string, reason: string): Promise<RiderApplicationView> {
+    return this.request('POST', `/admin/riders/${encodeURIComponent(id)}/reject`, { reason });
   }
 }
 

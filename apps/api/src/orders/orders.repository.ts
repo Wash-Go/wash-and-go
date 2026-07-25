@@ -100,7 +100,8 @@ export class OrdersRepository {
     tx: Prisma.TransactionClient,
   ): Promise<string | null> {
     const riders = await tx.user.findMany({
-      where: { roles: { has: 'RIDER' }, disabledAt: null },
+      // VERIFIED riders only — auto-dispatch never assigns an unverified rider.
+      where: { roles: { has: 'RIDER' }, disabledAt: null, riderProfile: { status: 'VERIFIED' } },
       select: { id: true },
     });
     if (riders.length === 0) return null;

@@ -58,6 +58,23 @@ async function main() {
     });
   }
 
+  // Riders need a VERIFIED profile to be dispatchable (onboarding D). Seed one for
+  // each dev rider so manual assign + auto-dispatch keep working.
+  for (const uid of ['dev-rider-1', 'dev-rider-2']) {
+    const rider = await prisma.user.findUnique({ where: { firebaseUid: uid } });
+    if (rider) {
+      await prisma.riderProfile.upsert({
+        where: { userId: rider.id },
+        create: {
+          userId: rider.id, status: 'VERIFIED', verifiedAt: new Date('2026-07-01'),
+          vehicleType: 'e-bike', vehiclePlate: 'WG-' + uid.slice(-1),
+          licenseKey: `uploads/${uid}/license.jpg`, idKey: `uploads/${uid}/id.jpg`,
+        },
+        update: { status: 'VERIFIED' },
+      });
+    }
+  }
+
   // Make dev-shop-owner a member of the Tetuan shop so the laundry-portal has
   // scoped data (the shop view filters by ShopMember).
   const tetuan = await prisma.shop.findFirst({ where: { name: 'Tetuan Laundry Hub' } });

@@ -12,7 +12,11 @@ describe('RidersService', () => {
     const out = await service.listRiders();
 
     const arg = findMany.mock.calls[0][0];
-    expect(arg.where).toEqual({ roles: { has: 'RIDER' }, disabledAt: null });
+    expect(arg.where).toEqual({
+      roles: { has: 'RIDER' },
+      disabledAt: null,
+      riderProfile: { status: 'VERIFIED' },
+    });
     expect(arg.select).toEqual({ id: true, displayName: true, phone: true });
     expect(out).toEqual([
       { id: 'r1', displayName: 'Rider One', phone: '+639170000002' },

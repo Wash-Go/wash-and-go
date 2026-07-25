@@ -15,7 +15,13 @@ export class RidersService {
 
   listRiders(): Promise<RiderView[]> {
     return this.prisma.user.findMany({
-      where: { roles: { has: UserRole.RIDER }, disabledAt: null },
+      // Only VERIFIED riders are assignable — an unverified (onboarding) rider
+      // never appears in the dispatch picker.
+      where: {
+        roles: { has: UserRole.RIDER },
+        disabledAt: null,
+        riderProfile: { status: 'VERIFIED' },
+      },
       select: { id: true, displayName: true, phone: true },
       orderBy: { displayName: 'asc' },
     });

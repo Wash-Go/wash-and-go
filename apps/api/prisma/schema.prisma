@@ -60,6 +60,33 @@ model User {
   addresses       Address[]
   cashDeposits    RiderCashDeposit[] @relation("RiderCashDeposits")
   notifications   Notification[]
+  riderProfile    RiderProfile?
+}
+
+// Rider verification lifecycle (self-serve onboarding, mirror of ShopStatus). A
+// rider is only dispatchable — manual assign + auto-dispatch — with a VERIFIED
+// profile, since they handle platform cash.
+enum RiderStatus {
+  DRAFT
+  SUBMITTED
+  VERIFIED
+  REJECTED
+}
+
+model RiderProfile {
+  id              String      @id @default(cuid())
+  userId          String      @unique
+  user            User        @relation(fields: [userId], references: [id])
+  status          RiderStatus @default(DRAFT)
+  submittedAt     DateTime?
+  verifiedAt      DateTime?
+  rejectionReason String?
+  // R2 object keys for submitted documents.
+  licenseKey      String?
+  idKey           String?
+  vehicleType     String?
+  vehiclePlate    String?
+  createdAt       DateTime    @default(now())
 }
 
 // In-app notification (e.g. an order status change) for one user. Push/SMS is a
