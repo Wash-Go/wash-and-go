@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { NotificationView } from '@wash-and-go/domain';
 import {
   Card,
+  EmptyState,
   ErrorState,
   Loading,
   Muted,
@@ -86,7 +87,11 @@ export default function NotificationsScreen() {
       ) : null}
 
       {rows.length === 0 ? (
-        <Muted>No notifications yet. Order updates show up here.</Muted>
+        <EmptyState
+          emoji="🔔"
+          title="No notifications yet"
+          subtitle="Updates about your orders will show up here."
+        />
       ) : (
         <View style={{ gap: space.sm }}>
           {rows.map((n) => (

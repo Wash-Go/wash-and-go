@@ -105,7 +105,10 @@ export default function AddressesScreen() {
     <Screen>
       <Text style={styles.section}>Your pickup addresses</Text>
       {rows.length === 0 ? (
-        <Muted>No saved addresses yet. Add one below for faster booking.</Muted>
+        <View style={{ alignItems: 'center', paddingVertical: space.lg, gap: 6 }}>
+          <Text style={{ fontSize: 34 }}>📍</Text>
+          <Muted>No saved addresses yet — add one below for faster booking.</Muted>
+        </View>
       ) : (
         <View style={{ gap: space.sm }}>
           {rows.map((a) => (

@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import { Text as RNText, TextInput as RNTextInput } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { colors, font, ToastProvider } from '@wash-and-go/ui';
+import { api } from '../lib/api';
 import { auth } from '../lib/firebase';
 
 // Base default font so every Text/TextInput inherits Plus Jakarta, not the
@@ -38,6 +39,13 @@ export default function RootLayout() {
   const router = useRouter();
 
   useEffect(() => onAuthStateChanged(auth, (u) => setUser(u)), []);
+
+  // Ensure the Postgres user row exists whenever Firebase restores a session —
+  // not just on the login-form submit. Idempotent upsert; without this, an account
+  // whose first postSession failed (e.g. wrong API URL) 401s on every screen.
+  useEffect(() => {
+    if (user) void api.postSession().catch(() => {});
+  }, [user]);
 
   useEffect(() => {
     if (user === undefined) return; // wait for the first auth state
