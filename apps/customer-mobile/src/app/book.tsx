@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { AddressView } from '@wash-and-go/domain';
 import {
   Card,
@@ -93,9 +93,20 @@ export default function BookScreen() {
   const useMyLocation = useCallback(async () => {
     setGpsLoading(true);
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
+      const { status, canAskAgain } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        toast.error('Location permission is needed to set your pickup point.');
+        // Not an error — prompt them to turn it on. If iOS won't re-ask
+        // (previously denied), the only way back is Settings, so offer it.
+        Alert.alert(
+          'Location is off',
+          'Turn on location access to drop your pickup pin automatically.',
+          canAskAgain
+            ? [{ text: 'OK' }]
+            : [
+                { text: 'Not now', style: 'cancel' },
+                { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+              ],
+        );
         return;
       }
       const pos = await Location.getCurrentPositionAsync({
