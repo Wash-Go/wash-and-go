@@ -16,7 +16,7 @@ describe('GeocodeController', () => {
       name: 'stub',
       geocode: jest.fn().mockResolvedValue(result),
       search: jest.fn().mockResolvedValue([result]),
-      reverseGeocode: jest.fn(),
+      reverseGeocode: jest.fn().mockResolvedValue('Tetuan, Zamboanga City'),
       route: jest.fn(),
     };
     ctrl = new GeocodeController(maps);
@@ -55,6 +55,18 @@ describe('GeocodeController', () => {
       await ctrl.search('Tetuan', 'abc');
       expect(maps.search).toHaveBeenNthCalledWith(1, 'Tetuan', 5);
       expect(maps.search).toHaveBeenNthCalledWith(2, 'Tetuan', 5);
+    });
+  });
+
+  describe('reverse', () => {
+    it('reverse-geocodes a valid point to a label', async () => {
+      const out = await ctrl.reverse('6.92', '122.08');
+      expect(maps.reverseGeocode).toHaveBeenCalledWith({ lat: 6.92, lng: 122.08 });
+      expect(out).toEqual({ label: 'Tetuan, Zamboanga City' });
+    });
+
+    it('rejects non-numeric coordinates', async () => {
+      await expect(ctrl.reverse('x', '122')).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 });

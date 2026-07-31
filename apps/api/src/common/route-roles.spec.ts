@@ -93,6 +93,7 @@ describe('route role matrix', () => {
   it('geocode is any-authenticated (non-sensitive utility, no @Roles)', () => {
     expect(rolesOf(GeocodeController.prototype, 'geocode')).toBeUndefined();
     expect(rolesOf(GeocodeController.prototype, 'search')).toBeUndefined();
+    expect(rolesOf(GeocodeController.prototype, 'reverse')).toBeUndefined();
   });
 
   it('the shops catalog is any-authenticated (non-sensitive, no @Roles)', () => {

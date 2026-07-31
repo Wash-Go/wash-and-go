@@ -10,6 +10,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { GeocodeResult, MapsProvider } from '@wash-and-go/maps';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { parseFiniteNumber } from '../common/parse-num';
 import { MAPS_PROVIDER } from './maps.constants';
 
 /*
@@ -52,5 +53,21 @@ export class GeocodeController {
     if (query.length < 3) return [];
     const n = Number(limit);
     return this.maps.search(query, Number.isFinite(n) && n > 0 ? n : 5);
+  }
+
+  // Coordinates → a human-readable address for the map picker (label the pin the
+  // user dropped). Billed TomTom call → throttled. { label: null } when unknown.
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Get('reverse')
+  @ApiOperation({ summary: 'Reverse geocode a pinned point → address label' })
+  async reverse(
+    @Query('lat') lat: string,
+    @Query('lng') lng: string,
+  ): Promise<{ label: string | null }> {
+    const point = {
+      lat: parseFiniteNumber(lat, 'lat'),
+      lng: parseFiniteNumber(lng, 'lng'),
+    };
+    return { label: await this.maps.reverseGeocode(point) };
   }
 }

@@ -322,6 +322,11 @@ export class ApiClient {
     );
   }
 
+  // Coordinates → address label (map picker: label the dropped pin).
+  reverseGeocode(lat: number, lng: number): Promise<{ label: string | null }> {
+    return this.request('GET', `/geocode/reverse?lat=${lat}&lng=${lng}`);
+  }
+
   // --- Admin: rider cash reconciliation ---
 
   getRiderCashSummary(): Promise<RiderCashBalance[]> {
