@@ -1,8 +1,8 @@
 import { router } from 'expo-router';
-import * as Location from 'expo-location';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { AddressView } from '@wash-and-go/domain';
+import { MapPicker } from '../components/MapPicker';
 import {
   Card,
   Muted,
@@ -47,11 +47,9 @@ export default function BookScreen() {
   const slots = useMemo(buildSlots, []);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [address, setAddress] = useState('');
-  const [gpsLoading, setGpsLoading] = useState(false);
-  const [geoLoading, setGeoLoading] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   const [saved, setSaved] = useState<AddressView[]>([]);
   const [saveNew, setSaveNew] = useState(false);
-  const toast = useToast();
 
   // Load the address book to prefill pickup (best-effort — booking works without).
   useEffect(() => {
@@ -69,69 +67,15 @@ export default function BookScreen() {
     }
   }, []);
 
-  // Geocode the typed address → pin its coordinates (no GPS needed).
-  const findAddress = useCallback(async () => {
-    const q = address.trim();
-    if (q.length < 2) return;
-    setGeoLoading(true);
-    try {
-      const hit = await api.geocode(q);
-      if (hit) {
-        setCoords(hit.point);
-        setAddress(hit.label);
-        toast.success('Address pinned.');
-      } else {
-        toast.error('No match for that address. Try GPS or add more detail.');
-      }
-    } catch {
-      toast.error('Could not search that address. Try again or use GPS.');
-    } finally {
-      setGeoLoading(false);
-    }
-  }, [address]);
-
-  const useMyLocation = useCallback(async () => {
-    setGpsLoading(true);
-    try {
-      const { status, canAskAgain } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        // Not an error — prompt them to turn it on. If iOS won't re-ask
-        // (previously denied), the only way back is Settings, so offer it.
-        Alert.alert(
-          'Location is off',
-          'Turn on location access to drop your pickup pin automatically.',
-          canAskAgain
-            ? [{ text: 'OK' }]
-            : [
-                { text: 'Not now', style: 'cancel' },
-                { text: 'Open Settings', onPress: () => void Linking.openSettings() },
-              ],
-        );
-        return;
-      }
-      const pos = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      const { latitude, longitude } = pos.coords;
-      setCoords({ lat: latitude, lng: longitude });
-      try {
-        const [place] = await Location.reverseGeocodeAsync({ latitude, longitude });
-        if (place) {
-          setAddress(
-            [place.name, place.street, place.district, place.city]
-              .filter(Boolean)
-              .join(', '),
-          );
-        }
-      } catch {
-        // best-effort
-      }
-    } catch {
-      toast.error('Could not read your location. Try again or type your address.');
-    } finally {
-      setGpsLoading(false);
-    }
-  }, []);
+  // Pickup point is chosen on the map (single source of truth) — see MapPicker.
+  const onPickLocation = useCallback(
+    (p: { lat: number; lng: number; address: string }) => {
+      setCoords({ lat: p.lat, lng: p.lng });
+      setAddress(p.address);
+      setMapOpen(false);
+    },
+    [],
+  );
 
   // Loads over the Express ceiling route to Scheduled (Tier 1) — the customer
   // picks a pickup window; Express stays on-demand.
@@ -290,35 +234,28 @@ export default function BookScreen() {
         </View>
       ) : null}
 
+      {coords ? (
+        <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Text style={{ fontSize: 18 }}>📍</Text>
+          <Text style={[type.body, { flex: 1, color: colors.text }]} numberOfLines={2}>
+            {address || 'Pinned location'}
+          </Text>
+        </Card>
+      ) : null}
+
       <PrimaryButton
-        label={coords ? '📍 Location set — update' : '📍 Use my location'}
-        onPress={useMyLocation}
-        loading={gpsLoading}
+        label={coords ? 'Change pickup on map' : '📍 Set pickup on map'}
+        onPress={() => setMapOpen(true)}
         tone="terra"
-      />
-      <TextInput
-        value={address}
-        onChangeText={setAddress}
-        placeholder="Pickup address (street, barangay)"
-        placeholderTextColor={colors.textMuted}
-        style={styles.input}
-        multiline
+        testID="open-map"
       />
 
-      <Pressable
-        onPress={findAddress}
-        disabled={address.trim().length < 2 || geoLoading}
-        style={({ pressed }) => [
-          styles.findBtn,
-          (address.trim().length < 2 || geoLoading) && { opacity: 0.5 },
-          pressed && { opacity: 0.8 },
-        ]}
-        accessibilityRole="button"
-      >
-        <Text style={styles.findBtnT}>
-          {geoLoading ? 'Searching…' : '🔎 Find this address'}
-        </Text>
-      </Pressable>
+      <MapPicker
+        visible={mapOpen}
+        initial={coords}
+        onClose={() => setMapOpen(false)}
+        onPick={onPickLocation}
+      />
 
       <Pressable
         onPress={() => setSaveNew((v) => !v)}

@@ -15,6 +15,7 @@ import {
   useToast,
 } from '@wash-and-go/ui';
 import { api } from '../lib/api';
+import { MapPicker } from '../components/MapPicker';
 
 export default function AddressesScreen() {
   const toast = useToast();
@@ -22,6 +23,8 @@ export default function AddressesScreen() {
   const [error, setError] = useState<string | null>(null);
   const [label, setLabel] = useState('');
   const [line, setLine] = useState('');
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapOpen, setMapOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -38,17 +41,19 @@ export default function AddressesScreen() {
   }, [load]);
 
   const add = useCallback(async () => {
-    const l = line.trim();
-    if (l.length < 3 || busy) return;
+    if (!coords || busy) return;
     setBusy(true);
     try {
       await api.createAddress({
-        line: l,
+        line: line.trim() || 'Pinned location',
         label: label.trim() || undefined,
+        lat: coords.lat,
+        lng: coords.lng,
         isDefault: (list?.length ?? 0) === 0, // first one is the default
       });
       setLabel('');
       setLine('');
+      setCoords(null);
       await load();
       toast.success('Address saved');
     } catch (e) {
@@ -56,7 +61,7 @@ export default function AddressesScreen() {
     } finally {
       setBusy(false);
     }
-  }, [line, label, busy, list, load, toast]);
+  }, [coords, line, label, busy, list, load, toast]);
 
   const setDefault = useCallback(
     async (id: string) => {
@@ -162,21 +167,37 @@ export default function AddressesScreen() {
         style={styles.input}
         testID="addr-label-input"
       />
-      <TextInput
-        value={line}
-        onChangeText={setLine}
-        placeholder="Address (street, barangay)"
-        placeholderTextColor={colors.textMuted}
-        style={styles.input}
-        multiline
-        testID="addr-line-input"
+      {coords ? (
+        <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Text style={{ fontSize: 18 }}>📍</Text>
+          <Text style={[type.body, { flex: 1, color: colors.text }]} numberOfLines={2}>
+            {line || 'Pinned location'}
+          </Text>
+        </Card>
+      ) : null}
+      <PrimaryButton
+        label={coords ? 'Change location on map' : '📍 Set location on map'}
+        onPress={() => setMapOpen(true)}
+        tone="terra"
+        testID="addr-open-map"
       />
       <PrimaryButton
         label="Add address"
         onPress={add}
-        disabled={line.trim().length < 3}
+        disabled={!coords}
         loading={busy}
         testID="add-address"
+      />
+
+      <MapPicker
+        visible={mapOpen}
+        initial={coords}
+        onClose={() => setMapOpen(false)}
+        onPick={(p) => {
+          setCoords({ lat: p.lat, lng: p.lng });
+          setLine(p.address);
+          setMapOpen(false);
+        }}
       />
     </Screen>
   );
