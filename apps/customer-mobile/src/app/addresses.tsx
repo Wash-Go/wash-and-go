@@ -12,10 +12,12 @@ import {
   radius,
   space,
   type,
+  useToast,
 } from '@wash-and-go/ui';
 import { api } from '../lib/api';
 
 export default function AddressesScreen() {
+  const toast = useToast();
   const [list, setList] = useState<AddressView[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [label, setLabel] = useState('');
@@ -39,7 +41,6 @@ export default function AddressesScreen() {
     const l = line.trim();
     if (l.length < 3 || busy) return;
     setBusy(true);
-    setError(null);
     try {
       await api.createAddress({
         line: l,
@@ -49,23 +50,25 @@ export default function AddressesScreen() {
       setLabel('');
       setLine('');
       await load();
+      toast.success('Address saved');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not add that address.');
+      toast.error(e instanceof Error ? e.message : 'Could not add that address.');
     } finally {
       setBusy(false);
     }
-  }, [line, label, busy, list, load]);
+  }, [line, label, busy, list, load, toast]);
 
   const setDefault = useCallback(
     async (id: string) => {
       try {
         await api.updateAddress(id, { isDefault: true });
         await load();
+        toast.success('Default address updated');
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Could not update that address.');
+        toast.error(e instanceof Error ? e.message : 'Could not update that address.');
       }
     },
-    [load],
+    [load, toast],
   );
 
   const remove = useCallback(
@@ -73,11 +76,12 @@ export default function AddressesScreen() {
       try {
         await api.deleteAddress(id);
         await load();
+        toast.success('Address removed');
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Could not remove that address.');
+        toast.error(e instanceof Error ? e.message : 'Could not remove that address.');
       }
     },
-    [load],
+    [load, toast],
   );
 
   if (!list && !error) {
@@ -164,7 +168,6 @@ export default function AddressesScreen() {
         multiline
         testID="addr-line-input"
       />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
       <PrimaryButton
         label="Add address"
         onPress={add}
@@ -197,7 +200,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
   },
-  error: { color: colors.danger, ...type.body },
   defaultBadge: {
     backgroundColor: colors.terra,
     paddingHorizontal: 8,

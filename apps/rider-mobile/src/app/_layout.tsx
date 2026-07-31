@@ -12,7 +12,7 @@ import { onAuthStateChanged, type User } from 'firebase/auth';
 import { useEffect, useState } from 'react';
 import { Text as RNText, TextInput as RNTextInput } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { colors, font } from '@wash-and-go/ui';
+import { colors, font, ToastProvider } from '@wash-and-go/ui';
 import { auth, DEV_UID } from '../lib/firebase';
 
 const RNTextAny = RNText as unknown as { defaultProps?: { style?: unknown } };
@@ -55,21 +55,23 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <Stack
-        screenOptions={{
-          headerStyle: { backgroundColor: colors.bg },
-          headerTintColor: colors.text,
-          headerTitleStyle: { fontFamily: font.bold, color: colors.text },
-          headerShadowVisible: false,
-          contentStyle: { backgroundColor: colors.bg },
-        }}
-      >
-        <Stack.Screen name="index" options={{ title: 'My jobs' }} />
-        <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="cash" options={{ title: 'My cash' }} />
-        <Stack.Screen name="orders/[id]" options={{ title: 'Job' }} />
-      </Stack>
+      <ToastProvider>
+        <StatusBar style="dark" />
+        <Stack
+          screenOptions={{
+            headerStyle: { backgroundColor: colors.bg },
+            headerTintColor: colors.text,
+            headerTitleStyle: { fontFamily: font.bold, color: colors.text },
+            headerShadowVisible: false,
+            contentStyle: { backgroundColor: colors.bg },
+          }}
+        >
+          <Stack.Screen name="index" options={{ title: 'My jobs' }} />
+          <Stack.Screen name="login" options={{ headerShown: false }} />
+          <Stack.Screen name="cash" options={{ title: 'My cash' }} />
+          <Stack.Screen name="orders/[id]" options={{ title: 'Job' }} />
+        </Stack>
+      </ToastProvider>
     </SafeAreaProvider>
   );
 }

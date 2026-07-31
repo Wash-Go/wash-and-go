@@ -13,7 +13,7 @@ import {
   colors,
   radius,
   space,
-  type,
+  useToast,
 } from '@wash-and-go/ui';
 import { auth } from '../lib/firebase';
 import { api } from '../lib/api';
@@ -42,14 +42,13 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   const valid = email.includes('@') && password.length >= 6;
 
   async function submit() {
     if (!valid) return;
     setBusy(true);
-    setError(null);
     try {
       if (mode === 'signup') {
         await createUserWithEmailAndPassword(auth, email.trim(), password);
@@ -60,7 +59,7 @@ export default function LoginScreen() {
       await api.postSession();
       router.replace('/');
     } catch (e) {
-      setError(friendly((e as { code?: string })?.code));
+      toast.error(friendly((e as { code?: string })?.code));
     } finally {
       setBusy(false);
     }
@@ -94,8 +93,6 @@ export default function LoginScreen() {
           style={styles.input}
         />
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-
         <PrimaryButton
           label={mode === 'signin' ? 'Sign in' : 'Create account'}
           onPress={submit}
@@ -106,7 +103,6 @@ export default function LoginScreen() {
         <Pressable
           onPress={() => {
             setMode(mode === 'signin' ? 'signup' : 'signin');
-            setError(null);
           }}
           style={{ padding: space.md }}
         >
@@ -133,5 +129,4 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
   },
-  error: { color: colors.danger, ...type.body },
 });

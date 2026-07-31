@@ -16,6 +16,7 @@ import {
   radius,
   space,
   type,
+  useToast,
 } from '@wash-and-go/ui';
 
 type State =
@@ -27,14 +28,13 @@ const POLL_MS = 5000;
 
 export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const toast = useToast();
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [confirming, setConfirming] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const [cancelError, setCancelError] = useState<string | null>(null);
   const [stars, setStars] = useState(0);
   const [comment, setComment] = useState('');
   const [rating, setRating] = useState(false);
-  const [rateError, setRateError] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchOnce = useCallback(
@@ -64,31 +64,31 @@ export default function OrderDetailScreen() {
 
   const doCancel = useCallback(async () => {
     setCancelling(true);
-    setCancelError(null);
     try {
       await api.transition(id, 'CANCELLED');
       setConfirming(false);
+      toast.success('Booking cancelled');
       await fetchOnce(false);
     } catch (e) {
-      setCancelError(e instanceof Error ? e.message : 'Could not cancel this order.');
+      toast.error(e instanceof Error ? e.message : 'Could not cancel this order.');
     } finally {
       setCancelling(false);
     }
-  }, [id, fetchOnce]);
+  }, [id, fetchOnce, toast]);
 
   const doRate = useCallback(async () => {
     if (stars < 1) return;
     setRating(true);
-    setRateError(null);
     try {
       await api.rateOrder(id, { stars, comment: comment.trim() || undefined });
+      toast.success('Thanks for the rating');
       await fetchOnce(false);
     } catch (e) {
-      setRateError(e instanceof Error ? e.message : 'Could not submit your rating.');
+      toast.error(e instanceof Error ? e.message : 'Could not submit your rating.');
     } finally {
       setRating(false);
     }
-  }, [id, stars, comment, fetchOnce]);
+  }, [id, stars, comment, fetchOnce, toast]);
 
   useEffect(() => {
     fetchOnce(false);
@@ -198,7 +198,6 @@ export default function OrderDetailScreen() {
                 style={styles.commentInput}
                 multiline
               />
-              {rateError ? <Text style={styles.cancelError}>{rateError}</Text> : null}
               <PrimaryButton
                 label="Submit rating"
                 onPress={doRate}
@@ -242,7 +241,6 @@ export default function OrderDetailScreen() {
               <Text style={styles.cancelLink}>Cancel booking</Text>
             </Pressable>
           )}
-          {cancelError ? <Text style={styles.cancelError}>{cancelError}</Text> : null}
         </Card>
       ) : null}
     </Screen>
@@ -299,5 +297,4 @@ const styles = StyleSheet.create({
   },
   cancelLink: { color: colors.terra, fontWeight: '700', ...type.body, textAlign: 'center' },
   keepLink: { color: colors.textMuted, fontWeight: '600', ...type.body, textAlign: 'center' },
-  cancelError: { color: colors.danger, ...type.small, marginTop: space.xs },
 });

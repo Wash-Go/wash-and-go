@@ -9,15 +9,19 @@ import {
   Screen,
   colors,
   type,
+  useToast,
 } from '@wash-and-go/ui';
 import { auth } from '../../lib/firebase';
 
 export default function ProfileScreen() {
+  const toast = useToast();
   const email = auth.currentUser?.email ?? null;
 
   function doSignOut() {
     // The root auth gate redirects to /login once the user becomes null.
-    void signOut(auth);
+    signOut(auth).catch((e) =>
+      toast.error(e instanceof Error ? e.message : 'Could not sign out.'),
+    );
   }
 
   function confirmSignOut() {

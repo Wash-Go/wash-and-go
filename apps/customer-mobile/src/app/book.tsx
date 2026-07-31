@@ -12,6 +12,7 @@ import {
   radius,
   space,
   type,
+  useToast,
 } from '@wash-and-go/ui';
 import { api } from '../lib/api';
 import { LOAD_BUCKETS, LoadBucket } from '../lib/format';
@@ -48,9 +49,9 @@ export default function BookScreen() {
   const [address, setAddress] = useState('');
   const [gpsLoading, setGpsLoading] = useState(false);
   const [geoLoading, setGeoLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<AddressView[]>([]);
   const [saveNew, setSaveNew] = useState(false);
+  const toast = useToast();
 
   // Load the address book to prefill pickup (best-effort — booking works without).
   useEffect(() => {
@@ -73,17 +74,17 @@ export default function BookScreen() {
     const q = address.trim();
     if (q.length < 2) return;
     setGeoLoading(true);
-    setError(null);
     try {
       const hit = await api.geocode(q);
       if (hit) {
         setCoords(hit.point);
         setAddress(hit.label);
+        toast.success('Address pinned.');
       } else {
-        setError('No match for that address. Try GPS or add more detail.');
+        toast.error('No match for that address. Try GPS or add more detail.');
       }
     } catch {
-      setError('Could not search that address. Try again or use GPS.');
+      toast.error('Could not search that address. Try again or use GPS.');
     } finally {
       setGeoLoading(false);
     }
@@ -91,11 +92,10 @@ export default function BookScreen() {
 
   const useMyLocation = useCallback(async () => {
     setGpsLoading(true);
-    setError(null);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        setError('Location permission is needed to set your pickup point.');
+        toast.error('Location permission is needed to set your pickup point.');
         return;
       }
       const pos = await Location.getCurrentPositionAsync({
@@ -116,7 +116,7 @@ export default function BookScreen() {
         // best-effort
       }
     } catch {
-      setError('Could not read your location. Try again or type your address.');
+      toast.error('Could not read your location. Try again or type your address.');
     } finally {
       setGpsLoading(false);
     }
@@ -321,8 +321,6 @@ export default function BookScreen() {
         <Text style={[type.body, { color: colors.text }]}>Save this pickup for next time</Text>
       </Pressable>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-
       <PrimaryButton label="Continue" onPress={cont} disabled={!canContinue} />
     </Screen>
   );
@@ -358,7 +356,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
   },
-  error: { color: colors.danger, ...type.body },
   defaultBadge: {
     backgroundColor: colors.terra,
     paddingHorizontal: 8,

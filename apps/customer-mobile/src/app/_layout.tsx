@@ -12,7 +12,7 @@ import { onAuthStateChanged, type User } from 'firebase/auth';
 import { useEffect, useState } from 'react';
 import { Text as RNText, TextInput as RNTextInput } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { colors, font } from '@wash-and-go/ui';
+import { colors, font, ToastProvider } from '@wash-and-go/ui';
 import { auth } from '../lib/firebase';
 
 // Base default font so every Text/TextInput inherits Plus Jakarta, not the
@@ -50,25 +50,27 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <Stack
-        screenOptions={{
-          headerStyle: { backgroundColor: colors.bg },
-          headerTintColor: colors.text,
-          headerTitleStyle: { fontFamily: font.bold, color: colors.text },
-          headerShadowVisible: false,
-          contentStyle: { backgroundColor: colors.bg },
-        }}
-      >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="addresses" options={{ title: 'Saved addresses' }} />
-        <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
-        <Stack.Screen name="book" options={{ title: 'Book pickup' }} />
-        <Stack.Screen name="checkout" options={{ title: 'Review & confirm' }} />
-        <Stack.Screen name="change-laundry" options={{ title: 'Choose a laundry' }} />
-        <Stack.Screen name="orders/[id]" options={{ title: 'Order' }} />
-      </Stack>
+      <ToastProvider>
+        <StatusBar style="dark" />
+        <Stack
+          screenOptions={{
+            headerStyle: { backgroundColor: colors.bg },
+            headerTintColor: colors.text,
+            headerTitleStyle: { fontFamily: font.bold, color: colors.text },
+            headerShadowVisible: false,
+            contentStyle: { backgroundColor: colors.bg },
+          }}
+        >
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="login" options={{ headerShown: false }} />
+          <Stack.Screen name="addresses" options={{ title: 'Saved addresses' }} />
+          <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
+          <Stack.Screen name="book" options={{ title: 'Book pickup' }} />
+          <Stack.Screen name="checkout" options={{ title: 'Review & confirm' }} />
+          <Stack.Screen name="change-laundry" options={{ title: 'Choose a laundry' }} />
+          <Stack.Screen name="orders/[id]" options={{ title: 'Order' }} />
+        </Stack>
+      </ToastProvider>
     </SafeAreaProvider>
   );
 }

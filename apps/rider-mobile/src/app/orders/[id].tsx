@@ -16,6 +16,7 @@ import {
   peso,
   space,
   type,
+  useToast,
 } from '@wash-and-go/ui';
 import { api } from '../../lib/api';
 import { actionLabel, needsConfirm } from '../../lib/triage';
@@ -40,6 +41,7 @@ export default function JobDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [busy, setBusy] = useState(false);
+  const toast = useToast();
 
   const load = useCallback(
     async (silent: boolean) => {
@@ -72,16 +74,14 @@ export default function JobDetailScreen() {
       try {
         await api.transition(id, status);
         await load(true);
+        toast.success('Job updated.');
       } catch (e) {
-        setState({
-          kind: 'error',
-          message: e instanceof Error ? e.message : 'That action failed.',
-        });
+        toast.error(e instanceof Error ? e.message : 'That action failed.');
       } finally {
         setBusy(false);
       }
     },
-    [id, load],
+    [id, load, toast],
   );
 
   const recordCash = useCallback(async () => {
@@ -89,15 +89,13 @@ export default function JobDetailScreen() {
     try {
       await api.payCash(id);
       await load(true);
+      toast.success('Cash recorded.');
     } catch (e) {
-      setState({
-        kind: 'error',
-        message: e instanceof Error ? e.message : 'Could not record cash.',
-      });
+      toast.error(e instanceof Error ? e.message : 'Could not record cash.');
     } finally {
       setBusy(false);
     }
-  }, [id, load]);
+  }, [id, load, toast]);
 
   if (state.kind === 'loading') {
     return (

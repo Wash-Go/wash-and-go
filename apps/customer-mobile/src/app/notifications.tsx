@@ -11,10 +11,12 @@ import {
   colors,
   space,
   type,
+  useToast,
 } from '@wash-and-go/ui';
 import { api } from '../lib/api';
 
 export default function NotificationsScreen() {
+  const toast = useToast();
   const [items, setItems] = useState<NotificationView[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,10 +53,11 @@ export default function NotificationsScreen() {
     try {
       await api.markAllNotificationsRead();
       await load();
-    } catch {
-      // best-effort
+      toast.success('All caught up');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not mark all as read.');
     }
-  }, [load]);
+  }, [load, toast]);
 
   if (!items && !error) {
     return (

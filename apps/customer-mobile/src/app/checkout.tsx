@@ -15,6 +15,7 @@ import {
   peso,
   space,
   type,
+  useToast,
 } from '@wash-and-go/ui';
 import { api } from '../lib/api';
 
@@ -52,6 +53,7 @@ export default function CheckoutScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const toast = useToast();
   // One key per checkout mount — a retried confirm dedupes to a single order.
   const idempotencyKey = useMemo(() => newIdempotencyKey(), []);
 
@@ -81,7 +83,6 @@ export default function CheckoutScreen() {
   const confirm = useCallback(async () => {
     if (!quote) return;
     setSubmitting(true);
-    setError(null);
     try {
       const order = await api.createOrder(
         {
@@ -97,7 +98,7 @@ export default function CheckoutScreen() {
       );
       router.replace(`/orders/${order.id}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not place your order.');
+      toast.error(e instanceof Error ? e.message : 'Could not place your order.');
     } finally {
       setSubmitting(false);
     }
@@ -186,7 +187,6 @@ export default function CheckoutScreen() {
         <Text style={styles.est}>Delivery adjusts by distance · final weight at the shop.</Text>
       </Card>
 
-      {error ? <Text style={styles.errText}>{error}</Text> : null}
       <PrimaryButton
         label={submitting ? 'Booking…' : 'Confirm booking'}
         onPress={confirm}
@@ -243,5 +243,4 @@ const styles = StyleSheet.create({
   change: { color: colors.terraDark, fontWeight: '700', fontSize: 13 },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginVertical: space.xs },
   est: { color: colors.terraDark, fontSize: 12, fontWeight: '600' },
-  errText: { color: colors.danger, ...type.body },
 });
