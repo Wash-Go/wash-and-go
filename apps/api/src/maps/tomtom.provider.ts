@@ -7,7 +7,10 @@ import type {
 } from '@wash-and-go/maps';
 
 // Injectable fetch so specs can drive the adapter without real HTTP.
-export type FetchLike = (url: string) => Promise<{
+export type FetchLike = (
+  url: string,
+  init?: { headers?: Record<string, string> },
+) => Promise<{
   ok: boolean;
   status: number;
   json(): Promise<unknown>;
@@ -22,6 +25,26 @@ export type FetchLike = (url: string) => Promise<{
  * throw. Geocode failures also degrade to null so a booking never hard-fails on
  * a maps outage; route() throws (the caller needs a distance to price).
  */
+// Build a short, human label from a Nominatim reverse result: street (with
+// house number if present), barangay/suburb, city — skipping blanks and dupes.
+// Falls back to the full display_name if we can't assemble parts.
+function shortLabel(body: {
+  name?: string;
+  display_name?: string;
+  address?: Record<string, string>;
+}): string | undefined {
+  const a = body.address ?? {};
+  const street = [a.house_number, a.road ?? body.name].filter(Boolean).join(' ');
+  const area = a.neighbourhood ?? a.suburb ?? a.village ?? a.quarter;
+  const city = a.city ?? a.town ?? a.municipality ?? a.county;
+  const parts = [street || body.name, area, city].filter(
+    (p): p is string => !!p,
+  );
+  const seen = new Set<string>();
+  const label = parts.filter((p) => !seen.has(p) && seen.add(p)).join(', ');
+  return label || body.display_name || undefined;
+}
+
 export class TomTomProvider implements MapsProvider {
   readonly name = 'tomtom';
   private readonly logger = new Logger('TomTomProvider');
@@ -29,7 +52,7 @@ export class TomTomProvider implements MapsProvider {
 
   constructor(
     private readonly apiKey: string,
-    private readonly fetchFn: FetchLike = (url) => fetch(url),
+    private readonly fetchFn: FetchLike = (url, init) => fetch(url, init),
   ) {}
 
   async geocode(query: string): Promise<GeocodeResult | null> {
@@ -99,13 +122,42 @@ export class TomTomProvider implements MapsProvider {
       `?key=${this.apiKey}`;
     try {
       const res = await this.fetchFn(url);
-      if (!res.ok) return this.warnNull('reverseGeocode', res.status);
-      const body = (await res.json()) as {
-        addresses?: { address?: { freeformAddress?: string } }[];
-      };
-      return body.addresses?.[0]?.address?.freeformAddress ?? null;
+      if (res.ok) {
+        const body = (await res.json()) as {
+          addresses?: { address?: { freeformAddress?: string } }[];
+        };
+        const label = body.addresses?.[0]?.address?.freeformAddress;
+        if (label) return label;
+      } else {
+        this.warnNull('reverseGeocode', res.status);
+      }
     } catch (e) {
       this.logger.warn(`reverseGeocode error: ${String(e)}`);
+    }
+    // Fallback: keyless OSM Nominatim. The dev TomTom key often has only the
+    // Maps (tiles) product enabled, not Search — so reverse returns a readable
+    // street name instead of raw coordinates. Nominatim policy: identify via
+    // User-Agent, keep it to ~1 req/s (the picker debounces to one call).
+    return this.nominatimReverse(point);
+  }
+
+  private async nominatimReverse(point: GeoPoint): Promise<string | null> {
+    const url =
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2` +
+      `&lat=${point.lat}&lon=${point.lng}&zoom=18&addressdetails=1`;
+    try {
+      const res = await this.fetchFn(url, {
+        headers: { 'User-Agent': 'WashAndGo/1.0 (pilot; Zamboanga)' },
+      });
+      if (!res.ok) return this.warnNull('nominatimReverse', res.status);
+      const body = (await res.json()) as {
+        name?: string;
+        display_name?: string;
+        address?: Record<string, string>;
+      };
+      return shortLabel(body) ?? null;
+    } catch (e) {
+      this.logger.warn(`nominatimReverse error: ${String(e)}`);
       return null;
     }
   }

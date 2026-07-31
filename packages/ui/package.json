@@ -12,8 +12,10 @@
     "@wash-and-go/domain": "workspace:*"
   },
   "peerDependencies": {
+    "expo-location": "*",
     "react": "*",
     "react-native": "*",
-    "react-native-safe-area-context": "*"
+    "react-native-safe-area-context": "*",
+    "react-native-webview": "*"
   }
 }

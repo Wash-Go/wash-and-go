@@ -7,6 +7,7 @@ import {
   ErrorState,
   H2,
   Loading,
+  MapView,
   Muted,
   PrimaryButton,
   Screen,
@@ -19,6 +20,7 @@ import {
   useToast,
 } from '@wash-and-go/ui';
 import { api } from '../../lib/api';
+import { mapTiles } from '../../components/mapTiles';
 import { actionLabel, needsConfirm } from '../../lib/triage';
 
 type State =
@@ -29,10 +31,19 @@ type State =
 function call(phone?: string) {
   if (phone) Linking.openURL(`tel:${phone}`).catch(() => {});
 }
-function navigate(address?: string) {
-  if (address) {
+// Prefer exact coordinates (the customer pinned them on the map) — a text
+// address is fuzzy and can resolve blocks away. Falls back to text only when
+// coords are missing (older orders).
+function navigateTo(lat?: number | null, lng?: number | null, address?: string) {
+  const dest =
+    lat != null && lng != null
+      ? `${lat},${lng}`
+      : address
+        ? encodeURIComponent(address)
+        : null;
+  if (dest) {
     Linking.openURL(
-      `https://maps.google.com/?q=${encodeURIComponent(address)}`,
+      `https://www.google.com/maps/dir/?api=1&destination=${dest}`,
     ).catch(() => {});
   }
 }
@@ -115,6 +126,9 @@ export default function JobDetailScreen() {
   const o = state.order;
   const actions = o.availableActions ?? [];
   const showCash = o.status === 'DELIVERED' && !o.paidCashAt;
+  const plat = o.pickupLat != null ? Number(o.pickupLat) : null;
+  const plng = o.pickupLng != null ? Number(o.pickupLng) : null;
+  const hasPin = plat != null && Number.isFinite(plat) && plng != null && Number.isFinite(plng);
 
   return (
     <Screen>
@@ -126,6 +140,11 @@ export default function JobDetailScreen() {
       <Card>
         <Text style={styles.label}>Pick up from customer</Text>
         <Text style={[type.body, { color: colors.text }]}>{o.pickupAddress}</Text>
+        {hasPin ? (
+          <View style={{ marginTop: space.sm }}>
+            <MapView lat={plat as number} lng={plng as number} tiles={mapTiles} />
+          </View>
+        ) : null}
         <View style={styles.rowBtns}>
           {o.customer?.phone ? (
             <View style={{ flex: 1 }}>
@@ -133,7 +152,10 @@ export default function JobDetailScreen() {
             </View>
           ) : null}
           <View style={{ flex: 1 }}>
-            <PrimaryButton label="🧭 Navigate" onPress={() => navigate(o.pickupAddress)} />
+            <PrimaryButton
+              label="🧭 Navigate"
+              onPress={() => navigateTo(plat, plng, o.pickupAddress)}
+            />
           </View>
         </View>
       </Card>
@@ -143,7 +165,10 @@ export default function JobDetailScreen() {
           <Text style={styles.label}>Drop off at shop</Text>
           <Text style={[type.body, { color: colors.text }]}>{o.shop.name}</Text>
           <Muted>{o.shop.address}</Muted>
-          <PrimaryButton label="🧭 Navigate to shop" onPress={() => navigate(o.shop?.address)} />
+          <PrimaryButton
+            label="🧭 Navigate to shop"
+            onPress={() => navigateTo(null, null, o.shop?.address)}
+          />
         </Card>
       ) : null}
 

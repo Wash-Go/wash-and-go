@@ -141,7 +141,29 @@ describe('TomTomProvider', () => {
       ).toBe('Tetuan, ZC');
     });
 
-    it('degrades to null when the Reverse Geocoding product is off (403)', async () => {
+    it('falls back to Nominatim when TomTom Search is off (403)', async () => {
+      const fetchFn = mockFetch((url) => {
+        if (url.includes('nominatim')) {
+          return {
+            ok: true,
+            status: 200,
+            body: {
+              address: {
+                road: 'Veterans Ave',
+                suburb: 'Tetuan',
+                city: 'Zamboanga City',
+              },
+            },
+          };
+        }
+        return { ok: false, status: 403, body: {} }; // TomTom reverse off
+      });
+      expect(
+        await new TomTomProvider(KEY, fetchFn).reverseGeocode({ lat: 1, lng: 1 }),
+      ).toBe('Veterans Ave, Tetuan, Zamboanga City');
+    });
+
+    it('degrades to null when both TomTom and Nominatim fail', async () => {
       const fetchFn = mockFetch(() => ({ ok: false, status: 403, body: {} }));
       expect(
         await new TomTomProvider(KEY, fetchFn).reverseGeocode({ lat: 1, lng: 1 }),
