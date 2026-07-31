@@ -55,7 +55,20 @@ export function tomtomTiles(key: string): MapTiles {
   };
 }
 
-// Keyless OpenStreetMap raster — final fallback when no token/key is set.
+// CARTO Voyager — keyless, free, and serves @2x retina tiles (the `{r}` token
+// Leaflet fills with '@2x' on retina screens). Clean modern style, noticeably
+// sharper than OSM/TomTom basic, with NO signup. The default when no key is set.
+export function cartoTiles(): MapTiles {
+  return {
+    url: 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    tileSize: 256,
+    zoomOffset: 0,
+    detectRetina: false, // sharpness comes from the {r}=@2x token, not zoom-doubling
+    attribution: '© CARTO © OpenStreetMap',
+  };
+}
+
+// Keyless OpenStreetMap raster — last resort.
 export function osmTiles(): MapTiles {
   return {
     url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -75,14 +88,18 @@ export function resolveTiles(cfg: {
   tomtomKey?: string;
 }): MapTiles {
   const p = (cfg.provider ?? '').toLowerCase();
+  // Explicit provider wins (when its key, if any, is present).
   if (p === 'mapbox' && cfg.mapboxToken) return mapboxTiles(cfg.mapboxToken);
   if (p === 'maptiler' && cfg.mapTilerKey) return mapTilerTiles(cfg.mapTilerKey);
+  if (p === 'tomtom' && cfg.tomtomKey) return tomtomTiles(cfg.tomtomKey);
+  if (p === 'carto') return cartoTiles();
   if (p === 'osm') return osmTiles();
-  // No explicit provider: prefer the sharpest key we actually have.
+  // No explicit provider: prefer the sharpest source available. A paid @2x key
+  // beats keyless CARTO; CARTO (keyless @2x) beats TomTom basic — so a stray
+  // TomTom key doesn't pin us to low-res. TomTom is opt-in via provider=tomtom.
   if (cfg.mapTilerKey) return mapTilerTiles(cfg.mapTilerKey);
   if (cfg.mapboxToken) return mapboxTiles(cfg.mapboxToken);
-  if (cfg.tomtomKey) return tomtomTiles(cfg.tomtomKey);
-  return osmTiles();
+  return cartoTiles();
 }
 
 // Build the Leaflet page. mode 'pick' shows a fixed centre pin and posts the

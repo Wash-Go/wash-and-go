@@ -1,4 +1,5 @@
 import {
+  cartoTiles,
   leafletHtml,
   mapboxTiles,
   mapTilerTiles,
@@ -33,6 +34,13 @@ describe('tile presets', () => {
     expect(t.detectRetina).toBe(true);
   });
 
+  it('carto is keyless and uses the {r} retina token for @2x sharpness', () => {
+    const t = cartoTiles();
+    expect(t.url).toContain('cartocdn.com');
+    expect(t.url).toContain('{r}.png'); // Leaflet fills {r}=@2x on retina
+    expect(t.url).not.toContain('key=');
+  });
+
   it('osm is keyless', () => {
     expect(osmTiles().url).toContain('tile.openstreetmap.org');
   });
@@ -42,22 +50,25 @@ describe('resolveTiles', () => {
   it('honours an explicit provider when its key is present', () => {
     expect(resolveTiles({ provider: 'mapbox', mapboxToken: 't' }).url).toContain('mapbox');
     expect(resolveTiles({ provider: 'maptiler', mapTilerKey: 'k' }).url).toContain('maptiler');
+    expect(resolveTiles({ provider: 'tomtom', tomtomKey: 'tt' }).url).toContain('tomtom');
+    expect(resolveTiles({ provider: 'carto' }).url).toContain('cartocdn');
     expect(resolveTiles({ provider: 'osm' }).url).toContain('openstreetmap');
   });
 
-  it('ignores an explicit provider whose key is missing, falling through', () => {
-    // provider=mapbox but no token → falls to the best key we DO have (tomtom).
-    expect(resolveTiles({ provider: 'mapbox', tomtomKey: 'tt' }).url).toContain('tomtom');
+  it('ignores an explicit provider whose key is missing, falling to CARTO', () => {
+    // provider=mapbox but no token → default path → keyless CARTO (HD).
+    expect(resolveTiles({ provider: 'mapbox' }).url).toContain('cartocdn');
   });
 
-  it('with no provider, prefers the sharpest key available', () => {
+  it('with no provider, prefers a paid @2x key, else keyless CARTO', () => {
     expect(resolveTiles({ mapTilerKey: 'k', tomtomKey: 'tt' }).url).toContain('maptiler');
     expect(resolveTiles({ mapboxToken: 'm', tomtomKey: 'tt' }).url).toContain('mapbox');
-    expect(resolveTiles({ tomtomKey: 'tt' }).url).toContain('tomtom');
+    // A stray TomTom key must NOT pin us to low-res — CARTO wins by default.
+    expect(resolveTiles({ tomtomKey: 'tt' }).url).toContain('cartocdn');
   });
 
-  it('falls back to keyless OSM when nothing is configured', () => {
-    expect(resolveTiles({}).url).toContain('openstreetmap');
+  it('defaults to keyless CARTO (HD) when nothing is configured', () => {
+    expect(resolveTiles({}).url).toContain('cartocdn');
   });
 });
 

@@ -35,12 +35,14 @@ export function MapPicker({
   const [label, setLabel] = useState<string>('Move the map to your pickup point');
   const [resolving, setResolving] = useState(false);
   const revTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastPosted = useRef<string>(''); // dedupe key of the last centre we acted on
 
   // Decide the starting centre once the sheet opens: passed-in point → device
   // GPS → fallback (Zamboanga).
   useEffect(() => {
     if (!visible) {
       setCenter(null);
+      lastPosted.current = '';
       return;
     }
     let cancelled = false;
@@ -78,6 +80,13 @@ export function MapPicker({
       } catch {
         return;
       }
+      // Leaflet emits `moveend` repeatedly with the SAME centre during the
+      // modal slide-in and tile settle. Ignore any message whose centre hasn't
+      // actually moved (rounded to ~1m) — otherwise each one flips the label to
+      // "Locating…" and re-fires the reverse-geocode: the flicker. Round to 5dp.
+      const key = `${c.lat.toFixed(5)},${c.lng.toFixed(5)}`;
+      if (key === lastPosted.current) return;
+      lastPosted.current = key;
       setCoords(c);
       // Debounce the reverse-geocode — one call after the map settles.
       if (revTimer.current) clearTimeout(revTimer.current);
