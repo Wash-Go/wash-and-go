@@ -2,11 +2,13 @@ import React, { useRef } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  Keyboard,
   PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableWithoutFeedback,
   View,
   ViewStyle,
 } from 'react-native';
@@ -37,13 +39,21 @@ export function Screen({
       {scroll ? (
         <ScrollView
           contentContainerStyle={styles.scrollBody}
+          // persistTaps keeps buttons tappable while the keyboard is up;
+          // on-drag dismisses the keyboard when you start scrolling.
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         >
           {children}
         </ScrollView>
       ) : (
-        <View style={styles.body}>{children}</View>
+        // Non-scroll screens (e.g. login): tap any empty area to dismiss the
+        // keyboard. Buttons/inputs handle their own touch, so only background
+        // taps reach this handler.
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View style={styles.body}>{children}</View>
+        </TouchableWithoutFeedback>
       )}
     </SafeAreaView>
   );
