@@ -66,6 +66,8 @@ export default function RootLayout() {
             headerTintColor: colors.text,
             headerTitleStyle: { fontFamily: font.bold, color: colors.text },
             headerShadowVisible: false,
+            // Chevron only — hide the previous route's title (was leaking "(tabs)").
+            headerBackButtonDisplayMode: 'minimal',
             contentStyle: { backgroundColor: colors.bg },
           }}
         >

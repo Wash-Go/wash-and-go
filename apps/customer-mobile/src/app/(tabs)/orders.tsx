@@ -65,7 +65,7 @@ export default function OrdersScreen() {
           title="No orders yet"
           subtitle="Book your first express wash and it'll show up here."
           actionLabel="Book a wash"
-          onAction={() => router.replace('/')}
+          onAction={() => router.push('/book')}
         />
       </Screen>
     );
