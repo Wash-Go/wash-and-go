@@ -12,7 +12,7 @@ import {
   space,
   type,
 } from '@wash-and-go/ui';
-import { api } from '../lib/api';
+import { api } from '../../lib/api';
 
 export default function CashScreen() {
   const [data, setData] = useState<RiderCashDetail | null>(null);

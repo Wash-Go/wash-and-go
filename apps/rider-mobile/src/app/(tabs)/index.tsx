@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { STATUS_META, statusLabel, type OrderView } from '@wash-and-go/domain';
 import {
   Card,
@@ -18,8 +18,8 @@ import {
   toneColor,
   type,
 } from '@wash-and-go/ui';
-import { api } from '../lib/api';
-import { actionLabel, GROUP_LABEL, jobGroup, sortJobs } from '../lib/triage';
+import { api } from '../../lib/api';
+import { actionLabel, GROUP_LABEL, jobGroup, sortJobs } from '../../lib/triage';
 
 type State =
   | { kind: 'loading' }
@@ -89,22 +89,12 @@ export default function JobsScreen() {
 
   return (
     <Screen>
-      <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.title}>My jobs</Text>
-          <Text style={styles.count}>
-            {state.jobs.length} active
-            {needsAction > 0 ? ` · ${needsAction} need${needsAction > 1 ? '' : 's'} you` : ''}
-          </Text>
-        </View>
-        <Pressable
-          testID="my-cash"
-          onPress={() => router.push('/cash' as never)}
-          accessibilityRole="button"
-        >
-          <Text style={styles.cashLink}>My cash →</Text>
-        </Pressable>
-      </View>
+      {/* The tab header already says "My jobs" — this is just the live count,
+          so the screen leads with content instead of a duplicate title. */}
+      <Text style={styles.count}>
+        {state.jobs.length} active
+        {needsAction > 0 ? ` · ${needsAction} need${needsAction > 1 ? '' : 's'} you` : ''}
+      </Text>
 
       {state.jobs.map((j) => {
         const group = jobGroup(j);
@@ -152,15 +142,7 @@ export default function JobsScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    marginBottom: space.xs,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  title: { ...type.h1, color: colors.text },
-  count: { ...type.small, color: colors.textMuted, marginTop: 3 },
-  cashLink: { ...type.small, color: colors.navy, fontWeight: '700' },
+  count: { ...type.small, color: colors.textMuted, marginBottom: space.sm },
   actionCard: { borderColor: colors.terra, borderWidth: 1.5 },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   icon: {

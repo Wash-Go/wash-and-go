@@ -66,9 +66,8 @@ export default function RootLayout() {
             contentStyle: { backgroundColor: colors.bg },
           }}
         >
-          <Stack.Screen name="index" options={{ title: 'My jobs' }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ headerShown: false }} />
-          <Stack.Screen name="cash" options={{ title: 'My cash' }} />
           <Stack.Screen name="orders/[id]" options={{ title: 'Job' }} />
         </Stack>
       </ToastProvider>
