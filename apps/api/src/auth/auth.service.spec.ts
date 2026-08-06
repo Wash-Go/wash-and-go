@@ -57,12 +57,23 @@ describe('AuthService', () => {
       ).rejects.toBeInstanceOf(UnauthorizedException);
     });
 
-    // A3 (P2): under dev bypass a stray bearer must NOT hit Firebase (would 500
-    // on the uninitialized app) — the dev header wins and Firebase is untouched.
-    it('ignores the bearer token under dev bypass and uses the dev header', async () => {
+    // Real token wins even under dev bypass (Admin SDK is initialized): a
+    // bearer-bearing client (customer app) is verified, not stubbed.
+    it('prefers the bearer token even under dev bypass (real token wins)', async () => {
+      (firebase as { devBypass: boolean }).devBypass = true;
+      firebase.verifyIdToken.mockResolvedValue({ firebaseUid: 'fb-real' });
+      const uid = await service.resolveFirebaseUid({
+        bearer: 'real-token',
+        devUid: 'dev-abc',
+      });
+      expect(uid).toBe('fb-real');
+      expect(firebase.verifyIdToken).toHaveBeenCalledWith('real-token');
+    });
+
+    it('falls back to the dev header under bypass when no bearer', async () => {
       (firebase as { devBypass: boolean }).devBypass = true;
       const uid = await service.resolveFirebaseUid({
-        bearer: 'stray-token',
+        bearer: null,
         devUid: 'dev-abc',
       });
       expect(uid).toBe('dev-abc');
