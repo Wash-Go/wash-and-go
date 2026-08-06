@@ -1,7 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
-import type { OrderStatus, OrderView } from '@wash-and-go/domain';
+import { isTerminal, type OrderStatus, type OrderView } from '@wash-and-go/domain';
 import {
   Card,
   ErrorState,
@@ -129,6 +129,9 @@ export default function JobDetailScreen() {
   const plat = o.pickupLat != null ? Number(o.pickupLat) : null;
   const plng = o.pickupLng != null ? Number(o.pickupLng) : null;
   const hasPin = plat != null && Number.isFinite(plat) && plng != null && Number.isFinite(plng);
+  // A finished job (DELIVERED / CANCELLED) is read-only — no point calling the
+  // customer, navigating, or showing the map. Keep the addresses for reference.
+  const live = !isTerminal(o.status);
 
   return (
     <Screen>
@@ -140,24 +143,26 @@ export default function JobDetailScreen() {
       <Card>
         <Text style={styles.label}>Pick up from customer</Text>
         <Text style={[type.body, { color: colors.text }]}>{o.pickupAddress}</Text>
-        {hasPin ? (
+        {live && hasPin ? (
           <View style={{ marginTop: space.sm }}>
             <MapView lat={plat as number} lng={plng as number} tiles={mapTiles} />
           </View>
         ) : null}
-        <View style={styles.rowBtns}>
-          {o.customer?.phone ? (
+        {live ? (
+          <View style={styles.rowBtns}>
+            {o.customer?.phone ? (
+              <View style={{ flex: 1 }}>
+                <PrimaryButton label="📞 Call" onPress={() => call(o.customer?.phone)} />
+              </View>
+            ) : null}
             <View style={{ flex: 1 }}>
-              <PrimaryButton label="📞 Call" onPress={() => call(o.customer?.phone)} />
+              <PrimaryButton
+                label="🧭 Navigate"
+                onPress={() => navigateTo(plat, plng, o.pickupAddress)}
+              />
             </View>
-          ) : null}
-          <View style={{ flex: 1 }}>
-            <PrimaryButton
-              label="🧭 Navigate"
-              onPress={() => navigateTo(plat, plng, o.pickupAddress)}
-            />
           </View>
-        </View>
+        ) : null}
       </Card>
 
       {o.shop ? (
@@ -165,10 +170,12 @@ export default function JobDetailScreen() {
           <Text style={styles.label}>Drop off at shop</Text>
           <Text style={[type.body, { color: colors.text }]}>{o.shop.name}</Text>
           <Muted>{o.shop.address}</Muted>
-          <PrimaryButton
-            label="🧭 Navigate to shop"
-            onPress={() => navigateTo(null, null, o.shop?.address)}
-          />
+          {live ? (
+            <PrimaryButton
+              label="🧭 Navigate to shop"
+              onPress={() => navigateTo(null, null, o.shop?.address)}
+            />
+          ) : null}
         </Card>
       ) : null}
 
