@@ -66,6 +66,27 @@ export default function CashScreen() {
         </Text>
       </Card>
 
+      <Card>
+        <Text style={[type.title, { color: colors.text }]}>How payments work</Text>
+        <View style={{ gap: 6, marginTop: space.xs }}>
+          <Text style={styles.li}>
+            1. You collect cash from the customer on delivery (COD). That money is
+            the platform's — you're holding it for us.
+          </Text>
+          <Text style={styles.li}>
+            2. Deposit it back via GCash or hand it to ops. Each deposit shows in
+            your history below and lowers what you owe.
+          </Text>
+          <Text style={styles.li}>
+            3. Your delivery earnings are settled separately every week.
+          </Text>
+          <Text style={[styles.li, { color: colors.terraDark }]}>
+            Heads up: if what you owe climbs too high, new jobs pause until you
+            deposit. Keeps balances safe for everyone.
+          </Text>
+        </View>
+      </Card>
+
       <Text style={styles.section}>Deposit history</Text>
       {data!.deposits.length === 0 ? (
         <Muted>No deposits recorded yet.</Muted>
@@ -89,5 +110,6 @@ export default function CashScreen() {
 const styles = StyleSheet.create({
   section: { ...type.h2, color: colors.text, marginTop: space.md },
   sub: { ...type.small, color: colors.textMuted, marginTop: space.xs },
+  li: { ...type.body, color: colors.textMuted, lineHeight: 20 },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 });
