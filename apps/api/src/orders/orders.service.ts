@@ -348,7 +348,7 @@ export class OrdersService {
       // available rider immediately; if none free (or disabled), the order stays
       // BOOKED for manual admin dispatch — the exception path.
       if (cfg.autoDispatchEnabled > 0) {
-        const riderId = await this.repo.pickAutoDispatchRider(tx);
+        const riderId = await this.repo.pickAutoDispatchRider(tx, cfg.riderCodCapPhp);
         if (riderId) {
           await this.repo.updateOrder(tx, order.id, {
             status: OrderStatus.ASSIGNED,
@@ -499,6 +499,16 @@ export class OrdersService {
     // draft/rejected rider (no verified license/ID) is never handed platform cash.
     const verified = await this.repo.isRiderVerified(dto.riderId);
     if (!verified) throw new BadRequestException('Rider is not verified yet');
+    // Debt cap: a rider holding more than the configured outstanding COD stops
+    // receiving new jobs until they deposit — bounds abscond risk. Parity with
+    // the auto-dispatch filter below.
+    const { riderCodCapPhp } = await this.config.getValues();
+    const outstanding = await this.repo.riderOutstandingCod(dto.riderId);
+    if (Number(outstanding) >= riderCodCapPhp) {
+      throw new BadRequestException(
+        `Rider is over the ₱${riderCodCapPhp} cash limit — they must deposit before taking new jobs`,
+      );
+    }
 
     return this.prisma.$transaction(async (tx) => {
       const order = await this.repo.findByIdForUpdate(tx, orderId);

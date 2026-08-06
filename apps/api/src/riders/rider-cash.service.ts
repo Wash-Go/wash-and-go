@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { isUniqueViolation } from '../common/prisma-errors';
+import { PlatformConfigService } from '../platform-config/platform-config.service';
 import { RiderCashRepository } from './rider-cash.repository';
 
 export interface RiderCashBalance {
@@ -8,6 +9,7 @@ export interface RiderCashBalance {
   collectedPhp: string; // COD taken from customers
   depositedPhp: string; // handed back to the platform
   outstandingPhp: string; // still owed to the platform (collected − deposited)
+  capPhp?: string; // max outstanding before dispatch pauses (rider's own view)
 }
 
 /*
@@ -18,12 +20,18 @@ export interface RiderCashBalance {
  */
 @Injectable()
 export class RiderCashService {
-  constructor(private readonly repo: RiderCashRepository) {}
+  constructor(
+    private readonly repo: RiderCashRepository,
+    private readonly config: PlatformConfigService,
+  ) {}
 
   async balance(riderId: string): Promise<RiderCashBalance> {
-    const collected = await this.repo.sumCollected(riderId);
-    const deposited = await this.repo.sumDeposited(riderId);
-    return this.shape(riderId, collected, deposited);
+    const [collected, deposited, cfg] = await Promise.all([
+      this.repo.sumCollected(riderId),
+      this.repo.sumDeposited(riderId),
+      this.config.getValues(),
+    ]);
+    return { ...this.shape(riderId, collected, deposited), capPhp: String(cfg.riderCodCapPhp) };
   }
 
   // All riders who have collected any COD, with their outstanding balance.

@@ -368,6 +368,9 @@ model PlatformConfig {
   // P4a dispatch toggle: 1 = auto-assign a rider on Express booking, 0 = manual
   // dispatch only. Flag (0/1) to fit the numeric config pipeline.
   autoDispatchEnabled      Int      @default(0)
+  // Max outstanding COD (collected − deposited) a rider may carry before new
+  // jobs pause. Bounds the platform's exposure if a rider absconds with cash.
+  riderCodCapPhp           Decimal  @default(1500) @db.Decimal(12, 2)
   updatedAt                DateTime @updatedAt
 }
 

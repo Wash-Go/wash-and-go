@@ -29,6 +29,7 @@ export const CONFIG_FIELDS = [
   'minOrderPricePhp',
   'platformFeePhp',
   'autoDispatchEnabled',
+  'riderCodCapPhp',
 ] as const;
 
 export type ConfigField = (typeof CONFIG_FIELDS)[number];
@@ -47,6 +48,7 @@ export interface PlatformConfigValues {
   minOrderPricePhp: string;
   platformFeePhp: string;
   autoDispatchEnabled: number; // 1 = auto-assign rider on Express booking
+  riderCodCapPhp: number; // max outstanding COD before a rider's dispatch pauses
   updatedAt: Date;
 }
 
@@ -105,6 +107,7 @@ export class PlatformConfigService {
       minOrderPricePhp: this.envNum('MIN_ORDER_PRICE_PHP', 0),
       platformFeePhp: this.envNum('PLATFORM_FEE_PHP', 0),
       autoDispatchEnabled: this.envNum('AUTO_DISPATCH_ENABLED', 0),
+      riderCodCapPhp: this.envNum('RIDER_COD_CAP_PHP', 1500),
     };
   }
 
@@ -147,6 +150,7 @@ export class PlatformConfigService {
       minOrderPricePhp: r.minOrderPricePhp.toString(),
       platformFeePhp: r.platformFeePhp.toString(),
       autoDispatchEnabled: Number(r.autoDispatchEnabled),
+      riderCodCapPhp: Number(r.riderCodCapPhp),
       updatedAt: r.updatedAt,
     };
   }

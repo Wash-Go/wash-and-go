@@ -136,6 +136,7 @@ describe('OrdersService', () => {
       isShopMember: jest.fn(),
       userHasRole: jest.fn(),
       isRiderVerified: jest.fn().mockResolvedValue(true),
+      riderOutstandingCod: jest.fn().mockResolvedValue(D('0')),
       lockShopDay: jest.fn().mockResolvedValue(undefined),
       countExpressOrdersForShopDay: jest.fn(),
       pickAutoDispatchRider: jest.fn().mockResolvedValue(null),
@@ -171,6 +172,7 @@ describe('OrdersService', () => {
       minOrderPricePhp: '0',
       platformFeePhp: '0',
       autoDispatchEnabled: 0, // OFF by default — existing tests stay BOOKED
+      riderCodCapPhp: 1500,
       updatedAt: new Date(),
     };
     const config = {
@@ -558,6 +560,27 @@ describe('OrdersService', () => {
       await expect(
         service.assignRider(makeUser(['ADMIN']), 'o1', { riderId: 'draft-rider' }),
       ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects a rider over the COD debt cap (outstanding ≥ cap)', async () => {
+      repo.userHasRole.mockResolvedValue(true);
+      repo.isRiderVerified.mockResolvedValue(true);
+      repo.riderOutstandingCod.mockResolvedValue(D('1500')); // == cap (1500)
+      await expect(
+        service.assignRider(makeUser(['ADMIN']), 'o1', { riderId: 'in-debt' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('allows a rider just under the cap', async () => {
+      repo.userHasRole.mockResolvedValue(true);
+      repo.isRiderVerified.mockResolvedValue(true);
+      repo.riderOutstandingCod.mockResolvedValue(D('1499.99'));
+      repo.findByIdForUpdate.mockResolvedValue(makeOrder({ status: 'BOOKED' }));
+      repo.updateOrder.mockResolvedValue(makeOrder({ status: 'ASSIGNED' }));
+      const out = await service.assignRider(makeUser(['ADMIN']), 'o1', {
+        riderId: 'rider1',
+      });
+      expect(out.status).toBe('ASSIGNED');
     });
 
     it('assigns and transitions BOOKED → ASSIGNED', async () => {

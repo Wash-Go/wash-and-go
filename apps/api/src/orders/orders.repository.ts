@@ -98,6 +98,7 @@ export class OrdersRepository {
   // or null if none. Runs inside the create tx so the load count is consistent.
   async pickAutoDispatchRider(
     tx: Prisma.TransactionClient,
+    codCapPhp: number,
   ): Promise<string | null> {
     const riders = await tx.user.findMany({
       // VERIFIED riders only — auto-dispatch never assigns an unverified rider.
@@ -105,7 +106,14 @@ export class OrdersRepository {
       select: { id: true },
     });
     if (riders.length === 0) return null;
-    const ids = riders.map((r) => r.id);
+    // Drop riders over the COD debt cap — same gate as manual assign, so a
+    // rider holding too much platform cash stops receiving new jobs.
+    const ids = await this.filterUnderCodCap(
+      tx,
+      riders.map((r) => r.id),
+      codCapPhp,
+    );
+    if (ids.length === 0) return null;
     const grouped = await tx.order.groupBy({
       by: ['assignedRiderId'],
       where: {
@@ -119,6 +127,51 @@ export class OrdersRepository {
       if (g.assignedRiderId) load.set(g.assignedRiderId, g._count._all);
     }
     return selectLeastLoadedRider(ids, load);
+  }
+
+  // Outstanding COD a rider still owes = cash they collected (paid COD on their
+  // orders) minus what they've deposited back. Used by the debt-cap gate.
+  async riderOutstandingCod(riderId: string): Promise<Prisma.Decimal> {
+    const [collected, deposited] = await Promise.all([
+      this.prisma.order.aggregate({
+        _sum: { customerTotalPhp: true },
+        where: { assignedRiderId: riderId, paidCashAt: { not: null } },
+      }),
+      this.prisma.riderCashDeposit.aggregate({
+        _sum: { amountPhp: true },
+        where: { riderId },
+      }),
+    ]);
+    const c = collected._sum.customerTotalPhp ?? new Prisma.Decimal(0);
+    const d = deposited._sum.amountPhp ?? new Prisma.Decimal(0);
+    return c.minus(d);
+  }
+
+  // Keep only rider ids whose outstanding COD is strictly under the cap. Batched
+  // (two groupBys) so auto-dispatch stays one round-trip per table, not per rider.
+  private async filterUnderCodCap(
+    tx: Prisma.TransactionClient,
+    ids: string[],
+    codCapPhp: number,
+  ): Promise<string[]> {
+    const [collected, deposited] = await Promise.all([
+      tx.order.groupBy({
+        by: ['assignedRiderId'],
+        where: { assignedRiderId: { in: ids }, paidCashAt: { not: null } },
+        _sum: { customerTotalPhp: true },
+      }),
+      tx.riderCashDeposit.groupBy({
+        by: ['riderId'],
+        where: { riderId: { in: ids } },
+        _sum: { amountPhp: true },
+      }),
+    ]);
+    const dep = new Map(deposited.map((d) => [d.riderId, Number(d._sum.amountPhp ?? 0)]));
+    const col = new Map<string, number>();
+    for (const c of collected) {
+      if (c.assignedRiderId) col.set(c.assignedRiderId, Number(c._sum.customerTotalPhp ?? 0));
+    }
+    return ids.filter((id) => (col.get(id) ?? 0) - (dep.get(id) ?? 0) < codCapPhp);
   }
 
   async isShopMember(userId: string, shopId: string): Promise<boolean> {

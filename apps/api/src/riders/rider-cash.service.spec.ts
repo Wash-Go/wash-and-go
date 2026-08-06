@@ -2,6 +2,12 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { RiderCashService } from './rider-cash.service';
 import type { RiderCashRepository } from './rider-cash.repository';
+import type { PlatformConfigService } from '../platform-config/platform-config.service';
+
+// Config stub — only riderCodCapPhp is read by RiderCashService.balance().
+const configStub = {
+  getValues: jest.fn().mockResolvedValue({ riderCodCapPhp: 1500 }),
+} as unknown as PlatformConfigService;
 
 const D = (v: Prisma.Decimal.Value) => new Prisma.Decimal(v);
 
@@ -20,11 +26,11 @@ describe('RiderCashService', () => {
       listDeposits: jest.fn(),
       findRider: jest.fn(),
     } as unknown as jest.Mocked<RiderCashRepository>;
-    service = new RiderCashService(repo);
+    service = new RiderCashService(repo, configStub);
   });
 
   describe('balance', () => {
-    it('computes outstanding = collected − deposited', async () => {
+    it('computes outstanding = collected − deposited, and includes the cap', async () => {
       repo.sumCollected.mockResolvedValue(D('1250.50'));
       repo.sumDeposited.mockResolvedValue(D('800.00'));
       expect(await service.balance('r1')).toEqual({
@@ -32,6 +38,7 @@ describe('RiderCashService', () => {
         collectedPhp: '1250.50',
         depositedPhp: '800.00',
         outstandingPhp: '450.50',
+        capPhp: '1500',
       });
     });
 

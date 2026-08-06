@@ -408,6 +408,9 @@ export interface RiderCashBalance {
   collectedPhp: string;
   depositedPhp: string;
   outstandingPhp: string;
+  // Max outstanding COD before new jobs pause (present on the rider's own /me/cash
+  // view; omitted from the admin per-rider summary).
+  capPhp?: string;
 }
 
 export interface RiderCashDepositView {

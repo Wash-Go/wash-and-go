@@ -64,6 +64,18 @@ export default function CashScreen() {
         <Text style={styles.sub}>
           Collected {peso(b.collectedPhp)} · Deposited {peso(b.depositedPhp)}
         </Text>
+        {b.capPhp ? (
+          <Text
+            style={[
+              styles.sub,
+              owed >= Number(b.capPhp) ? { color: colors.terra, fontWeight: '700' } : null,
+            ]}
+          >
+            {owed >= Number(b.capPhp)
+              ? `Over the ${peso(b.capPhp)} limit — deposit to resume taking jobs`
+              : `New jobs pause once you owe ${peso(b.capPhp)}`}
+          </Text>
+        ) : null}
       </Card>
 
       <Card>
