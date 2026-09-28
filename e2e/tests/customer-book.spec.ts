@@ -1,33 +1,77 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { confirmBooking, customerLogin } from '../lib/customer';
-import { cancelAllOpenOrders } from '../lib/seed';
+import {
+  cancelOpenOrdersOf,
+  deleteSavedAddress,
+  seedSavedAddress,
+  type SavedAddress,
+} from '../lib/seed';
 
 /*
  * Browser smoke for the customer booking path — the whole reason the app exists.
- * Real Firebase login → dashboard → Book → pick a load → geocode a typed address
- * (the TomTom-backed "Find this address") → Continue → Checkout resolves the
- * nearest shop and prices it. Proves the buttons + the book→quote flow work in a
- * real browser, end to end.
+ * Real Firebase login → dashboard → Book → pick a load → pick a saved pickup
+ * address → Continue → Checkout resolves the nearest shop and prices it →
+ * Confirm → the order exists. Proves the buttons + the book→quote→order flow
+ * work in a real browser, end to end.
+ *
+ * The pickup comes from the address book, not the map: the map picker is a
+ * react-native-webview, which does not render on Expo web. So each test seeds a
+ * saved address (as the signed-in test account) and removes it afterwards.
  */
+
+// Veterans Ave, Tetuan — inside the coverage zone, near both seeded shops.
+const PICKUP = {
+  line: 'E2E pickup, Veterans Ave, Tetuan, Zamboanga City',
+  lat: 6.9111,
+  lng: 122.0794,
+};
+
+// Picks the seeded address from Book's "Saved addresses" list (matched by its
+// unique label) and goes on to checkout.
+async function pickupFromSavedAndContinue(page: Page, address: SavedAddress) {
+  await page.getByText(address.label!, { exact: true }).click();
+  const cont = page.getByText('Continue', { exact: true });
+  await expect(cont).toBeEnabled({ timeout: 30_000 });
+  await cont.click();
+  await expect(page.getByRole('button', { name: 'Confirm booking' })).toBeVisible({
+    timeout: 30_000,
+  });
+}
+
 test.describe('customer booking', () => {
-  // Expo web + Firebase + geocode round-trips — give it room.
+  // Expo web + Firebase + quote round-trips — give it room.
   test.setTimeout(120_000);
 
-  // Confirming creates a real order under the test Firebase user; cancel it.
-  test.afterEach(async () => {
-    await cancelAllOpenOrders().catch(() => undefined);
+  let token: string | undefined;
+  let address: SavedAddress | undefined;
+
+  test.beforeEach(async ({ page }) => {
+    token = await customerLogin(page);
+    // Seeded before Book opens: Book loads the address book on mount.
+    address = await seedSavedAddress(token, {
+      label: `E2E Pickup ${Date.now()}`,
+      ...PICKUP,
+    });
   });
 
-  test('books a load end to end: login → geocode → checkout → confirm → order', async ({
+  // Confirming creates a real order under the test account: cancel it (only
+  // this account's open orders), then remove the seeded address.
+  test.afterEach(async () => {
+    if (!token) return;
+    await cancelOpenOrdersOf(token).catch(() => undefined);
+    if (address) await deleteSavedAddress(token, address.id).catch(() => undefined);
+    token = undefined;
+    address = undefined;
+  });
+
+  test('books an Express load end to end: login → saved pickup → checkout → confirm → order', async ({
     page,
   }) => {
-    await customerLogin(page);
-
     // Dashboard → Book (the CTA button, not the empty-state prose).
     await page.getByRole('button', { name: /Book a wash/ }).click();
 
-    // Large (>6kg) is gated to Scheduled (Tier 1) — shows the badge and can't be
-    // selected for Express.
+    // Large (over the Express ceiling) is gated to Scheduled (Tier 1) — shows
+    // the badge instead of the Express radio.
     await expect(page.getByTestId('bucket-L')).toBeVisible();
     await expect(page.getByTestId('bucket-L-scheduled')).toBeVisible();
 
@@ -35,21 +79,12 @@ test.describe('customer booking', () => {
     await expect(page.getByTestId('bucket-M')).toBeVisible();
     await page.getByTestId('bucket-M').click();
 
-    // Type a pickup and geocode it (no GPS needed in headless).
-    await page.getByPlaceholder('Pickup address (street, barangay)').fill('Tetuan, Zamboanga City');
-    await page.getByText('Find this address').click();
+    await pickupFromSavedAndContinue(page, address!);
 
-    // Geocode succeeded → Continue becomes enabled; go to checkout.
-    const cont = page.getByText('Continue', { exact: true });
-    await expect(cont).toBeEnabled({ timeout: 30_000 });
-    await cont.click();
-
-    // Checkout resolved the nearest shop + a peso total.
-    const confirm = page.getByText('Confirm booking');
-    await expect(confirm).toBeVisible({ timeout: 30_000 });
+    // Checkout resolved the nearest shop + a peso total, as Express.
     await expect(page.getByText(/₱\s?\d/).first()).toBeVisible();
-    // The resolved-shop card shows the "Closest" badge.
     await expect(page.getByText('Closest')).toBeVisible();
+    await expect(page.getByTestId('service-badge')).toHaveText('Express');
 
     // Confirm → creates the order and navigates to its detail page (adding the
     // test account's mobile number first if it has none yet).
@@ -61,10 +96,9 @@ test.describe('customer booking', () => {
   test('books a Large load as Scheduled: pick slot → checkout shows pickup time → confirm', async ({
     page,
   }) => {
-    await customerLogin(page);
     await page.getByRole('button', { name: /Book a wash/ }).click();
 
-    // Large is now selectable and routes to Scheduled (Tier 1).
+    // Large is selectable and routes to Scheduled (Tier 1).
     await expect(page.getByTestId('bucket-L')).toBeVisible();
     await page.getByTestId('bucket-L').click();
 
@@ -72,16 +106,9 @@ test.describe('customer booking', () => {
     await expect(page.getByTestId('slot-0')).toBeVisible();
     await page.getByTestId('slot-0').click();
 
-    await page.getByPlaceholder('Pickup address (street, barangay)').fill('Tetuan, Zamboanga City');
-    await page.getByText('Find this address').click();
-
-    const cont = page.getByText('Continue', { exact: true });
-    await expect(cont).toBeEnabled({ timeout: 30_000 });
-    await cont.click();
+    await pickupFromSavedAndContinue(page, address!);
 
     // Checkout prices the Large scheduled order (no ceiling) + shows the pickup time.
-    const confirm = page.getByText('Confirm booking');
-    await expect(confirm).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('scheduled-pickup')).toBeVisible();
     await expect(page.getByTestId('service-badge')).toHaveText('Scheduled');
 
@@ -89,16 +116,9 @@ test.describe('customer booking', () => {
   });
 
   test('cancels a booked order from the order detail', async ({ page }) => {
-    await customerLogin(page);
     await page.getByRole('button', { name: /Book a wash/ }).click();
     await page.getByTestId('bucket-M').click();
-    await page.getByPlaceholder('Pickup address (street, barangay)').fill('Tetuan, Zamboanga City');
-    await page.getByText('Find this address').click();
-    const cont = page.getByText('Continue', { exact: true });
-    await expect(cont).toBeEnabled({ timeout: 30_000 });
-    await cont.click();
-    const confirm = page.getByText('Confirm booking');
-    await expect(confirm).toBeVisible({ timeout: 30_000 });
+    await pickupFromSavedAndContinue(page, address!);
     await confirmBooking(page);
 
     // Cancel from the order detail (two-step confirm).
