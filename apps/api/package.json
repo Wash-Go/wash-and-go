@@ -9,7 +9,7 @@
     "type-check": "tsc --noEmit",
     "test": "jest",
     "test:unit": "jest --testPathIgnorePatterns '\\.integration\\.spec\\.ts$'",
-    "test:int": "jest --testMatch '**/*.integration.spec.ts'",
+    "test:int": "jest --testRegex '\\.integration\\.spec\\.ts$'",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
