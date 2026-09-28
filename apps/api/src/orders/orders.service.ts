@@ -15,7 +15,10 @@ import {
   ShopService,
   User,
 } from '@prisma/client';
-import { cashToRecordOnDelivery } from './cash-on-delivery';
+import {
+  cashToRecordOnDelivery,
+  isRiderlessCodDelivery,
+} from './cash-on-delivery';
 import { isExpressEligible, loadCategory, LoadCategoryKey } from './load';
 import { rankShopCandidates, ShopCandidate } from './shop-match';
 import { isUniqueViolation } from '../common/prisma-errors';
@@ -623,6 +626,14 @@ export class OrdersService {
         );
       }
       await this.assertTransitionOwnership(actor, order, from, to);
+      // Money first: refuse (and explain) rather than deliver a COD order whose
+      // cash nobody would owe while the shop payout still accrues.
+      if (to === OrderStatus.DELIVERED && isRiderlessCodDelivery(order)) {
+        throw new ConflictException(
+          `No rider is on this order, so nobody holds its ₱${order.customerTotalPhp.toFixed(2)} cash. ` +
+            'Record the cash with pay-cash first, then mark it delivered.',
+        );
+      }
 
       const data: Prisma.OrderUpdateInput = { status: to };
       let meta: Prisma.InputJsonValue | undefined;

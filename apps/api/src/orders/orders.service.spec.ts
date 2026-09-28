@@ -834,9 +834,52 @@ describe('OrdersService', () => {
         expect(upd).not.toHaveProperty('paidCashAt');
       });
 
-      it('records no cash when no rider is on the order (admin delivery)', async () => {
+      it('blocks an admin delivering a riderless unpaid COD order (nobody would owe the cash)', async () => {
         repo.findByIdForUpdate.mockResolvedValue(
           makeOrder({ status: 'OUT_FOR_RETURN', assignedRiderId: null }),
+        );
+        repo.updateOrder.mockResolvedValue(makeOrder({ status: 'DELIVERED' }));
+
+        const err = await service
+          .transition(makeUser(['ADMIN'], 'admin1'), 'o1', { status: 'DELIVERED' })
+          .catch((e: unknown) => e);
+
+        expect(err).toBeInstanceOf(ConflictException);
+        expect((err as Error).message).toMatch(/pay-cash/);
+        expect((err as Error).message).toContain('₱222.00');
+        // Nothing written: no status change, no audit, no shop payout accrued.
+        expect(repo.updateOrder).not.toHaveBeenCalled();
+        expect(repo.insertOrderEvent).not.toHaveBeenCalled();
+        expect(repo.insertRemittanceLine).not.toHaveBeenCalled();
+      });
+
+      it('lets an admin deliver a riderless order once its cash was recorded with pay-cash', async () => {
+        const paidAt = new Date('2026-09-01T02:00:00Z');
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({
+            status: 'OUT_FOR_RETURN',
+            assignedRiderId: null,
+            paidCashAt: paidAt,
+          }),
+        );
+        repo.updateOrder.mockResolvedValue(makeOrder({ status: 'DELIVERED' }));
+
+        await service.transition(makeUser(['ADMIN'], 'admin1'), 'o1', {
+          status: 'DELIVERED',
+        });
+
+        const upd = repo.updateOrder.mock.calls[0][2] as Upd;
+        expect(upd.status).toBe('DELIVERED');
+        expect(upd).not.toHaveProperty('paidCashAt'); // kept, not re-stamped
+      });
+
+      it('lets an admin deliver a riderless order with nothing to collect', async () => {
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({
+            status: 'OUT_FOR_RETURN',
+            assignedRiderId: null,
+            customerTotalPhp: D('0.00'),
+          }),
         );
         repo.updateOrder.mockResolvedValue(makeOrder({ status: 'DELIVERED' }));
 

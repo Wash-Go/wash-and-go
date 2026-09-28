@@ -445,6 +445,46 @@ describe('Orders integration (Docker Postgres)', () => {
     expect((await outstanding(rider)).toFixed(2)).toBe(before.toFixed(2));
   });
 
+  it('blocks an admin delivering a riderless COD order until its cash is recorded', async () => {
+    // Admin drives every edge via the generic endpoint, which (unlike
+    // assign-rider) lets BOOKED → ASSIGNED happen with no rider attached.
+    const { shopServiceId } = await makeShop(5);
+    const order = await book(shopServiceId);
+    for (const status of [
+      OrderStatus.ASSIGNED,
+      OrderStatus.PICKED_UP,
+      OrderStatus.AT_SHOP,
+      OrderStatus.PROCESSING,
+      OrderStatus.READY_FOR_RETURN,
+      OrderStatus.OUT_FOR_RETURN,
+    ]) {
+      await service.transition(admin, order.id, { status });
+    }
+
+    await expect(
+      service.transition(admin, order.id, { status: OrderStatus.DELIVERED }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    // Rolled back whole: still out for return, unpaid, no shop payout accrued.
+    const after = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+    expect(after.status).toBe(OrderStatus.OUT_FOR_RETURN);
+    expect(after.assignedRiderId).toBeNull();
+    expect(after.paidCashAt).toBeNull();
+    expect(
+      await prisma.remittanceLine.count({ where: { orderId: order.id } }),
+    ).toBe(0);
+
+    // The way through: ops records the cash explicitly, then delivers.
+    const paid = await service.payCash(admin, order.id);
+    const delivered = await service.transition(admin, order.id, {
+      status: OrderStatus.DELIVERED,
+    });
+    expect(delivered.status).toBe(OrderStatus.DELIVERED);
+    expect(delivered.paidCashAt!.getTime()).toBe(paid.paidCashAt!.getTime());
+    expect(
+      await prisma.remittanceLine.count({ where: { orderId: order.id } }),
+    ).toBe(1);
+  });
+
   it('cap: a delivery that crosses riderCodCapPhp blocks the next assignment', async () => {
     // 60kg × ₱25 = ₱1,500 wash + ₱40 delivery + ₱7 service = ₱1,547 ≥ ₱1,500 cap.
     const order = await bookOutForReturn(capRider, 60);
