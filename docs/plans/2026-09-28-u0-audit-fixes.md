@@ -11,7 +11,8 @@ do not push to that branch). Scout map of exact locations: `.superpowers/scout-u
   need at least a logic/unit test where the app already has a jest setup; otherwise describe the
   manual/browser check in the report.
 - API unit tests: `pnpm --filter @wash-and-go/api test:unit`. API integration tests (real
-  Postgres, no Docker): `DATABASE_URL=postgresql://ban@localhost:5432/wash_and_go_test pnpm --filter @wash-and-go/api test:int`.
+  Postgres, no Docker): from apps/api run `DATABASE_URL=postgresql://ban@localhost:5432/wash_and_go_test npx jest --testRegex '.*\.integration\.spec\.ts$'`
+  (the `test:int` script is currently broken: its `--testMatch` conflicts with the config's `testRegex` and runs nothing; Task 10 fixes it).
 - Before every commit that touches `apps/api`: `pnpm --filter @wash-and-go/api build` must pass
   (type-check + jest passing is NOT enough; `nest build` catches TS2307).
 - The API may only **type-only** import `@wash-and-go/domain` / `@wash-and-go/maps` (value imports
@@ -117,6 +118,11 @@ threshold logic (extract it into a pure function).
 
 **Bug:** email sign-ups get `phone = "pending:<uid>"` (placeholder) and an empty name. The rider app's
 Call button then dials garbage. No phone is ever collected.
+
+**Must-fix carried from Task 1:** `upsertByFirebaseUid` (users.repository) resets an email user's
+phone to `pending:<uid>` on EVERY session call, and after Task 1 the web apps and rider app call
+POST /auth/session on every load/restore. The upsert must never overwrite an existing real phone
+(or name) — only fill placeholders on first create. Test it.
 
 **Fix (API, test-first):** accept `name` and `phone` for the signed-in user (either on POST
 /auth/session or a new `PATCH /me` — pick the smallest change that fits existing patterns; ledger
@@ -224,6 +230,8 @@ grep the `<h1>`); lockfile change committed.
 
 **Bug:** `e2e/tests/customer-book.spec.ts` targets a removed "Pickup address" field and "Find this
 address" button (the map picker replaced them; the map can't render on Expo web).
+
+**Also:** fix `apps/api` `test:int` script (its `--testMatch` conflicts with jest config `testRegex`, so it runs no tests) so `pnpm --filter @wash-and-go/api test:int` runs the integration specs.
 
 **Fix:** seed a saved address via the API (x-dev-uid dev bypass, like `e2e/lib/seed.ts`) and book via
 the saved-address path; keep the Express and Scheduled cases; clean up after. Update any other e2e
