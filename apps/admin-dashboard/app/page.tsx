@@ -1,5 +1,10 @@
 'use client';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { useState } from 'react';
 import {
   peso,
@@ -9,25 +14,38 @@ import {
   type Rider,
 } from '@wash-and-go/domain';
 import { api, API_BASE_URL } from '../lib/api';
-import { c, statusColor } from '../lib/theme';
+import { c, statusColor, tint } from '../lib/theme';
 import { TableSkeleton } from './Skeleton';
-import { STATUS_FILTERS, canAssign, filterOrders } from '../lib/orders';
+import {
+  ORDERS_PAGE_SIZE,
+  STATUS_FILTERS,
+  canAssign,
+  nextOrdersCursor,
+  statusParam,
+} from '../lib/orders';
+import { mutationErrorMessage } from '../lib/mutation-errors';
 
 export default function AdminPage() {
   const [filter, setFilter] = useState<OrderStatus | 'ALL'>('ALL');
   const [search, setSearch] = useState('');
+  const q = search.trim();
   // The dispatch board is the one live view — poll it every 5s (staleTime 0 so the
-  // poll actually refetches). Every other page uses the cached default.
-  const orders = useQuery({
-    queryKey: ['orders', search],
-    queryFn: () => api.listOrders(undefined, search.trim() || undefined),
+  // poll actually refetches). The status filter and paging run on the server, so
+  // an older BOOKED order is still reachable under "Booked" (Load more). A poll
+  // refetches every loaded page, re-deriving each cursor from fresh data.
+  const orders = useInfiniteQuery({
+    queryKey: ['orders', filter, q],
+    queryFn: ({ pageParam }) =>
+      api.listOrders(statusParam(filter), q || undefined, ORDERS_PAGE_SIZE, pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => nextOrdersCursor(last),
     refetchInterval: 5000,
     refetchOnMount: 'always',
     staleTime: 0,
   });
   const riders = useQuery({ queryKey: ['riders'], queryFn: () => api.getRiders() });
 
-  const rows = orders.data ? filterOrders(orders.data, filter) : [];
+  const rows = orders.data?.pages.flat() ?? [];
 
   return (
     <>
@@ -117,6 +135,32 @@ export default function AdminPage() {
           </table>
         </div>
       )}
+
+      {orders.hasNextPage && rows.length > 0 ? (
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 12 }}>
+          <button
+            data-testid="orders-load-more"
+            onClick={() => orders.fetchNextPage()}
+            disabled={orders.isFetchingNextPage}
+            style={{
+              padding: '7px 14px',
+              borderRadius: 8,
+              border: `1px solid ${c.border}`,
+              background: c.surface,
+              color: c.text,
+              fontWeight: 600,
+              fontSize: 13,
+            }}
+          >
+            {orders.isFetchingNextPage ? 'Loading…' : 'Load more'}
+          </button>
+          {orders.isFetchNextPageError ? (
+            <span role="alert" style={{ color: c.danger, fontSize: 12 }}>
+              Couldn't load more orders. Try again.
+            </span>
+          ) : null}
+        </div>
+      ) : null}
     </>
   );
 }
@@ -127,7 +171,7 @@ function StatusBadge({ status }: { status: OrderStatus }) {
     <span
       style={{
         color,
-        background: color + '1A',
+        background: tint(color),
         padding: '3px 10px',
         borderRadius: 999,
         fontSize: 12,
@@ -196,7 +240,11 @@ function CancelCell({ order }: { order: OrderView }) {
       >
         Keep
       </button>
-      {m.isError ? <span style={{ color: c.danger, fontSize: 12 }}>failed</span> : null}
+      {m.isError ? (
+        <span role="alert" style={{ color: c.danger, fontSize: 12 }}>
+          {mutationErrorMessage('cancel-order', m.error)}
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -237,7 +285,11 @@ function AssignCell({ order, riders }: { order: OrderView; riders: Rider[] }) {
       >
         {m.isPending ? '…' : 'Assign'}
       </button>
-      {m.isError ? <span style={{ color: c.danger, fontSize: 12 }}>failed</span> : null}
+      {m.isError ? (
+        <span role="alert" style={{ color: c.danger, fontSize: 12 }}>
+          {mutationErrorMessage('assign-rider', m.error)}
+        </span>
+      ) : null}
     </div>
   );
 }

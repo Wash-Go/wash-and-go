@@ -8,7 +8,7 @@ import {
   type OrderView,
 } from '@wash-and-go/domain';
 import { api, API_BASE_URL } from '../lib/api';
-import { c, statusColor } from '../lib/theme';
+import { c, statusColor, tint } from '../lib/theme';
 import { canWeigh, parseWeight } from '../lib/shop';
 import {
   formatKg,
@@ -154,7 +154,7 @@ function OrderCard({ order: o }: { order: OrderView }) {
         <span
           style={{
             color,
-            background: color + '1A',
+            background: tint(color),
             padding: '3px 10px',
             borderRadius: 999,
             fontSize: 12,

@@ -7,12 +7,17 @@ import { api, API_BASE_URL } from '../../lib/api';
 import { TableSkeleton } from '../Skeleton';
 import { c } from '../../lib/theme';
 import { totalOutstandingPhp } from '../../lib/rider-cash';
+import { mutationErrorMessage, shouldRefresh } from '../../lib/mutation-errors';
+import { MONEY_QUERY_OPTIONS } from '../../lib/query-cache';
 
 export default function RiderCashPage() {
   const [toast, setToast] = useState<string | null>(null);
+  // Balances move with every COD delivery and deposit: never persisted, short
+  // staleness, refetched on focus (the app default is "cache forever").
   const cash = useQuery({
     queryKey: ['rider-cash'],
     queryFn: () => api.getRiderCashSummary(),
+    ...MONEY_QUERY_OPTIONS,
   });
   const riders = useQuery({ queryKey: ['riders'], queryFn: () => api.getRiders() });
 
@@ -121,6 +126,9 @@ function RiderRow({
         keyRef.current,
       );
     },
+    onError: (e) => {
+      if (shouldRefresh(e)) qc.invalidateQueries({ queryKey: ['rider-cash'] });
+    },
     onSuccess: () => {
       keyRef.current = null;
       setAmount('');
@@ -178,8 +186,8 @@ function RiderRow({
             {save.isPending ? '…' : 'Deposit'}
           </button>
           {save.isError ? (
-            <span style={{ color: c.danger, fontSize: 12 }}>
-              {save.error instanceof Error ? save.error.message : 'Deposit failed'}
+            <span role="alert" style={{ color: c.danger, fontSize: 12 }}>
+              {mutationErrorMessage('record-deposit', save.error)}
             </span>
           ) : null}
         </div>
