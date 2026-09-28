@@ -56,4 +56,12 @@ describe('UpdateMeDto', () => {
     expect(await errors({ phone: '0'.repeat(33) })).not.toEqual([]);
     expect(await errors({ roles: ['ADMIN'] })).not.toEqual([]);
   });
+
+  // @IsOptional() would skip every validator for null too, and the service
+  // would then crash on null.replace / null.trim — a 500 instead of a 400.
+  it('rejects an explicit null for either field', async () => {
+    expect(await errors({ phone: null })).not.toEqual([]);
+    expect(await errors({ name: null })).not.toEqual([]);
+    expect(await errors({ name: null, phone: null })).not.toEqual([]);
+  });
 });

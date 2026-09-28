@@ -198,6 +198,18 @@ describe('AuthService', () => {
       },
     );
 
+    // Defence in depth behind the DTO: a null that reaches the service is a
+    // 400, never a TypeError (500).
+    it.each([{ phone: null }, { name: null }, { name: null, phone: '09171234567' }])(
+      'rejects %p with a 400 and writes nothing',
+      async (body) => {
+        await expect(
+          service.updateMe(makeUser(), body as never),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(users.updateProfile).not.toHaveBeenCalled();
+      },
+    );
+
     it('rejects a blank name with a 400 and writes nothing', async () => {
       await expect(
         service.updateMe(makeUser(), { name: '   ', phone: '09171234567' }),

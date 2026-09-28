@@ -83,13 +83,16 @@ export class AuthService {
     input: { name?: string; phone?: string },
   ): Promise<User> {
     const data: { displayName?: string; phone?: string } = {};
+    // `undefined` = not sent (leave as is). Anything else that isn't a string
+    // (e.g. null from a non-HTTP caller) is a 400, never a TypeError.
     if (input.name !== undefined) {
-      const name = input.name.trim();
+      const name = typeof input.name === 'string' ? input.name.trim() : '';
       if (!name) throw new BadRequestException('Enter your name.');
       data.displayName = name;
     }
     if (input.phone !== undefined) {
-      const phone = normalizePhMobile(input.phone);
+      const phone =
+        typeof input.phone === 'string' ? normalizePhMobile(input.phone) : null;
       if (!phone) throw new BadRequestException(INVALID_PHONE_MESSAGE);
       data.phone = phone;
     }

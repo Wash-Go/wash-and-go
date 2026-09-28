@@ -15,7 +15,9 @@ export type ContactResult =
   | { ok: true; name?: string; phone: string }
   | { ok: false; errors: ContactErrors };
 
-// `name` omitted = only the number is being asked for (the booking gate).
+// `name` omitted = check the number alone. No screen does that today: sign-up,
+// "Your details" and the booking gate (which opens "Your details") all require
+// a name as well as the number.
 export function validateContact(input: { name?: string; phone: string }): ContactResult {
   const errors: ContactErrors = {};
   let name: string | undefined;

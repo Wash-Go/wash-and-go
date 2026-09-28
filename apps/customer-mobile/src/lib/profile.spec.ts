@@ -6,7 +6,7 @@ import {
   validateContact,
 } from './profile';
 
-describe('validateContact (sign-up + edit details + booking gate)', () => {
+describe('validateContact (sign-up + Your details, which the booking gate opens)', () => {
   it('trims the name and normalizes the mobile number to +639XXXXXXXXX', () => {
     expect(validateContact({ name: '  Ana Cruz ', phone: '0917 123-4567' })).toEqual({
       ok: true,
@@ -43,7 +43,9 @@ describe('validateContact (sign-up + edit details + booking gate)', () => {
     });
   });
 
-  it('can check the phone alone (booking gate asks only for the number)', () => {
+  // Every screen (sign-up, Your details, the booking gate) passes a name too;
+  // this pins the helper's number-only mode.
+  it('can check the phone alone when no name is passed', () => {
     expect(validateContact({ phone: '09171234567' })).toEqual({
       ok: true,
       phone: '+639171234567',

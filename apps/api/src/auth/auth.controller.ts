@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsString, MaxLength, MinLength, ValidateIf } from 'class-validator';
 import type { User } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { Public } from './public.decorator';
@@ -17,13 +17,16 @@ class SessionDto {
 // PATCH /auth/me body. The phone FORMAT is validated (and normalized) in
 // AuthService.updateMe so the rule lives in one function; this only bounds the
 // shape. Unknown fields (roles, …) are refused by the global ValidationPipe.
+// Omitted = leave unchanged. ValidateIf, not IsOptional: IsOptional also skips
+// validation for an explicit null, which must be a 400, not a crash.
+const sent = (_: object, v: unknown) => v !== undefined;
 export class UpdateMeDto {
-  @IsOptional()
+  @ValidateIf(sent)
   @IsString()
   @MaxLength(80)
   name?: string;
 
-  @IsOptional()
+  @ValidateIf(sent)
   @IsString()
   @MaxLength(32)
   phone?: string;
