@@ -1,5 +1,9 @@
-import { UnauthorizedException } from '@nestjs/common';
-import type { User } from '@prisma/client';
+import {
+  BadRequestException,
+  ConflictException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { Prisma, type User } from '@prisma/client';
 import { AuthService } from './auth.service';
 import type { FirebaseService } from './firebase.service';
 import type { UsersRepository } from '../users/users.repository';
@@ -20,7 +24,7 @@ function makeUser(overrides: Partial<User> = {}): User {
 describe('AuthService', () => {
   let firebase: jest.Mocked<Pick<FirebaseService, 'verifyIdToken' | 'devBypass'>>;
   let users: jest.Mocked<
-    Pick<UsersRepository, 'findByFirebaseUid' | 'upsertByFirebaseUid'>
+    Pick<UsersRepository, 'findByFirebaseUid' | 'upsertByFirebaseUid' | 'updateProfile'>
   >;
   let service: AuthService;
 
@@ -34,8 +38,9 @@ describe('AuthService', () => {
     users = {
       findByFirebaseUid: jest.fn(),
       upsertByFirebaseUid: jest.fn(),
+      updateProfile: jest.fn(),
     } as unknown as jest.Mocked<
-      Pick<UsersRepository, 'findByFirebaseUid' | 'upsertByFirebaseUid'>
+      Pick<UsersRepository, 'findByFirebaseUid' | 'upsertByFirebaseUid' | 'updateProfile'>
     >;
     service = new AuthService(
       firebase as unknown as FirebaseService,
@@ -134,6 +139,93 @@ describe('AuthService', () => {
       await expect(service.sessionUpsert({ bearer: null })).rejects.toBeInstanceOf(
         UnauthorizedException,
       );
+    });
+  });
+
+  // U0 T4: PATCH /auth/me — the signed-in user sets their own name / mobile.
+  describe('updateMe', () => {
+    const DUPLICATE = 'That mobile number is already used by another account.';
+
+    function p2002(target: string[]): Prisma.PrismaClientKnownRequestError {
+      return new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: 'test',
+        meta: { target },
+      });
+    }
+
+    it('stores the trimmed name and the E.164-normalized mobile number', async () => {
+      const me = makeUser({ id: 'u1', phone: 'pending:fb-123', displayName: '' });
+      const saved = makeUser({ id: 'u1', phone: '+639171234567', displayName: 'Ana Cruz' });
+      users.updateProfile.mockResolvedValue(saved);
+
+      const result = await service.updateMe(me, {
+        name: '  Ana Cruz ',
+        phone: '0917 123-4567',
+      });
+
+      expect(result).toBe(saved);
+      expect(users.updateProfile).toHaveBeenCalledWith('u1', {
+        displayName: 'Ana Cruz',
+        phone: '+639171234567',
+      });
+    });
+
+    it.each(['9171234567', '+639171234567', '639171234567', '09171234567'])(
+      'accepts the %p form and stores +639171234567',
+      async (raw) => {
+        users.updateProfile.mockResolvedValue(makeUser());
+        await service.updateMe(makeUser(), { phone: raw });
+        expect(users.updateProfile).toHaveBeenCalledWith('u1', {
+          phone: '+639171234567',
+        });
+      },
+    );
+
+    it('updates only the fields sent', async () => {
+      users.updateProfile.mockResolvedValue(makeUser());
+      await service.updateMe(makeUser(), { name: 'Ana' });
+      expect(users.updateProfile).toHaveBeenCalledWith('u1', { displayName: 'Ana' });
+    });
+
+    it.each(['0917123456', '08171234567', '+1 917 123 4567', 'pending:x', ''])(
+      'rejects %p with a 400 and writes nothing',
+      async (raw) => {
+        await expect(
+          service.updateMe(makeUser(), { phone: raw }),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(users.updateProfile).not.toHaveBeenCalled();
+      },
+    );
+
+    it('rejects a blank name with a 400 and writes nothing', async () => {
+      await expect(
+        service.updateMe(makeUser(), { name: '   ', phone: '09171234567' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(users.updateProfile).not.toHaveBeenCalled();
+    });
+
+    it('turns a duplicate mobile number into a 409 with human copy', async () => {
+      users.updateProfile.mockRejectedValue(p2002(['phone']));
+      const err = await service
+        .updateMe(makeUser(), { phone: '09171234567' })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect((err as ConflictException).message).toBe(DUPLICATE);
+    });
+
+    it('does not mislabel a different unique violation as a duplicate phone', async () => {
+      const other = p2002(['firebaseUid']);
+      users.updateProfile.mockRejectedValue(other);
+      await expect(
+        service.updateMe(makeUser(), { phone: '09171234567' }),
+      ).rejects.toBe(other);
+    });
+
+    it('returns the user unchanged when nothing is sent', async () => {
+      const me = makeUser();
+      await expect(service.updateMe(me, {})).resolves.toBe(me);
+      expect(users.updateProfile).not.toHaveBeenCalled();
     });
   });
 });

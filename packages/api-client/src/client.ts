@@ -23,11 +23,13 @@ import type {
   CreateOrderBody,
   CreateZoneBody,
   GeocodeHit,
+  MeView,
   NotificationList,
   RecordDepositBody,
   RiderCashBalance,
   RiderCashDetail,
   UpdateAddressBody,
+  UpdateMeBody,
   ZoneView,
   OrderQuote,
   OrderStatus,
@@ -150,6 +152,18 @@ export class ApiClient {
   async postSession(): Promise<{ id: string; roles: string[] }> {
     const token = await this.tokens.getToken();
     return this.request('POST', '/auth/session', { idToken: token });
+  }
+
+  // The signed-in user's own account. phone is null until they add a mobile
+  // number (email sign-ups start without one).
+  getMe(): Promise<MeView> {
+    return this.request('GET', '/auth/me');
+  }
+
+  // Set the own name and/or mobile number. 400 = not a PH mobile number;
+  // 409 = another account already has that number.
+  updateMe(body: UpdateMeBody): Promise<MeView> {
+    return this.request('PATCH', '/auth/me', body);
   }
 
   // Rider-facing: my own cash balance + deposit history.

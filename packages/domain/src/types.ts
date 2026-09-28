@@ -5,7 +5,7 @@ import type { LoadCategoryKey } from './load';
 export interface AdminUserView {
   id: string;
   firebaseUid: string;
-  phone: string;
+  phone: string | null; // null = no mobile number yet (email sign-up)
   displayName: string;
   roles: UserRole[];
   disabledAt: string | null;
@@ -55,7 +55,7 @@ export interface AdminShopMemberView {
   id: string;
   userId: string;
   displayName: string;
-  phone: string;
+  phone: string | null; // null = no mobile number yet
   role: string;
 }
 
@@ -168,7 +168,7 @@ export interface RiderApplicationView {
   id: string;
   userId: string;
   displayName: string;
-  phone: string;
+  phone: string | null; // null = no mobile number yet
   status: RiderStatus;
   vehicleType: string | null;
   vehiclePlate: string | null;
@@ -229,7 +229,7 @@ export interface PricingBreakdown {
 export interface Rider {
   id: string;
   displayName: string;
-  phone: string;
+  phone: string | null; // null = no mobile number yet
 }
 
 export interface ShopContact {
@@ -241,6 +241,22 @@ export interface ShopContact {
 export interface Contact {
   id: string;
   displayName: string;
+  // null = the customer hasn't added a mobile number yet — nothing to call.
+  phone?: string | null;
+}
+
+// The signed-in user's own account (GET/PATCH /auth/me, POST /auth/session).
+export interface MeView {
+  id: string;
+  phone: string | null; // +639XXXXXXXXX, or null until they add one
+  displayName: string; // '' until they add one
+  roles: UserRole[];
+}
+
+// PATCH /auth/me. phone takes any PH mobile form (see normalizePhMobile); the
+// API stores +639XXXXXXXXX. 400 on a bad number, 409 if another account has it.
+export interface UpdateMeBody {
+  name?: string;
   phone?: string;
 }
 

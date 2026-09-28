@@ -18,6 +18,7 @@ import { ZonesController } from '../zones/zones.controller';
 import { GeocodeController } from '../maps/geocode.controller';
 import { NotificationsController } from '../notifications/notifications.controller';
 import { UploadsController } from '../uploads/uploads.controller';
+import { AuthController } from '../auth/auth.controller';
 
 /*
  * B6: lock the coarse role matrix. RolesGuard reads @Roles metadata off each
@@ -176,5 +177,10 @@ describe('route role matrix', () => {
       'SHOP_OWNER',
       'SHOP_STAFF',
     ]);
+  });
+
+  it('own profile routes are any-authenticated (the caller edits only themselves)', () => {
+    expect(rolesOf(AuthController.prototype, 'me')).toBeUndefined();
+    expect(rolesOf(AuthController.prototype, 'updateMe')).toBeUndefined();
   });
 });

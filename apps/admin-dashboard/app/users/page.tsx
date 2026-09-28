@@ -146,7 +146,9 @@ function UserRow({
 
   return (
     <tr data-testid={`user-${user.id}`} style={{ opacity: disabled ? 0.55 : 1 }}>
-      <td style={{ fontWeight: 600 }}>{user.phone}</td>
+      <td style={{ fontWeight: 600 }}>
+        {user.phone ?? <span style={{ color: c.muted, fontWeight: 400 }}>No phone yet</span>}
+      </td>
       <td>{user.displayName || <span style={{ color: c.muted }}>—</span>}</td>
       <td>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

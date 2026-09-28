@@ -579,7 +579,8 @@ function Members({ shop, onSaved }: { shop: AdminShopDetail; onSaved: (m: string
             >
               <span style={{ fontWeight: 600, minWidth: 60 }}>{m.role}</span>
               <span style={{ flex: 1 }}>
-                {m.displayName || '—'} <span style={{ color: c.muted }}>· {m.phone}</span>
+                {m.displayName || '—'}{' '}
+                <span style={{ color: c.muted }}>· {m.phone ?? 'No phone yet'}</span>
               </span>
               <button
                 onClick={() => remove.mutate(m.id)}

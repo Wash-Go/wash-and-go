@@ -1,7 +1,12 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
-import { isTerminal, type OrderStatus, type OrderView } from '@wash-and-go/domain';
+import {
+  callablePhone,
+  isTerminal,
+  type OrderStatus,
+  type OrderView,
+} from '@wash-and-go/domain';
 import {
   Card,
   ErrorState,
@@ -33,8 +38,8 @@ type State =
   | { kind: 'error'; message: string }
   | { kind: 'ready'; order: OrderView };
 
-function call(phone?: string) {
-  if (phone) Linking.openURL(`tel:${phone}`).catch(() => {});
+function call(phone: string) {
+  Linking.openURL(`tel:${phone}`).catch(() => {});
 }
 // Prefer exact coordinates (the customer pinned them on the map) — a text
 // address is fuzzy and can resolve blocks away. Falls back to text only when
@@ -143,6 +148,8 @@ export default function JobDetailScreen() {
   // A finished job (DELIVERED / CANCELLED) is read-only — no point calling the
   // customer, navigating, or showing the map. Keep the addresses for reference.
   const live = !isTerminal(o.status);
+  // U0 T4: null until the customer adds a mobile number (never a placeholder).
+  const customerPhone = callablePhone(o.customer?.phone);
 
   return (
     <Screen>
@@ -161,9 +168,9 @@ export default function JobDetailScreen() {
         ) : null}
         {live ? (
           <View style={styles.rowBtns}>
-            {o.customer?.phone ? (
+            {customerPhone ? (
               <View style={{ flex: 1 }}>
-                <PrimaryButton label="📞 Call" onPress={() => call(o.customer?.phone)} />
+                <PrimaryButton label="📞 Call" onPress={() => call(customerPhone)} />
               </View>
             ) : null}
             <View style={{ flex: 1 }}>

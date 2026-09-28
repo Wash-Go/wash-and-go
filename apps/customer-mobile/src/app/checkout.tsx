@@ -18,6 +18,7 @@ import {
   useToast,
 } from '@wash-and-go/ui';
 import { api } from '../lib/api';
+import { needsMobileNumber } from '../lib/profile';
 
 export default function CheckoutScreen() {
   const p = useLocalSearchParams<{
@@ -84,6 +85,13 @@ export default function CheckoutScreen() {
     if (!quote) return;
     setSubmitting(true);
     try {
+      // U0 T4: the rider calls the customer at pickup, and email sign-ups start
+      // without a number. Ask for it before the order exists; read fresh so a
+      // number saved a moment ago counts. Nothing is booked on this path.
+      if (needsMobileNumber(await api.getMe())) {
+        router.push({ pathname: '/your-details', params: { gate: '1' } });
+        return;
+      }
       const order = await api.createOrder(
         {
           shopServiceId: quote.shopServiceId,

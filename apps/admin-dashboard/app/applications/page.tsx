@@ -218,7 +218,7 @@ function RiderCard({ rider, onSaved }: { rider: RiderApplicationView; onSaved: (
     mutationFn: () => api.verifyRider(rider.id),
     onSuccess: () => {
       invalidate();
-      onSaved(`${rider.displayName || rider.phone} verified`);
+      onSaved(`${rider.displayName || rider.phone || 'Rider'} verified`);
     },
   });
   const reject = useMutation({
@@ -234,7 +234,7 @@ function RiderCard({ rider, onSaved }: { rider: RiderApplicationView; onSaved: (
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ minWidth: 260, flex: 1 }}>
           <div style={{ fontWeight: 700, fontSize: 17 }}>{rider.displayName || 'Unnamed rider'}</div>
-          <div style={{ color: c.muted, marginTop: 2 }}>{rider.phone}</div>
+          <div style={{ color: c.muted, marginTop: 2 }}>{rider.phone ?? 'No phone yet'}</div>
           <div style={{ color: c.muted, fontSize: 13, marginTop: 6 }}>
             {rider.vehicleType || '—'} · {rider.vehiclePlate || 'no plate'}
           </div>

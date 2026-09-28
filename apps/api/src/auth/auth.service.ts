@@ -1,7 +1,19 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import type { User } from '@prisma/client';
 import { FirebaseService } from './firebase.service';
 import { UsersRepository } from '../users/users.repository';
+import { normalizePhMobile } from '../users/phone';
+import { isUniqueViolation } from '../common/prisma-errors';
+
+export const DUPLICATE_PHONE_MESSAGE =
+  'That mobile number is already used by another account.';
+export const INVALID_PHONE_MESSAGE =
+  'Enter a Philippine mobile number, like 0917 123 4567.';
 
 /*
  * v1 auth (debate D11): Firebase is the identity provider; roles + state live in
@@ -10,6 +22,7 @@ import { UsersRepository } from '../users/users.repository';
  *
  *   request ── bearer / x-dev-uid ──▶ resolveFirebaseUid ──▶ resolveAuthedUser
  *   POST /auth/session ─ bearer ─▶ sessionUpsert (creates the User row)
+ *   PATCH /auth/me ─ authed user ─▶ updateMe (own name / mobile number)
  */
 @Injectable()
 export class AuthService {
@@ -48,7 +61,9 @@ export class AuthService {
   }
 
   // POST /auth/session — first sign-in creates the Postgres user; repeat calls
-  // update it. Idempotent by the upsert's unique key.
+  // return it untouched (they run on every app load, so they must never reset
+  // the name / mobile number saved via PATCH /auth/me). Idempotent by the
+  // upsert's unique key.
   async sessionUpsert(input: { bearer: string | null }): Promise<User> {
     if (!input.bearer) {
       throw new UnauthorizedException('Missing bearer token');
@@ -58,5 +73,34 @@ export class AuthService {
       firebaseUid: identity.firebaseUid,
       phone: identity.phone,
     });
+  }
+
+  // PATCH /auth/me — any signed-in user sets their OWN name and/or mobile
+  // number. The number is normalized to +639XXXXXXXXX (so one number typed two
+  // ways is still one number for the unique index); anything else is a 400.
+  async updateMe(
+    user: User,
+    input: { name?: string; phone?: string },
+  ): Promise<User> {
+    const data: { displayName?: string; phone?: string } = {};
+    if (input.name !== undefined) {
+      const name = input.name.trim();
+      if (!name) throw new BadRequestException('Enter your name.');
+      data.displayName = name;
+    }
+    if (input.phone !== undefined) {
+      const phone = normalizePhMobile(input.phone);
+      if (!phone) throw new BadRequestException(INVALID_PHONE_MESSAGE);
+      data.phone = phone;
+    }
+    if (Object.keys(data).length === 0) return user;
+    try {
+      return await this.users.updateProfile(user.id, data);
+    } catch (e) {
+      if (isUniqueViolation(e, 'phone')) {
+        throw new ConflictException(DUPLICATE_PHONE_MESSAGE);
+      }
+      throw e;
+    }
   }
 }

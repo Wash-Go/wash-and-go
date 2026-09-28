@@ -1088,6 +1088,40 @@ describe('OrdersService', () => {
       expect(d.shop?.address).toContain('Zamboanga');
       expect(d.customer.phone).toBeTruthy();
     });
+
+    // U0 T4: an email sign-up without a number yet has phone "pending:<uid>".
+    // Riders / shops must never get it as a callable number.
+    it.each([
+      ['assigned rider', ['RIDER'], 'r1'],
+      ['shop member', ['SHOP_OWNER'], 'owner1'],
+      ['admin', ['ADMIN'], 'adm'],
+    ] as [string, UserRole[], string][])(
+      'reports a placeholder customer phone as null to the %s',
+      async (_who, roles, id) => {
+        const rel = makeRelOrder({ status: 'ASSIGNED', assignedRiderId: 'r1' });
+        rel.customer = { ...rel.customer, phone: `pending:fb-${rel.customerId}` };
+        repo.findByIdWithRelations.mockResolvedValue(rel as never);
+        repo.isShopMember.mockResolvedValue(true);
+        const d = await service.getOrder(makeUser(roles, id), 'o1');
+        expect(d.customer.phone).toBeNull();
+      },
+    );
+
+    it('passes a real customer phone through unchanged', async () => {
+      repo.findByIdWithRelations.mockResolvedValue(
+        makeRelOrder({ status: 'ASSIGNED', assignedRiderId: 'r1' }) as never,
+      );
+      const d = await service.getOrder(makeUser(['RIDER'], 'r1'), 'o1');
+      expect(d.customer.phone).toBe('+639170000000');
+    });
+
+    it('masks placeholder phones in the order list too', async () => {
+      const rel = makeRelOrder({ status: 'ASSIGNED', assignedRiderId: 'r1' });
+      rel.customer = { ...rel.customer, phone: 'pending:fb-cust' };
+      repo.findManyWithRelations.mockResolvedValue([rel] as never);
+      const [d] = await service.listOrders(makeUser(['RIDER'], 'r1'));
+      expect(d.customer.phone).toBeNull();
+    });
   });
 
   describe('availableActions', () => {

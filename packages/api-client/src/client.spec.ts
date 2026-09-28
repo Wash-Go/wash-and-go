@@ -136,6 +136,54 @@ describe('ApiClient', () => {
     expect(JSON.parse(init.body)).toEqual({ idToken: 'fb-id-token' });
   });
 
+  it('gets the signed-in user from /auth/me', async () => {
+    const me = { id: 'u1', phone: null, displayName: '', roles: ['CUSTOMER'] };
+    const fetchFn = jest.fn().mockResolvedValue(res(200, me));
+    const client = new ApiClient({
+      baseUrl: 'http://api.test',
+      tokens: tokensFrom(['tok']),
+      fetchFn,
+    });
+    await expect(client.getMe()).resolves.toEqual(me);
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe('http://api.test/auth/me');
+    expect(init.method).toBe('GET');
+  });
+
+  it('patches the own name / mobile number on /auth/me', async () => {
+    const fetchFn = jest
+      .fn()
+      .mockResolvedValue(
+        res(200, { id: 'u1', phone: '+639171234567', displayName: 'Ana', roles: ['CUSTOMER'] }),
+      );
+    const client = new ApiClient({
+      baseUrl: 'http://api.test',
+      tokens: tokensFrom(['tok']),
+      fetchFn,
+    });
+    const me = await client.updateMe({ name: 'Ana', phone: '0917 123 4567' });
+    expect(me.phone).toBe('+639171234567');
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe('http://api.test/auth/me');
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(init.body)).toEqual({ name: 'Ana', phone: '0917 123 4567' });
+  });
+
+  it('surfaces a duplicate-number 409 as an ApiError with the status', async () => {
+    const fetchFn = jest.fn().mockResolvedValue(
+      res(409, { message: 'That mobile number is already used by another account.' }),
+    );
+    const client = new ApiClient({
+      baseUrl: 'http://api.test',
+      tokens: tokensFrom(['tok']),
+      fetchFn,
+    });
+    await expect(client.updateMe({ phone: '09171234567' })).rejects.toMatchObject({
+      status: 409,
+      message: 'That mobile number is already used by another account.',
+    });
+  });
+
   it('gets riders', async () => {
     const fetchFn = jest.fn().mockResolvedValue(res(200, []));
     const client = new ApiClient({

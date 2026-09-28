@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { customerLogin } from '../lib/customer';
+import { confirmBooking, customerLogin } from '../lib/customer';
 import { cancelAllOpenOrders } from '../lib/seed';
 
 /*
@@ -51,10 +51,10 @@ test.describe('customer booking', () => {
     // The resolved-shop card shows the "Closest" badge.
     await expect(page.getByText('Closest')).toBeVisible();
 
-    // Confirm → creates the order and navigates to its detail page.
-    await confirm.click();
+    // Confirm → creates the order and navigates to its detail page (adding the
+    // test account's mobile number first if it has none yet).
+    await confirmBooking(page);
     // Order detail shows the newly-minted order code + its total.
-    await expect(page.getByText(/WG-\d{4}-\d+/)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Total')).toBeVisible();
   });
 
@@ -85,8 +85,7 @@ test.describe('customer booking', () => {
     await expect(page.getByTestId('scheduled-pickup')).toBeVisible();
     await expect(page.getByTestId('service-badge')).toHaveText('Scheduled');
 
-    await confirm.click();
-    await expect(page.getByText(/WG-\d{4}-\d+/)).toBeVisible({ timeout: 30_000 });
+    await confirmBooking(page);
   });
 
   test('cancels a booked order from the order detail', async ({ page }) => {
@@ -100,8 +99,7 @@ test.describe('customer booking', () => {
     await cont.click();
     const confirm = page.getByText('Confirm booking');
     await expect(confirm).toBeVisible({ timeout: 30_000 });
-    await confirm.click();
-    await expect(page.getByText(/WG-\d{4}-\d+/)).toBeVisible({ timeout: 30_000 });
+    await confirmBooking(page);
 
     // Cancel from the order detail (two-step confirm).
     await page.getByTestId('cancel-order').click();

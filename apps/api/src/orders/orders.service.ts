@@ -52,6 +52,7 @@ import { computeDeliveryFee, haversineKm } from '../pricing/distance';
 import { OrdersRepository, OrderWithRelations } from './orders.repository';
 import { ZonesService } from '../zones/zones.service';
 import { manilaDayWindow } from './manila-time';
+import { visiblePhone } from '../users/phone';
 import {
   canRoleDrive,
   isLegalTransition,
@@ -63,7 +64,8 @@ import {
 // customer / rider relations + the actions THIS actor may drive next.
 export type OrderDetail = Order & {
   shop: { id: string; name: string; address: string } | null;
-  customer: { id: string; displayName: string; phone: string };
+  // phone is null while the customer still has the pending:<uid> placeholder.
+  customer: { id: string; displayName: string; phone: string | null };
   rider: { id: string; displayName: string } | null;
   availableActions: OrderStatus[];
   ratedStars: number | null;
@@ -907,7 +909,7 @@ export class OrdersService {
       customer: {
         id: customer.id,
         displayName: customer.displayName,
-        phone: customer.phone,
+        phone: visiblePhone(customer.phone),
       },
       rider: assignedRider
         ? { id: assignedRider.id, displayName: assignedRider.displayName }

@@ -17,6 +17,7 @@ import {
 } from '@wash-and-go/ui';
 import { auth } from '../lib/firebase';
 import { api } from '../lib/api';
+import { PHONE_HINT, profileSaveErrorMessage, validateContact } from '../lib/profile';
 
 function friendly(code?: string): string {
   switch (code) {
@@ -41,28 +42,45 @@ export default function LoginScreen() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  // Sign-up only (U0 T4): the rider calls this number at pickup.
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
   const toast = useToast();
 
-  const valid = email.includes('@') && password.length >= 6;
+  const signup = mode === 'signup';
+  const contact = validateContact({ name, phone });
+  const credsValid = email.includes('@') && password.length >= 6;
+  const valid = credsValid && (!signup || contact.ok);
+  const phoneHint = signup && phone.trim() !== '' && !contact.ok && contact.errors.phone;
 
   async function submit() {
     if (!valid) return;
     setBusy(true);
     try {
-      if (mode === 'signup') {
+      if (signup) {
         await createUserWithEmailAndPassword(auth, email.trim(), password);
       } else {
         await signInWithEmailAndPassword(auth, email.trim(), password);
       }
       // Create/refresh the Postgres user (defaults to CUSTOMER).
       await api.postSession();
-      router.replace('/');
     } catch (e) {
       toast.error(friendly((e as { code?: string })?.code));
-    } finally {
       setBusy(false);
+      return;
     }
+    if (signup && contact.ok) {
+      try {
+        await api.updateMe({ name: contact.name, phone: contact.phone });
+      } catch (e) {
+        // The account exists and is signed in; only the details didn't save.
+        // Booking asks for the number again, so let them in and say so.
+        toast.error(`${profileSaveErrorMessage(e)} You can add it before you book.`);
+      }
+    }
+    setBusy(false);
+    router.replace('/');
   }
 
   return (
@@ -73,6 +91,36 @@ export default function LoginScreen() {
         <Muted>
           {mode === 'signin' ? 'Sign in to book a wash.' : 'Create your account.'}
         </Muted>
+
+        {signup ? (
+          <>
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              placeholder="Your name"
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="words"
+              autoComplete="name"
+              textContentType="name"
+              maxLength={80}
+              style={styles.input}
+              testID="signup-name"
+            />
+            <TextInput
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="Mobile number (0917 123 4567)"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="phone-pad"
+              autoComplete="tel"
+              textContentType="telephoneNumber"
+              maxLength={20}
+              style={styles.input}
+              testID="signup-phone"
+            />
+            {phoneHint ? <Muted>{PHONE_HINT}</Muted> : null}
+          </>
+        ) : null}
 
         <TextInput
           value={email}
