@@ -43,20 +43,23 @@ project's domain to the API's `CORS_ORIGINS`.
 ## 3. Mobile → app stores
 
 - Build with **EAS** (`eas build`), free tier covers the pilot.
-- Point the apps at the prod API: `EXPO_PUBLIC_API_URL` = Railway URL.
-- Submit: **Apple Developer** ($99/yr), **Google Play** ($25 once).
+- Point the apps at the prod API: `EXPO_PUBLIC_API_URL` = Railway URL. `.env` is
+  git-ignored so EAS doesn't upload it — set the `EXPO_PUBLIC_*` vars in EAS
+  (expo.dev → project → Environment variables). See each app's `.env.example`.
+- Submit: **Apple Developer** ($99/yr), **Google Play** ($25 once). Store
+  credentials live in `eas credentials`, not env vars.
+- Lock the iOS `bundleIdentifier` / Android `package` before the first store
+  upload — they can't change after release.
 
 ---
 
 ## ⚠ Pre-production blockers (not code-deploy, but gate a public launch)
 
-1. **Admin / portal / rider auth.** These apps authenticate with the `x-dev-uid`
-   stub, which only works when `AUTH_DEV_BYPASS=1`. In production (bypass=0) they
-   get 403. **They need real Firebase login for their roles** (like the customer
-   app already has) before a public prod deploy — or run them behind an
-   access-controlled pilot environment. The **customer app is prod-ready** (real
-   Firebase email/password).
-2. **Rate card** — replace the indicative ₱25/kg seed rates with the real ones.
+1. **Staff accounts.** All four apps have real Firebase login (the `x-dev-uid`
+   stub is dev-only). Before a real prod login works, create Firebase accounts for
+   the admin/shop/rider people and grant their roles on the admin **Users** page.
+2. **Rate card** — rates are set per partner shop; none onboarded yet. Seed rates
+   are indicative (₱25/kg) until shops set their own.
 3. **Rider pay model** — flagged blocking in PLAN.md; needed to recruit riders.
 4. **Shop + rider onboarding** — seed or an admin onboarding flow.
 
@@ -75,14 +78,15 @@ project's domain to the API's `CORS_ORIGINS`.
 | Var | Required | Notes |
 |---|---|---|
 | `NODE_ENV` | yes | `production` |
-| `DATABASE_URL` | yes | Railway Postgres |
+| `DATABASE_URL` | yes | Railway Postgres (`${{Postgres.DATABASE_URL}}`); interim = Neon SG |
 | `AUTH_DEV_BYPASS` | yes | `0` in prod |
 | `FIREBASE_SERVICE_ACCOUNT_JSON` | yes | service-account JSON as a string |
-| `TOMTOM_API_KEY` | yes | maps |
-| `MAPS_PROVIDER` | no | `tomtom` (default) |
-| `CORS_ORIGINS` | yes (prod) | comma-separated web origins |
+| `TOMTOM_API_KEY` | yes | server key with **Search API + Routing API** enabled; a rejected key degrades silently (no geocode/search) |
+| `MAPS_PROVIDER` | no | `tomtom` (only implemented adapter) |
+| `GOOGLE_MAPS_API_KEY` | no | not read yet — reserved for a future Google adapter |
+| `CORS_ORIGINS` | yes (prod) | comma-separated web origins, exact, no trailing slash |
 | `PORT` | no | Railway injects it |
 | `SENTRY_DSN` | no | free Sentry Node project → 5xx error reporting; unset = off |
 | `SENTRY_ENVIRONMENT` | no | defaults to `NODE_ENV` |
-| `R2_ENDPOINT` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET` | no | Cloudflare R2 for onboarding proof uploads; unset = uploads disabled |
+| `R2_ENDPOINT` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET` | no | Cloudflare R2 for onboarding proof uploads; all four or uploads 503; bucket CORS must allow PUT+GET |
 | `REDIS_URL` | no | Phase D |
