@@ -46,6 +46,12 @@ const STATUS_MSG: Partial<Record<OrderStatus, string>> = {
 // Shown to the shop verbatim (the laundry portal maps it to the same copy).
 const READY_NEEDS_WEIGHT_MESSAGE =
   'Weigh this order before marking it ready';
+
+// One message for every out-of-area answer (quote, both creates, and the
+// no-shop-in-range resolve). The customer app matches on it to show its own
+// plain-words copy (apps/customer-mobile/src/lib/coverage.ts; pinned by
+// parity.spec.ts), so keep it stable.
+export const OUTSIDE_COVERAGE_MESSAGE = 'Pickup location is outside coverage';
 import { pricePreview, PricingBreakdown, PricingError } from '../pricing/pricing';
 import { PlatformConfigService } from '../platform-config/platform-config.service';
 import { computeDeliveryFee, haversineKm } from '../pricing/distance';
@@ -137,6 +143,16 @@ export class OrdersService {
     return haversineKm(pickup, { lat: Number(shop.lat), lng: Number(shop.lng) });
   }
 
+  // The service-zone gate. Quote and both creates call this one method, so an
+  // out-of-area customer gets the same 400 at quote time that Confirm would
+  // give (U0 T6), before any price is shown. Quote reveals nothing create
+  // doesn't: both are CUSTOMER-only and answer coverage before touching a shop.
+  private async assertCovered(pickup: { lat: number; lng: number }): Promise<void> {
+    if (!(await this.zones.isCovered(pickup))) {
+      throw new BadRequestException(OUTSIDE_COVERAGE_MESSAGE);
+    }
+  }
+
   // Map a load category → its estimate kg AND enforce the Express weight ceiling
   // (Logistics v1.1). Over-threshold categories belong to Scheduled (Tier 1),
   // which isn't live yet, so we reject with a clear pointer. The config threshold
@@ -207,7 +223,7 @@ export class OrdersService {
       .map((ss) => ({ ss, km: this.kmToShop(pickup, ss.shop) }))
       .filter((x) => x.km <= maxResolveKm);
     if (inRange.length === 0) {
-      throw new BadRequestException('Pickup location is outside coverage');
+      throw new BadRequestException(OUTSIDE_COVERAGE_MESSAGE);
     }
 
     const capacityAware = serviceType !== ServiceType.SCHEDULED;
@@ -241,12 +257,14 @@ export class OrdersService {
 
   // POST /orders/quote — resolve the shop (nearest, or the override) + full
   // price breakdown (distance delivery fee). Powers the checkout screen.
+  // Gates run in create's order: load rule first, then coverage, then the shop.
   async quoteOrder(dto: QuoteOrderDto): Promise<OrderQuoteResult> {
     const estimateKg =
       dto.serviceType === 'SCHEDULED'
         ? this.scheduledLoadKg(dto.loadCategory)
         : await this.resolveExpressLoadKg(dto.loadCategory);
     const pickup = { lat: dto.pickupLat, lng: dto.pickupLng };
+    await this.assertCovered(pickup);
     let ss: ShopService & { shop: Shop };
     let km: number;
     if (dto.shopServiceId) {
@@ -295,9 +313,7 @@ export class OrdersService {
     // Backstop the Express weight ceiling before any work (the client gates it too).
     const estimateKg = await this.resolveExpressLoadKg(dto.loadCategory);
 
-    if (!(await this.zones.isCovered({ lat: dto.pickupLat, lng: dto.pickupLng }))) {
-      throw new BadRequestException('Pickup location is outside coverage');
-    }
+    await this.assertCovered({ lat: dto.pickupLat, lng: dto.pickupLng });
 
     const shopService = await this.repo.findShopServiceWithShop(
       dto.shopServiceId,
@@ -439,9 +455,7 @@ export class OrdersService {
     if (!cat) throw new BadRequestException('Unknown load category');
     const estimateKg = cat.estimateKg; // Scheduled accepts any size
 
-    if (!(await this.zones.isCovered({ lat: dto.pickupLat, lng: dto.pickupLng }))) {
-      throw new BadRequestException('Pickup location is outside coverage');
-    }
+    await this.assertCovered({ lat: dto.pickupLat, lng: dto.pickupLng });
 
     const shopService = await this.repo.findShopServiceWithShop(
       dto.shopServiceId,

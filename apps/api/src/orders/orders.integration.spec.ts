@@ -193,6 +193,42 @@ describe('Orders integration (Docker Postgres)', () => {
     expect(order.customerTotalPhp.toFixed(2)).toBe('272.00');
   });
 
+  // U0 T6: quote runs create's coverage gate against the real zones table, so an
+  // out-of-area customer gets the same 400 before any price, not after Confirm.
+  it('refuses an out-of-coverage quote with the same 400 as create', async () => {
+    const { shopServiceId } = await makeShop(5);
+    const outside = { pickupLat: 14.5995, pickupLng: 120.9842 }; // Manila
+    const caught = (p: Promise<unknown>) =>
+      p.then(
+        () => {
+          throw new Error('expected a rejection');
+        },
+        (e: unknown) => e as BadRequestException,
+      );
+
+    // The override path skips shop resolution, so before the fix it priced this.
+    const quoteErr = await caught(
+      service.quoteOrder({ ...outside, loadCategory: 'M', shopServiceId }),
+    );
+    const createErr = await caught(
+      service.createExpressOrder(customer, {
+        shopServiceId,
+        pickupAddress: 'Manila',
+        ...outside,
+        loadCategory: 'M',
+      }),
+    );
+
+    expect(quoteErr).toBeInstanceOf(BadRequestException);
+    expect(quoteErr.message).toBe('Pickup location is outside coverage');
+    expect(quoteErr.getStatus()).toBe(createErr.getStatus());
+    expect(quoteErr.getResponse()).toEqual(createErr.getResponse());
+
+    // The same shop still quotes an in-coverage pickup.
+    const ok = await service.quoteOrder({ ...PICKUP, loadCategory: 'M', shopServiceId });
+    expect(ok.shopServiceId).toBe(shopServiceId);
+  });
+
   it('auto-dispatches the booking to a rider when the toggle is on', async () => {
     const { shopServiceId } = await makeShop(5);
     await config.update({ autoDispatchEnabled: 1 }, `int-${SUFFIX}`);

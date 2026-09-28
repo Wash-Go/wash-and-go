@@ -273,4 +273,21 @@ describe('ApiClient', () => {
       'http://api.test/orders?status=OUT_FOR_RETURN',
     );
   });
+
+  it('reads the customer booking rules from GET /config/booking', async () => {
+    const fetchFn = jest
+      .fn()
+      .mockResolvedValue(res(200, { expressWeightThresholdKg: 8 }));
+    const client = new ApiClient({
+      baseUrl: 'http://api.test',
+      tokens: tokensFrom(['t']),
+      fetchFn,
+    });
+    await expect(client.getBookingConfig()).resolves.toEqual({
+      expressWeightThresholdKg: 8,
+    });
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe('http://api.test/config/booking');
+    expect(init.method).toBe('GET');
+  });
 });

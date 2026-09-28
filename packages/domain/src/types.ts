@@ -353,6 +353,14 @@ export interface PlatformConfigView {
   updatedAt: string;
 }
 
+// GET /config/booking (CUSTOMER) — the slice of the platform rules the booking
+// screen gates on. expressWeightThresholdKg is the same admin-editable Express
+// ceiling quote/create enforce; DEFAULT_EXPRESS_THRESHOLD_KG (load.ts) is only
+// the app's fallback while this loads or when it can't be fetched.
+export interface BookingConfigView {
+  expressWeightThresholdKg: number;
+}
+
 // PUT /admin/config body — patch only the fields you change.
 export type PlatformConfigPatch = Partial<Omit<PlatformConfigView, 'updatedAt'>>;
 

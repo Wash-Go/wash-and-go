@@ -329,9 +329,13 @@ export function EmptyState({
 export function ErrorState({
   message,
   onRetry,
+  retryLabel = 'Try again',
 }: {
   message: string;
   onRetry?: () => void;
+  // For an error a retry can't fix (e.g. out of the service area), name the
+  // action that can. Defaults to "Try again", so existing callers are unchanged.
+  retryLabel?: string;
 }) {
   return (
     <View style={styles.centered}>
@@ -341,7 +345,7 @@ export function ErrorState({
       </Text>
       {onRetry ? (
         <View style={{ marginTop: space.lg, alignSelf: 'stretch' }}>
-          <PrimaryButton label="Try again" onPress={onRetry} />
+          <PrimaryButton label={retryLabel} onPress={onRetry} />
         </View>
       ) : null}
     </View>

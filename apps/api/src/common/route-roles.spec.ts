@@ -4,6 +4,7 @@ import { AddressController } from '../users/address.controller';
 import { AdminUsersController } from '../users/admin-users.controller';
 import { OrdersController } from '../orders/orders.controller';
 import { PlatformConfigController } from '../platform-config/platform-config.controller';
+import { BookingConfigController } from '../platform-config/booking-config.controller';
 import { RemittanceController } from '../remittance/remittance.controller';
 import { ShopRemittanceController } from '../remittance/shop-remittance.controller';
 import { RidersController } from '../riders/riders.controller';
@@ -64,6 +65,10 @@ describe('route role matrix', () => {
     expect(rolesOf(c, 'get')).toEqual(['ADMIN']);
     expect(rolesOf(c, 'update')).toEqual(['ADMIN']);
     expect(rolesOf(c, 'audit')).toEqual(['ADMIN']);
+  });
+
+  it('the booking rules read is CUSTOMER-only (same audience as quote/create)', () => {
+    expect(rolesOf(BookingConfigController.prototype, 'get')).toEqual(['CUSTOMER']);
   });
 
   it('admin remittance routes are ADMIN-only', () => {

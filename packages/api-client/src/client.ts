@@ -7,6 +7,7 @@ import type {
   AdminShopServiceView,
   AdminShopView,
   AdminUserView,
+  BookingConfigView,
   CloseRemittanceBody,
   CreateShopBody,
   OwnerShopView,
@@ -197,6 +198,11 @@ export class ApiClient {
   // Resolve nearest shop (or the override) + a priced quote for checkout.
   quoteOrder(body: QuoteOrderBody): Promise<OrderQuote> {
     return this.request('POST', '/orders/quote', body);
+  }
+
+  // Customer: the booking rules the Book screen gates on (Express ceiling kg).
+  getBookingConfig(): Promise<BookingConfigView> {
+    return this.request('GET', '/config/booking');
   }
 
   // Admin-only: riders for the dispatch assign picker.

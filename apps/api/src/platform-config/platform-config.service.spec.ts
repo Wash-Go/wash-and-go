@@ -77,6 +77,21 @@ describe('PlatformConfigService', () => {
     expect(v.maxResolveKm).toBe(20);
   });
 
+  // U0 T6: the customer app gates Express on the admin-editable ceiling, so it
+  // reads it from GET /config/booking. Only the whitelisted field goes out; fees,
+  // the COD cap and the rest of the row stay admin-only.
+  it('exposes only the customer-facing booking rules', async () => {
+    const prisma = {
+      platformConfig: {
+        findUnique: jest.fn().mockResolvedValue(row({ expressWeightThresholdKg: 8 })),
+      },
+    } as unknown as PrismaService;
+
+    const b = await makeService(prisma).getBookingConfig();
+
+    expect(b).toEqual({ expressWeightThresholdKg: 8 });
+  });
+
   it('rejects a negative or non-finite value', async () => {
     const prisma = {
       platformConfig: { findUnique: jest.fn().mockResolvedValue(row()) },

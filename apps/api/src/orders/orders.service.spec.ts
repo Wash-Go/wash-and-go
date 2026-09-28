@@ -544,6 +544,107 @@ describe('OrdersService', () => {
       expect(q.shopServiceId).toBe('shopsvc1'); // nearest, capacity ignored
       expect(repo.countExpressUsedByShopForDay).not.toHaveBeenCalled();
     });
+
+    // U0 T6: the quote runs the same coverage gate as create. Before, an
+    // out-of-area customer was shown a full price and only Confirm failed.
+    describe('coverage (same gate as create)', () => {
+      // Manila — outside the pilot Zamboanga ring.
+      const outside = { pickupLat: 14.5995, pickupLng: 120.9842 };
+      // A shop right next to the out-of-area pickup, so the old radius check
+      // (maxResolveKm) alone would have happily quoted it.
+      function shopNextToOutside() {
+        const base = makeShopService();
+        return {
+          ...base,
+          id: 'shopsvc-mnl',
+          shop: { ...base.shop, id: 'shop-mnl', lat: D('14.5995'), lng: D('120.9842') },
+        };
+      }
+
+      async function rejection(p: Promise<unknown>): Promise<BadRequestException> {
+        const e = await p.then(
+          () => {
+            throw new Error('expected a rejection, got a quote');
+          },
+          (err: unknown) => err,
+        );
+        expect(e).toBeInstanceOf(BadRequestException);
+        return e as BadRequestException;
+      }
+
+      it('refuses an out-of-coverage pickup before resolving a shop', async () => {
+        repo.findActiveShopServices.mockResolvedValue([shopNextToOutside()] as never);
+        const e = await rejection(
+          service.quoteOrder({ ...outside, loadCategory: 'M' }),
+        );
+        expect(e.message).toBe('Pickup location is outside coverage');
+        expect(repo.findActiveShopServices).not.toHaveBeenCalled();
+      });
+
+      it('refuses it on the shopServiceId override path too', async () => {
+        repo.findShopServiceWithShop.mockResolvedValue(shopNextToOutside() as never);
+        const e = await rejection(
+          service.quoteOrder({
+            ...outside,
+            loadCategory: 'M',
+            shopServiceId: 'shopsvc-mnl',
+          }),
+        );
+        expect(e.message).toBe('Pickup location is outside coverage');
+        expect(repo.findShopServiceWithShop).not.toHaveBeenCalled();
+      });
+
+      it('refuses it for a SCHEDULED quote too', async () => {
+        repo.findActiveShopServices.mockResolvedValue([shopNextToOutside()] as never);
+        const e = await rejection(
+          service.quoteOrder({ ...outside, loadCategory: 'L', serviceType: 'SCHEDULED' }),
+        );
+        expect(e.message).toBe('Pickup location is outside coverage');
+      });
+
+      it('answers exactly like create: same status and same response body', async () => {
+        repo.findActiveShopServices.mockResolvedValue([shopNextToOutside()] as never);
+        repo.findShopServiceWithShop.mockResolvedValue(shopNextToOutside() as never);
+        const customer = makeUser(['CUSTOMER'], 'cust');
+        const body = {
+          shopServiceId: 'shopsvc-mnl',
+          pickupAddress: 'Manila',
+          ...outside,
+        };
+
+        const quoteExpress = await rejection(
+          service.quoteOrder({ ...outside, loadCategory: 'M' }),
+        );
+        const createExpress = await rejection(
+          service.createExpressOrder(customer, { ...body, loadCategory: 'M' }),
+        );
+        expect(quoteExpress.getStatus()).toBe(createExpress.getStatus());
+        expect(quoteExpress.getResponse()).toEqual(createExpress.getResponse());
+
+        const quoteScheduled = await rejection(
+          service.quoteOrder({ ...outside, loadCategory: 'L', serviceType: 'SCHEDULED' }),
+        );
+        const createScheduled = await rejection(
+          service.createScheduledOrder(customer, {
+            ...body,
+            loadCategory: 'L',
+            serviceType: 'SCHEDULED',
+            scheduledPickupAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+          }),
+        );
+        expect(quoteScheduled.getStatus()).toBe(createScheduled.getStatus());
+        expect(quoteScheduled.getResponse()).toEqual(createScheduled.getResponse());
+      });
+
+      it('still checks the Express ceiling first, in the same order as create', async () => {
+        // Large Express AND out of area: create answers with the ceiling
+        // message, so the quote must too.
+        const e = await rejection(
+          service.quoteOrder({ ...outside, loadCategory: 'L' }),
+        );
+        expect(e.message).toMatch(/Express limit/);
+      });
+    });
   });
 
   describe('assignRider', () => {
