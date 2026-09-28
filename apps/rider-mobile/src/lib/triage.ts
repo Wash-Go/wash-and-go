@@ -15,6 +15,12 @@ export function jobGroup(o: OrderView): JobGroup {
   return (o.availableActions?.length ?? 0) > 0 ? 'action' : 'waiting';
 }
 
+// The Jobs header's "N active": delivered and cancelled jobs stay on the board
+// (in the "done" group) but aren't active work.
+export function activeJobCount(orders: Pick<OrderView, 'status'>[]): number {
+  return orders.filter((o) => !isTerminal(o.status)).length;
+}
+
 const GROUP_RANK: Record<JobGroup, number> = { action: 0, waiting: 1, done: 2 };
 
 export function sortJobs(orders: OrderView[]): OrderView[] {

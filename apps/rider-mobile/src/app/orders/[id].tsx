@@ -26,6 +26,7 @@ import {
 } from '@wash-and-go/ui';
 import { api } from '../../lib/api';
 import { mapTiles } from '../../components/mapTiles';
+import { RiderGate } from '../../components/RiderGate';
 import {
   actionLabel,
   deliverSlideLabel,
@@ -58,7 +59,18 @@ function navigateTo(lat?: number | null, lng?: number | null, address?: string) 
   }
 }
 
+// Same role + verification gate as the tabs, so a deep link to /orders/:id
+// can't reach a job screen either (the verdict is shared — no extra request
+// when opened from the job board).
 export default function JobDetailScreen() {
+  return (
+    <RiderGate>
+      <JobDetail />
+    </RiderGate>
+  );
+}
+
+function JobDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [busy, setBusy] = useState(false);

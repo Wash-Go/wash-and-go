@@ -5,6 +5,7 @@ import {
   Keyboard,
   PanResponder,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -31,15 +32,31 @@ function usePressScale(to = 0.97) {
 export function Screen({
   children,
   scroll = true,
+  refreshing,
+  onRefresh,
 }: {
   children: React.ReactNode;
   scroll?: boolean;
+  // Pull-to-refresh, scrolling screens only: pass onRefresh plus refreshing
+  // (true while the reload runs). Omitted = no pull-to-refresh.
+  refreshing?: boolean;
+  onRefresh?: () => void;
 }) {
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       {scroll ? (
         <ScrollView
           contentContainerStyle={styles.scrollBody}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl
+                refreshing={!!refreshing}
+                onRefresh={onRefresh}
+                tintColor={colors.brand}
+                colors={[colors.brand]}
+              />
+            ) : undefined
+          }
           // persistTaps keeps buttons tappable while the keyboard is up;
           // on-drag dismisses the keyboard when you start scrolling.
           keyboardShouldPersistTaps="handled"

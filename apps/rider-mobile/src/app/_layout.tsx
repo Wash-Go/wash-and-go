@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import { Text as RNText, TextInput as RNTextInput } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { colors, font, ToastProvider, useToast } from '@wash-and-go/ui';
+import { RiderAccessProvider } from '../components/RiderGate';
 import { api } from '../lib/api';
 import { auth, DEV_UID } from '../lib/firebase';
 import { ensureSession } from '../lib/session';
@@ -70,15 +71,20 @@ export default function RootLayout() {
     });
   }, [devBypass]);
 
+  // '/login' is a real route (src/app/login.tsx); the cast covers Expo Router's
+  // typed-routes only regenerating on `expo start`.
+  const onLogin = (segments[0] as string) === 'login';
+  // Whose rider access to check: the dev stub's uid, or the signed-in Firebase
+  // user (null while signed out or still restoring).
+  const identity = devBypass ? (DEV_UID ?? null) : (user?.uid ?? null);
+
   useEffect(() => {
     if (devBypass || user === undefined) return;
-    const onLogin = (segments[0] as string) === 'login';
-    // '/login' is a real route (src/app/login.tsx); the cast covers Expo Router's
-    // typed-routes only regenerating on `expo start`. A signed-in user on /login
-    // is left alone: the login screen navigates once POST /auth/session succeeds
-    // (Firebase reports the user before that, and a failure must stay on login).
+    // A signed-in user on /login is left alone: the login screen navigates once
+    // POST /auth/session succeeds (Firebase reports the user before that, and a
+    // failure must stay on login).
     if (!user && !onLogin) router.replace('/login' as never);
-  }, [user, segments, router, devBypass]);
+  }, [user, onLogin, router, devBypass]);
 
   if (!fontsLoaded) return null;
 
@@ -87,19 +93,23 @@ export default function RootLayout() {
       <ToastProvider>
         <RestoredSessionSync user={restoredUser} />
         <StatusBar style="dark" />
-        <Stack
-          screenOptions={{
-            headerStyle: { backgroundColor: colors.bg },
-            headerTintColor: colors.text,
-            headerTitleStyle: { fontFamily: font.bold, color: colors.text },
-            headerShadowVisible: false,
-            contentStyle: { backgroundColor: colors.bg },
-          }}
-        >
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="login" options={{ headerShown: false }} />
-          <Stack.Screen name="orders/[id]" options={{ title: 'Job' }} />
-        </Stack>
+        {/* Role + verification gate: the rider screens wrap themselves in
+            <RiderGate>; not checked on /login (see RiderAccessProvider). */}
+        <RiderAccessProvider identity={identity} enabled={!onLogin}>
+          <Stack
+            screenOptions={{
+              headerStyle: { backgroundColor: colors.bg },
+              headerTintColor: colors.text,
+              headerTitleStyle: { fontFamily: font.bold, color: colors.text },
+              headerShadowVisible: false,
+              contentStyle: { backgroundColor: colors.bg },
+            }}
+          >
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="login" options={{ headerShown: false }} />
+            <Stack.Screen name="orders/[id]" options={{ title: 'Job' }} />
+          </Stack>
+        </RiderAccessProvider>
       </ToastProvider>
     </SafeAreaProvider>
   );

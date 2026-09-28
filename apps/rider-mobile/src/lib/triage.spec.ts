@@ -1,6 +1,7 @@
 import type { OrderView } from '@wash-and-go/domain';
 import {
   actionLabel,
+  activeJobCount,
   collectsCash,
   deliverSlideLabel,
   jobGroup,
@@ -45,6 +46,29 @@ describe('jobGroup', () => {
       'done',
     );
     expect(jobGroup(job({ status: 'CANCELLED' }))).toBe('done');
+  });
+});
+
+describe('activeJobCount', () => {
+  it('counts only non-terminal jobs: delivered and cancelled are not active', () => {
+    const jobs = [
+      job({ id: 'a', status: 'ASSIGNED' }),
+      job({ id: 'b', status: 'PICKED_UP' }),
+      job({ id: 'c', status: 'AT_SHOP' }),
+      job({ id: 'd', status: 'PROCESSING' }),
+      job({ id: 'e', status: 'READY_FOR_RETURN' }),
+      job({ id: 'f', status: 'OUT_FOR_RETURN' }),
+      job({ id: 'g', status: 'DELIVERED' }),
+      job({ id: 'h', status: 'CANCELLED' }),
+    ];
+    expect(activeJobCount(jobs)).toBe(6);
+  });
+
+  it('is 0 when every job is finished, and for an empty list', () => {
+    expect(
+      activeJobCount([job({ status: 'DELIVERED' }), job({ status: 'CANCELLED' })]),
+    ).toBe(0);
+    expect(activeJobCount([])).toBe(0);
   });
 });
 
