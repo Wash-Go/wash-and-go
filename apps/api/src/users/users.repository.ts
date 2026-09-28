@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma, User } from '@prisma/client';
+import type { Prisma, User, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 /*
@@ -13,6 +13,35 @@ export class UsersRepository {
 
   findByFirebaseUid(firebaseUid: string): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { firebaseUid } });
+  }
+
+  findById(id: string): Promise<User | null> {
+    return this.prisma.user.findUnique({ where: { id } });
+  }
+
+  // Admin user directory: optional role filter + free-text (phone/name) search.
+  listUsers(filter: { role?: UserRole; q?: string }, take = 100): Promise<User[]> {
+    const where: Prisma.UserWhereInput = {};
+    if (filter.role) where.roles = { has: filter.role };
+    if (filter.q) {
+      where.OR = [
+        { phone: { contains: filter.q, mode: 'insensitive' } },
+        { displayName: { contains: filter.q, mode: 'insensitive' } },
+      ];
+    }
+    return this.prisma.user.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: Math.min(Math.max(take, 1), 200),
+    });
+  }
+
+  updateRoles(id: string, roles: UserRole[]): Promise<User> {
+    return this.prisma.user.update({ where: { id }, data: { roles } });
+  }
+
+  setDisabledAt(id: string, disabledAt: Date | null): Promise<User> {
+    return this.prisma.user.update({ where: { id }, data: { disabledAt } });
   }
 
   upsertByFirebaseUid(input: {

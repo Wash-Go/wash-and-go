@@ -1,0 +1,32 @@
+{
+  "name": "@wash-and-go/admin-dashboard",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "type-check": "tsc --noEmit",
+    "test": "jest --config jest.logic.config.js"
+  },
+  "dependencies": {
+    "@tanstack/query-sync-storage-persister": "^5.101.4",
+    "@tanstack/react-query": "^5.66.0",
+    "@tanstack/react-query-persist-client": "^5.101.4",
+    "@wash-and-go/api-client": "workspace:*",
+    "@wash-and-go/domain": "workspace:*",
+    "firebase": "^12.16.0",
+    "leaflet": "^1.9.4",
+    "next": "15.1.11",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-leaflet": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/leaflet": "^1.9.21",
+    "@types/node": "^22.13.5",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.0",
+    "typescript": "^5.7.3"
+  }
+}

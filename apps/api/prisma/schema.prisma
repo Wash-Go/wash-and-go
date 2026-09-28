@@ -3,7 +3,9 @@
 // lands with its phases — do not add tables the current phase doesn't use.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // native = local dev; debian-openssl-3.0.x = the Docker/Railway runtime image.
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -55,6 +57,94 @@ model User {
   assignedOrders  Order[]      @relation("RiderOrders")
   shopMemberships ShopMember[]
   orderEvents     OrderEvent[]
+  addresses       Address[]
+  cashDeposits    RiderCashDeposit[] @relation("RiderCashDeposits")
+  notifications   Notification[]
+  riderProfile    RiderProfile?
+}
+
+// Rider verification lifecycle (self-serve onboarding, mirror of ShopStatus). A
+// rider is only dispatchable — manual assign + auto-dispatch — with a VERIFIED
+// profile, since they handle platform cash.
+enum RiderStatus {
+  DRAFT
+  SUBMITTED
+  VERIFIED
+  REJECTED
+}
+
+model RiderProfile {
+  id              String      @id @default(cuid())
+  userId          String      @unique
+  user            User        @relation(fields: [userId], references: [id])
+  status          RiderStatus @default(DRAFT)
+  submittedAt     DateTime?
+  verifiedAt      DateTime?
+  rejectionReason String?
+  // R2 object keys for submitted documents.
+  licenseKey      String?
+  idKey           String?
+  vehicleType     String?
+  vehiclePlate    String?
+  createdAt       DateTime    @default(now())
+}
+
+// In-app notification (e.g. an order status change) for one user. Push/SMS is a
+// fast-follow; this is the in-app inbox the apps poll.
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  type      String // "ORDER_UPDATE"
+  title     String
+  body      String
+  orderId   String? // deep-link target
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+// Service coverage area (formalizes the hardcoded pilot polygon). A pickup is
+// covered when it falls inside any active zone. `polygon` is a JSON array of
+// { lat, lng } vertices (ring, auto-closed by the point-in-polygon test). Admin
+// manages these; the scheduled engine later attaches a designated shop per zone.
+model Zone {
+  id        String   @id @default(cuid())
+  name      String
+  active    Boolean  @default(true)
+  polygon   Json
+  createdAt DateTime @default(now())
+
+  @@index([active])
+}
+
+// Customer address book — saved pickup points the app prefills at booking. The
+// Order still snapshots its own pickupAddress/lat/lng at create (denormalized),
+// so deleting an address never mutates a past order. At most one default/user.
+model Address {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  label     String? // "Home", "Office"
+  line      String // street / barangay free text
+  lat       Decimal? @db.Decimal(9, 6)
+  lng       Decimal? @db.Decimal(9, 6)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Verification lifecycle (self-serve onboarding). A shop the owner just signed up
+// for is DRAFT; SUBMITTED once they file proof + location; admin moves it to
+// VERIFIED (visible to customers) or REJECTED. Admin-created shops skip to
+// VERIFIED. Customer discovery requires VERIFIED AND active.
+enum ShopStatus {
+  DRAFT
+  SUBMITTED
+  VERIFIED
+  REJECTED
 }
 
 model Shop {
@@ -63,7 +153,17 @@ model Shop {
   address            String
   lat                Decimal  @db.Decimal(9, 6)
   lng                Decimal  @db.Decimal(9, 6)
+  // Admin manual suspend switch, independent of verification.
   active             Boolean  @default(true)
+  // Verification state (owner self-serve → admin review). New rows default DRAFT;
+  // the migration backfilled pre-existing shops to VERIFIED.
+  status             ShopStatus @default(DRAFT)
+  submittedAt        DateTime?
+  verifiedAt         DateTime?
+  rejectionReason    String?
+  // R2 object keys for submitted proof (business permit + storefront photos).
+  permitKey          String?
+  photoKeys          String[]  @default([])
   // PENDING founder rate card — 12% is the planning assumption
   commissionPct      Decimal  @default(12.00) @db.Decimal(5, 2)
   // Reserved express queue capacity (Logistics v1.1). Count check runs inside
@@ -112,6 +212,9 @@ model ShopService {
 model Order {
   id          String      @id @default(cuid())
   code        String      @unique // "WG-2026-000001" via global sequence
+  // Client-supplied idempotency key (idempotency-key header) — a retried booking
+  // returns the same order instead of creating a second one + burning a slot.
+  idempotencyKey String?  @unique
   customerId  String
   customer    User        @relation("CustomerOrders", fields: [customerId], references: [id])
   serviceType ServiceType
@@ -132,6 +235,9 @@ model Order {
   assignedRiderId String?
   assignedRider   User?   @relation("RiderOrders", fields: [assignedRiderId], references: [id])
 
+  // Booking load size (S/M/L) the customer chose — kept so an order can be
+  // re-booked ("Book again") without re-deriving it from the estimate kg.
+  loadCategory     String?
   weightEstimateKg Decimal? @db.Decimal(6, 2)
   weightKg         Decimal? @db.Decimal(6, 2) // set at weigh-in; triggers price recompute
 
@@ -143,14 +249,21 @@ model Order {
   shopRemittancePhp Decimal @default(0) @db.Decimal(10, 2)
   customerTotalPhp  Decimal @default(0) @db.Decimal(10, 2)
 
+  // Scheduled (Tier 1) orders carry a requested pickup time; null for Express
+  // (Tier 2, dispatched on demand). Batch routing off this field lands in P2.
+  scheduledPickupAt DateTime?
+
   // MVP: cash recorded manually. PayMongo lands Phase 2.
   paidCashAt DateTime?
 
   createdAt   DateTime  @default(now())
   deliveredAt DateTime?
+  cancelledAt DateTime?
+  cancelReason String?
 
   events         OrderEvent[]
   remittanceLine RemittanceLine?
+  rating         Rating?
 
   @@index([status, createdAt])
   @@index([shopId, status])
@@ -173,14 +286,117 @@ model OrderEvent {
 // One row per DELIVERED order — idempotent via unique(orderId).
 // Batching + payouts land Phase 4.
 model RemittanceLine {
-  id             String   @id @default(cuid())
-  orderId        String   @unique
-  order          Order    @relation(fields: [orderId], references: [id])
+  id             String           @id @default(cuid())
+  orderId        String           @unique
+  order          Order            @relation(fields: [orderId], references: [id])
   shopId         String
-  washValuePhp   Decimal  @db.Decimal(10, 2)
-  commissionPhp  Decimal  @db.Decimal(10, 2)
-  payoutPhp      Decimal  @db.Decimal(10, 2)
-  createdAt      DateTime @default(now())
+  washValuePhp   Decimal          @db.Decimal(10, 2)
+  commissionPhp  Decimal          @db.Decimal(10, 2)
+  payoutPhp      Decimal          @db.Decimal(10, 2)
+  batchId        String?
+  batch          RemittanceBatch? @relation(fields: [batchId], references: [id])
+  createdAt      DateTime         @default(now())
 
   @@index([shopId, createdAt])
+  @@index([batchId])
+  // Fast lookup of still-unbatched lines for a shop when closing a period.
+  @@index([shopId, batchId])
+}
+
+enum RemittanceStatus {
+  PENDING // closed, payout owed to the shop, transfer not yet made
+  PAID // ops recorded the external transfer (reference + paidAt set)
+}
+
+// Rider cash reconciliation (money model: platform intermediates). A rider
+// collects the full customerTotal COD at delivery, so that cash belongs to the
+// platform. Outstanding = SUM(customerTotalPhp of the rider's paid-cash orders)
+// − SUM(deposits). Each row records the rider handing cash back to the platform.
+model RiderCashDeposit {
+  id          String   @id @default(cuid())
+  riderId     String
+  rider       User     @relation("RiderCashDeposits", fields: [riderId], references: [id])
+  amountPhp   Decimal  @db.Decimal(12, 2)
+  reference   String? // deposit slip / GCash ref / envelope no.
+  note        String?
+  recordedByUid String
+  // Idempotency key (idempotency-key header) — a retried "record deposit" returns
+  // the existing row instead of double-counting cash handed back.
+  idempotencyKey String? @unique
+  createdAt   DateTime @default(now())
+
+  @@index([riderId, createdAt])
+}
+
+// A period's payout to one shop — the sum of its unbatched RemittanceLines in
+// [periodStart, periodEnd). Payout transfer is external at launch; the batch
+// tracks intent and an ops user marks it paid with the transfer reference.
+model RemittanceBatch {
+  id          String           @id @default(cuid())
+  shopId      String
+  periodStart DateTime
+  periodEnd   DateTime
+  totalPhp    Decimal          @db.Decimal(12, 2)
+  lineCount   Int
+  status      RemittanceStatus @default(PENDING)
+  reference   String? // external transfer reference, set on mark-paid
+  paidAt      DateTime?
+  paidByUid   String?
+  createdAt   DateTime         @default(now())
+  lines       RemittanceLine[]
+
+  @@index([shopId, createdAt])
+  @@index([status])
+}
+
+// Platform-level business rules, admin-editable at runtime (no redeploy).
+// Singleton (id = 1). Per-shop rates live on ShopService, NOT here.
+// Placeholders (expressWeightThresholdKg, minOrderPricePhp, platformFeePhp) have
+// no consumer yet — editable but inert until matching/floor/fee code lands.
+model PlatformConfig {
+  id                       Int      @id @default(1)
+  serviceFeePhp            Decimal  @db.Decimal(10, 2)
+  deliveryBasePhp          Decimal  @db.Decimal(10, 2)
+  deliveryFreeKm           Decimal  @db.Decimal(6, 2)
+  deliveryPerKmPhp         Decimal  @db.Decimal(10, 2)
+  deliveryMaxPhp           Decimal  @db.Decimal(10, 2)
+  deliveryRoadFactor       Decimal  @db.Decimal(5, 3)
+  maxResolveKm             Decimal  @db.Decimal(6, 2)
+  expressWeightThresholdKg Decimal  @db.Decimal(6, 2)
+  minOrderPricePhp         Decimal  @db.Decimal(10, 2)
+  platformFeePhp           Decimal  @db.Decimal(10, 2)
+  // P4a dispatch toggle: 1 = auto-assign a rider on Express booking, 0 = manual
+  // dispatch only. Flag (0/1) to fit the numeric config pipeline.
+  autoDispatchEnabled      Int      @default(0)
+  // Max outstanding COD (collected − deposited) a rider may carry before new
+  // jobs pause. Bounds the platform's exposure if a rider absconds with cash.
+  riderCodCapPhp           Decimal  @default(1500) @db.Decimal(12, 2)
+  updatedAt                DateTime @updatedAt
+}
+
+// Append-only audit of platform-config changes (one row per changed field).
+model ConfigAudit {
+  id        String   @id @default(cuid())
+  actorUid  String
+  field     String
+  oldValue  String
+  newValue  String
+  changedAt DateTime @default(now())
+
+  @@index([changedAt(sort: Desc)])
+}
+
+// Customer rating of a delivered order (one per order). Feeds the shop-match
+// ranking (average stars per shop). Reviews checkpoint.
+model Rating {
+  id         String   @id @default(cuid())
+  orderId    String   @unique
+  order      Order    @relation(fields: [orderId], references: [id])
+  shopId     String
+  customerId String
+  stars      Int // 1..5
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  @@index([shopId])
 }
