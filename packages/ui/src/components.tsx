@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -13,6 +13,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { clampSlide, createSlideGate, slideTravel } from './slide-gate';
 import { colors, elevation, font, radius, space, type } from './theme';
 
 // Spring-scale on press — gives buttons/cards physical weight (haptic feel).
@@ -142,56 +143,103 @@ export function PrimaryButton({
 
 // Slide-to-confirm for irreversible / money actions (rider design D2). Uses the
 // built-in PanResponder + Animated — no native module, Expo Go safe.
+//
+// Pass `loading` while the confirmed request is in flight: the control locks
+// (no drag, no second fire), the thumb stays at the end with a spinner, and it
+// springs back once `loading` goes false again (success or error). The slide
+// always calls the latest `onConfirm`, and screen readers can confirm it with
+// the standard activate (double-tap) action. Decision logic: ./slide-gate.ts.
 export function SlideToConfirm({
   label,
   onConfirm,
+  loading,
   color = colors.brand,
 }: {
   label: string;
   onConfirm: () => void;
+  loading?: boolean;
   color?: string;
 }) {
   const THUMB = 56;
   const widthRef = useRef(0);
   const x = useRef(new Animated.Value(0)).current;
+  const gate = useRef(createSlideGate()).current;
+  // Re-synced every render: the PanResponder below is created once, so it must
+  // read props through the gate, never through its own closure.
+  gate.sync({ onConfirm, loading: !!loading });
+  // Mirrors the gate's "fired" phase so the settle effect re-runs.
+  const [held, setHeld] = useState(false);
+
+  const travel = () => slideTravel(widthRef.current, THUMB, 8);
+  const springBack = () =>
+    Animated.spring(x, { toValue: 0, useNativeDriver: false }).start();
+  const complete = () =>
+    Animated.timing(x, {
+      toValue: travel(),
+      duration: 90,
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      if (!finished) {
+        gate.abort();
+        springBack();
+        return;
+      }
+      // Queue the hold first: if onConfirm throws, the settle effect still
+      // runs and unlocks the control instead of leaving it dead.
+      setHeld(true);
+      gate.fire();
+    });
 
   const pan = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponder: () => gate.canDrag(),
+      onMoveShouldSetPanResponder: () => gate.canDrag(),
       onPanResponderMove: (_e, g) => {
-        const max = Math.max(0, widthRef.current - THUMB - 8);
-        x.setValue(Math.min(Math.max(0, g.dx), max));
+        x.setValue(clampSlide(g.dx, travel()));
       },
       onPanResponderRelease: (_e, g) => {
-        const max = Math.max(0, widthRef.current - THUMB - 8);
-        if (max > 0 && g.dx >= max * 0.9) {
-          Animated.timing(x, {
-            toValue: max,
-            duration: 90,
-            useNativeDriver: false,
-          }).start(() => {
-            onConfirm();
-            x.setValue(0);
-          });
-        } else {
-          Animated.spring(x, { toValue: 0, useNativeDriver: false }).start();
-        }
+        if (gate.tryCommit(g.dx, travel())) complete();
+        else springBack();
       },
+      // A parent ScrollView (or the OS) took the gesture: never leave the
+      // thumb stranded mid-track.
+      onPanResponderTerminate: springBack,
     }),
   ).current;
 
+  // Hold the thumb at the end until the parent is no longer loading.
+  useEffect(() => {
+    if (held && gate.settle()) {
+      setHeld(false);
+      springBack();
+    }
+    // gate, x (via springBack) and setHeld never change for this mount.
+  }, [held, loading]);
+
+  const locked = !!loading || held;
   return (
     <View
       style={[styles.slideTrack, { backgroundColor: color + '1c' }]}
       onLayout={(e) => (widthRef.current = e.nativeEvent.layout.width)}
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: locked, busy: !!loading }}
+      accessibilityActions={[{ name: 'activate' }]}
+      onAccessibilityAction={(e) => {
+        if (e.nativeEvent.actionName === 'activate' && gate.activate()) complete();
+      }}
     >
       <Text style={[styles.slideLabel, { color }]}>{label}</Text>
       <Animated.View
         {...pan.panHandlers}
         style={[styles.slideThumb, { backgroundColor: color, transform: [{ translateX: x }] }]}
       >
-        <Text style={styles.slideThumbText}>→</Text>
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.slideThumbText}>→</Text>
+        )}
       </Animated.View>
     </View>
   );
