@@ -15,6 +15,7 @@ import {
   ShopService,
   User,
 } from '@prisma/client';
+import { cashToRecordOnDelivery } from './cash-on-delivery';
 import { isExpressEligible, loadCategory, LoadCategoryKey } from './load';
 import { rankShopCandidates, ShopCandidate } from './shop-match';
 import { isUniqueViolation } from '../common/prisma-errors';
@@ -78,6 +79,7 @@ export type OrderQuoteResult = {
  *  T1 capacity: advisory lock → count → insert, all one tx
  *  S1 audit:    OrderEvent written in the same tx as the status change
  *  S2 payout:   RemittanceLine written in the same tx as the DELIVERED transition
+ *  U0 T2 COD:   paidCashAt set in the same write as the DELIVERED transition
  */
 @Injectable()
 export class OrdersService {
@@ -623,12 +625,25 @@ export class OrdersService {
       await this.assertTransitionOwnership(actor, order, from, to);
 
       const data: Prisma.OrderUpdateInput = { status: to };
+      let meta: Prisma.InputJsonValue | undefined;
       if (to === OrderStatus.DELIVERED) {
-        data.deliveredAt = new Date();
+        const now = new Date();
+        data.deliveredAt = now;
+        // U0 T2: delivering a COD order IS collecting its cash. Record it in
+        // this same write (rider or admin alike), so the rider owes it — and
+        // the COD debt cap sees it — the moment the order is delivered. Never
+        // re-stamps an earlier pay-cash; the row lock above serializes this
+        // against a concurrent pay-cash.
+        const cash = cashToRecordOnDelivery(order);
+        if (cash) {
+          data.paidCashAt = now;
+          meta = { paidCash: true, cashCollectedPhp: cash.toFixed(2) };
+        }
       }
       if (to === OrderStatus.CANCELLED) {
         data.cancelledAt = new Date();
         data.cancelReason = dto.reason?.trim() || null;
+        if (dto.reason) meta = { reason: dto.reason };
       }
       const updated = await this.repo.updateOrder(tx, order.id, data);
 
@@ -637,7 +652,7 @@ export class OrdersService {
         orderId: order.id,
         status: to,
         actorUserId: actor.id,
-        meta: to === OrderStatus.CANCELLED && dto.reason ? { reason: dto.reason } : undefined,
+        meta,
       });
 
       // In-app notification to the customer, in the same tx as the status change.
@@ -668,6 +683,9 @@ export class OrdersService {
   }
 
   // POST /orders/:id/pay-cash — record a manual cash payment (idempotent).
+  // Since U0 T2 the DELIVERED transition records COD itself, so this is for
+  // legacy delivered-but-unpaid orders and ops corrections; on an already-paid
+  // order it is a no-op success (no second event, timestamp kept).
   async payCash(actor: User, orderId: string): Promise<Order> {
     return this.prisma.$transaction(async (tx) => {
       const order = await this.repo.findByIdForUpdate(tx, orderId);

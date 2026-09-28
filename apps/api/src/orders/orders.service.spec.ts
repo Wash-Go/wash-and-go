@@ -749,6 +749,139 @@ describe('OrdersService', () => {
       });
       expect(repo.insertRemittanceLine).not.toHaveBeenCalled();
     });
+
+    // U0 T2: delivering a COD order IS collecting its cash — one atomic write,
+    // so a rider can't deliver, skip "record cash", and dodge the COD cap.
+    describe('DELIVERED records the COD cash in the same write', () => {
+      type Upd = { status: string; deliveredAt?: Date; paidCashAt?: Date };
+      const deliveredEventMeta = () =>
+        repo.insertOrderEvent.mock.calls.find(
+          (c) => (c[1] as { status: string }).status === 'DELIVERED',
+        )?.[1].meta as Record<string, unknown> | undefined;
+
+      it('sets paidCashAt with deliveredAt when the assigned rider delivers', async () => {
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({ status: 'OUT_FOR_RETURN', assignedRiderId: 'r1' }),
+        );
+        repo.updateOrder.mockResolvedValue(makeOrder({ status: 'DELIVERED' }));
+
+        await service.transition(makeUser(['RIDER'], 'r1'), 'o1', {
+          status: 'DELIVERED',
+        });
+
+        expect(repo.updateOrder).toHaveBeenCalledTimes(1); // one atomic write
+        const upd = repo.updateOrder.mock.calls[0][2] as Upd;
+        expect(upd.status).toBe('DELIVERED');
+        expect(upd.paidCashAt).toBeInstanceOf(Date);
+        expect(upd.paidCashAt).toBe(upd.deliveredAt); // same instant
+        // Audit: the DELIVERED event says cash was taken, and how much.
+        expect(deliveredEventMeta()).toEqual({
+          paidCash: true,
+          cashCollectedPhp: '222.00',
+        });
+      });
+
+      it('records the cash the same way when an admin marks it delivered', async () => {
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({ status: 'OUT_FOR_RETURN', assignedRiderId: 'r1' }),
+        );
+        repo.updateOrder.mockResolvedValue(makeOrder({ status: 'DELIVERED' }));
+
+        await service.transition(makeUser(['ADMIN'], 'admin1'), 'o1', {
+          status: 'DELIVERED',
+        });
+
+        const upd = repo.updateOrder.mock.calls[0][2] as Upd;
+        expect(upd.paidCashAt).toBeInstanceOf(Date);
+        expect(deliveredEventMeta()).toMatchObject({ paidCash: true });
+      });
+
+      it('keeps an earlier paidCashAt (idempotent — never re-stamps)', async () => {
+        const earlier = new Date('2026-09-01T02:00:00Z');
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({
+            status: 'OUT_FOR_RETURN',
+            assignedRiderId: 'r1',
+            paidCashAt: earlier,
+          }),
+        );
+        repo.updateOrder.mockResolvedValue(makeOrder({ status: 'DELIVERED' }));
+
+        await service.transition(makeUser(['RIDER'], 'r1'), 'o1', {
+          status: 'DELIVERED',
+        });
+
+        const upd = repo.updateOrder.mock.calls[0][2] as Upd;
+        expect(upd).not.toHaveProperty('paidCashAt');
+        expect(deliveredEventMeta()).toBeUndefined();
+      });
+
+      it('invents no cash on a zero-total order', async () => {
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({
+            status: 'OUT_FOR_RETURN',
+            assignedRiderId: 'r1',
+            customerTotalPhp: D('0.00'),
+          }),
+        );
+        repo.updateOrder.mockResolvedValue(makeOrder({ status: 'DELIVERED' }));
+
+        await service.transition(makeUser(['RIDER'], 'r1'), 'o1', {
+          status: 'DELIVERED',
+        });
+
+        const upd = repo.updateOrder.mock.calls[0][2] as Upd;
+        expect(upd).not.toHaveProperty('paidCashAt');
+      });
+
+      it('records no cash when no rider is on the order (admin delivery)', async () => {
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({ status: 'OUT_FOR_RETURN', assignedRiderId: null }),
+        );
+        repo.updateOrder.mockResolvedValue(makeOrder({ status: 'DELIVERED' }));
+
+        await service.transition(makeUser(['ADMIN'], 'admin1'), 'o1', {
+          status: 'DELIVERED',
+        });
+
+        const upd = repo.updateOrder.mock.calls[0][2] as Upd;
+        expect(upd).not.toHaveProperty('paidCashAt');
+      });
+
+      it('never records cash on a non-DELIVERED transition', async () => {
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({ status: 'READY_FOR_RETURN', assignedRiderId: 'r1' }),
+        );
+        repo.updateOrder.mockResolvedValue(
+          makeOrder({ status: 'OUT_FOR_RETURN' }),
+        );
+
+        await service.transition(makeUser(['RIDER'], 'r1'), 'o1', {
+          status: 'OUT_FOR_RETURN',
+        });
+
+        const upd = repo.updateOrder.mock.calls[0][2] as Upd;
+        expect(upd).not.toHaveProperty('paidCashAt');
+      });
+
+      it('writes nothing if the delivery is rejected (a second DELIVERED 409s)', async () => {
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({
+            status: 'DELIVERED',
+            assignedRiderId: 'r1',
+            paidCashAt: new Date('2026-09-01T02:00:00Z'),
+          }),
+        );
+
+        await expect(
+          service.transition(makeUser(['RIDER'], 'r1'), 'o1', {
+            status: 'DELIVERED',
+          }),
+        ).rejects.toBeInstanceOf(ConflictException);
+        expect(repo.updateOrder).not.toHaveBeenCalled();
+        expect(repo.insertOrderEvent).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe('getOrder ownership + shaped read', () => {

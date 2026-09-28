@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { OrderStatus, Prisma, ServiceType, User } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -7,6 +7,8 @@ import { ZonesService } from '../zones/zones.service';
 import { ZonesRepository } from '../zones/zones.repository';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationsRepository } from '../notifications/notifications.repository';
+import { RiderCashRepository } from '../riders/rider-cash.repository';
+import { RiderCashService } from '../riders/rider-cash.service';
 import { OrdersRepository } from './orders.repository';
 import { OrdersService } from './orders.service';
 
@@ -17,6 +19,9 @@ import { OrdersService } from './orders.service';
  *   1. one full express lifecycle end to end (BOOKED → DELIVERED + remittance)
  *   2. capacity race: two concurrent creates on a 1-slot shop → exactly one wins
  *   3. transition race: two concurrent DELIVERED → exactly one wins, one line
+ *   4. U0 T2: DELIVERED records the COD cash atomically — the rider's
+ *      outstanding grows on delivery, repeats are idempotent, and the debt cap
+ *      sees the new amount
  */
 
 const D = (v: Prisma.Decimal.Value) => new Prisma.Decimal(v);
@@ -39,10 +44,15 @@ describe('Orders integration (Docker Postgres)', () => {
     new NotificationsRepository(prisma),
   );
   const service = new OrdersService(prisma, repo, config, zones, notifications);
+  // The rider-facing cash balance (GET /me/cash) — what the rider sees they owe.
+  const cash = new RiderCashService(new RiderCashRepository(prisma), config);
 
   const createdShopIds: string[] = [];
   let customer: User;
   let rider: User;
+  // Separate rider for the debt-cap test so pushing them over the cap never
+  // blocks the shared rider's assignments in the other tests.
+  let capRider: User;
   let admin: User;
   let serviceItemId: string;
 
@@ -52,6 +62,8 @@ describe('Orders integration (Docker Postgres)', () => {
     // A prior run may have persisted the old default; pin the Express ceiling to
     // 6kg so the golden Medium (6kg) order is eligible regardless of DB state.
     await config.update({ expressWeightThresholdKg: 6 }, `int-${SUFFIX}`);
+    // Same for the rider COD debt cap: pin the ₱1,500 default the cap test uses.
+    await config.update({ riderCodCapPhp: 1500 }, `int-${SUFFIX}`);
 
     const wdf = await prisma.serviceCatalogItem.upsert({
       where: { code: 'WDF' },
@@ -78,6 +90,15 @@ describe('Orders integration (Docker Postgres)', () => {
         riderProfile: { create: { status: 'VERIFIED', verifiedAt: new Date() } },
       },
     });
+    capRider = await prisma.user.create({
+      data: {
+        firebaseUid: `int-caprider-${SUFFIX}`,
+        phone: `+636${SUFFIX.slice(-9)}`,
+        displayName: 'Int Cap Rider',
+        roles: ['RIDER'],
+        riderProfile: { create: { status: 'VERIFIED', verifiedAt: new Date() } },
+      },
+    });
     admin = await prisma.user.create({
       data: {
         firebaseUid: `int-admin-${SUFFIX}`,
@@ -100,15 +121,16 @@ describe('Orders integration (Docker Postgres)', () => {
       await prisma.shopService.deleteMany({ where: { shopId } });
       await prisma.shop.delete({ where: { id: shopId } });
     }
+    const userIds = [customer.id, rider.id, capRider.id, admin.id];
     await prisma.notification.deleteMany({
-      where: { userId: { in: [customer.id, rider.id, admin.id] } },
+      where: { userId: { in: userIds } },
     });
     // RiderProfile FK is RESTRICT — remove it before deleting the rider user.
     await prisma.riderProfile.deleteMany({
-      where: { userId: { in: [customer.id, rider.id, admin.id] } },
+      where: { userId: { in: userIds } },
     });
     await prisma.user.deleteMany({
-      where: { id: { in: [customer.id, rider.id, admin.id] } },
+      where: { id: { in: userIds } },
     });
     await prisma.$disconnect();
   });
@@ -328,5 +350,129 @@ describe('Orders integration (Docker Postgres)', () => {
       where: { orderId: order.id },
     });
     expect(lines).toBe(1);
+  });
+
+  // ── U0 T2: deliver + collect cash is one atomic action ──────────────────
+
+  // Book, assign to `who`, and drive the order to OUT_FOR_RETURN (the shop
+  // steps run as admin). Optional reweigh sets the COD amount.
+  async function bookOutForReturn(who: User, weightKg?: number) {
+    const { shopServiceId } = await makeShop(5);
+    const order = await book(shopServiceId);
+    await service.assignRider(admin, order.id, { riderId: who.id });
+    await service.transition(who, order.id, { status: OrderStatus.PICKED_UP });
+    await service.transition(who, order.id, { status: OrderStatus.AT_SHOP });
+    if (weightKg != null) await service.weigh(admin, order.id, { weightKg });
+    await service.transition(admin, order.id, { status: OrderStatus.PROCESSING });
+    await service.transition(admin, order.id, {
+      status: OrderStatus.READY_FOR_RETURN,
+    });
+    return service.transition(who, order.id, {
+      status: OrderStatus.OUT_FOR_RETURN,
+    });
+  }
+
+  const outstanding = async (who: User) =>
+    D((await cash.balance(who.id)).outstandingPhp);
+
+  it('DELIVERED records the COD cash in the same tx; the rider owes it at once', async () => {
+    const order = await bookOutForReturn(rider);
+    expect(order.paidCashAt).toBeNull();
+    const before = await outstanding(rider);
+
+    const delivered = await service.transition(rider, order.id, {
+      status: OrderStatus.DELIVERED,
+    });
+
+    expect(delivered.paidCashAt).not.toBeNull();
+    expect(delivered.paidCashAt!.getTime()).toBe(delivered.deliveredAt!.getTime());
+    // The rider's outstanding grows by exactly the order total (₱197 golden).
+    const after = await outstanding(rider);
+    expect(after.minus(before).toFixed(2)).toBe(
+      delivered.customerTotalPhp.toFixed(2),
+    );
+    expect(delivered.customerTotalPhp.toFixed(2)).toBe('197.00');
+
+    // One DELIVERED event carries the cash (no separate pay-cash event).
+    const events = await prisma.orderEvent.findMany({
+      where: { orderId: order.id, status: OrderStatus.DELIVERED },
+    });
+    expect(events).toHaveLength(1);
+    expect(events[0].meta).toEqual({ paidCash: true, cashCollectedPhp: '197.00' });
+  });
+
+  it('is idempotent: pay-cash after delivery is a no-op success; a repeat DELIVERED 409s', async () => {
+    const order = await bookOutForReturn(rider);
+    const delivered = await service.transition(rider, order.id, {
+      status: OrderStatus.DELIVERED,
+    });
+    const owed = await outstanding(rider);
+    const eventCount = await prisma.orderEvent.count({
+      where: { orderId: order.id },
+    });
+
+    // Legacy "record cash" slide (or an admin) after delivery: succeeds, changes nothing.
+    const paid = await service.payCash(rider, order.id);
+    expect(paid.paidCashAt!.getTime()).toBe(delivered.paidCashAt!.getTime());
+    const paidByAdmin = await service.payCash(admin, order.id);
+    expect(paidByAdmin.paidCashAt!.getTime()).toBe(delivered.paidCashAt!.getTime());
+
+    // A retried delivery is refused by the state machine and writes nothing.
+    await expect(
+      service.transition(rider, order.id, { status: OrderStatus.DELIVERED }),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect((await outstanding(rider)).toFixed(2)).toBe(owed.toFixed(2));
+    expect(
+      await prisma.orderEvent.count({ where: { orderId: order.id } }),
+    ).toBe(eventCount);
+    expect(
+      await prisma.remittanceLine.count({ where: { orderId: order.id } }),
+    ).toBe(1);
+  });
+
+  it('keeps an earlier pay-cash timestamp when the order is then delivered', async () => {
+    const order = await bookOutForReturn(rider);
+    const paid = await service.payCash(rider, order.id); // cash taken early
+    const before = await outstanding(rider);
+
+    const delivered = await service.transition(rider, order.id, {
+      status: OrderStatus.DELIVERED,
+    });
+
+    expect(delivered.paidCashAt!.getTime()).toBe(paid.paidCashAt!.getTime());
+    // Already counted at pay-cash — delivery must not count it again.
+    expect((await outstanding(rider)).toFixed(2)).toBe(before.toFixed(2));
+  });
+
+  it('cap: a delivery that crosses riderCodCapPhp blocks the next assignment', async () => {
+    // 60kg × ₱25 = ₱1,500 wash + ₱40 delivery + ₱7 service = ₱1,547 ≥ ₱1,500 cap.
+    const order = await bookOutForReturn(capRider, 60);
+    expect(order.customerTotalPhp.toFixed(2)).toBe('1547.00');
+    expect((await outstanding(capRider)).toFixed(2)).toBe('0.00');
+    // Auto-dispatch's cap filter (private; reached by bracket access so the
+    // assertion is deterministic, unlike the least-loaded pick) — under cap now.
+    const underCap = (ids: string[]) =>
+      prisma.$transaction((tx) => repo['filterUnderCodCap'](tx, ids, 1500));
+    expect(await underCap([capRider.id])).toEqual([capRider.id]);
+
+    await service.transition(capRider, order.id, {
+      status: OrderStatus.DELIVERED,
+    });
+    expect((await outstanding(capRider)).toFixed(2)).toBe('1547.00');
+    // The dispatch gate reads the same number.
+    expect((await repo.riderOutstandingCod(capRider.id)).toFixed(2)).toBe(
+      '1547.00',
+    );
+
+    // Skipping a separate "record cash" step no longer hides the debt: the
+    // next manual assignment is refused until the rider deposits.
+    const { shopServiceId } = await makeShop(5);
+    const next = await book(shopServiceId);
+    await expect(
+      service.assignRider(admin, next.id, { riderId: capRider.id }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    // Auto-dispatch's cap filter now drops them too.
+    expect(await underCap([capRider.id])).toEqual([]);
   });
 });

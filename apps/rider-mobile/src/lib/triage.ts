@@ -2,6 +2,7 @@ import {
   isTerminal,
   OrderStatus,
   OrderView,
+  peso,
   statusLabel,
 } from '@wash-and-go/domain';
 
@@ -46,4 +47,30 @@ export function actionLabel(status: OrderStatus): string {
 // Money / irreversible actions get slide-to-confirm (design D2).
 export function needsConfirm(status: OrderStatus): boolean {
   return status === 'DELIVERED';
+}
+
+// Cash on delivery (U0 T2). COD is the only payment method at launch, so an
+// order with a positive total is paid in cash at the door. Mirrors the API's
+// rule (apps/api/src/orders/cash-on-delivery.ts): the server records the cash
+// in the same write as DELIVERED, so the rider never has a second step to skip.
+export function collectsCash(o: Pick<OrderView, 'customerTotalPhp'>): boolean {
+  const n = Number(o.customerTotalPhp);
+  return Number.isFinite(n) && n > 0;
+}
+
+// The one deliver slide: it says the cash is being collected, and how much.
+export function deliverSlideLabel(
+  o: Pick<OrderView, 'customerTotalPhp'>,
+): string {
+  return collectsCash(o)
+    ? `Slide: collected ${peso(o.customerTotalPhp)} & delivered`
+    : `Slide to ${actionLabel('DELIVERED').toLowerCase()}`;
+}
+
+// Legacy only: an order delivered before U0 T2 may still have no cash recorded.
+// Those (and only those) keep the separate record-cash slide.
+export function needsCashRecord(
+  o: Pick<OrderView, 'status' | 'paidCashAt' | 'customerTotalPhp'>,
+): boolean {
+  return o.status === 'DELIVERED' && !o.paidCashAt && collectsCash(o);
 }

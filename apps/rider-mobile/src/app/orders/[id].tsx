@@ -21,7 +21,12 @@ import {
 } from '@wash-and-go/ui';
 import { api } from '../../lib/api';
 import { mapTiles } from '../../components/mapTiles';
-import { actionLabel, needsConfirm } from '../../lib/triage';
+import {
+  actionLabel,
+  deliverSlideLabel,
+  needsCashRecord,
+  needsConfirm,
+} from '../../lib/triage';
 
 type State =
   | { kind: 'loading' }
@@ -83,9 +88,14 @@ export default function JobDetailScreen() {
     async (status: OrderStatus) => {
       setBusy(true);
       try {
-        await api.transition(id, status);
+        const updated = await api.transition(id, status);
         await load(true);
-        toast.success('Job updated.');
+        // Delivering a COD order records its cash server-side in the same write.
+        toast.success(
+          status === 'DELIVERED' && updated.paidCashAt
+            ? 'Delivered. Cash recorded.'
+            : 'Job updated.',
+        );
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'That action failed.');
       } finally {
@@ -125,7 +135,8 @@ export default function JobDetailScreen() {
 
   const o = state.order;
   const actions = o.availableActions ?? [];
-  const showCash = o.status === 'DELIVERED' && !o.paidCashAt;
+  // Legacy orders only (delivered before deliver + collect became one step).
+  const showCash = needsCashRecord(o);
   const plat = o.pickupLat != null ? Number(o.pickupLat) : null;
   const plng = o.pickupLng != null ? Number(o.pickupLng) : null;
   const hasPin = plat != null && Number.isFinite(plat) && plng != null && Number.isFinite(plng);
@@ -191,8 +202,13 @@ export default function JobDetailScreen() {
             needsConfirm(a) ? (
               <SlideToConfirm
                 key={a}
-                label={`Slide to ${actionLabel(a).toLowerCase()}`}
+                label={
+                  a === 'DELIVERED'
+                    ? deliverSlideLabel(o)
+                    : `Slide to ${actionLabel(a).toLowerCase()}`
+                }
                 onConfirm={() => !busy && drive(a)}
+                loading={busy}
               />
             ) : (
               <PrimaryButton
@@ -208,6 +224,7 @@ export default function JobDetailScreen() {
               label="Slide to record cash collected"
               color={colors.success}
               onConfirm={() => !busy && recordCash()}
+              loading={busy}
             />
           ) : null}
         </View>

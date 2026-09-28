@@ -1,7 +1,10 @@
 import type { OrderView } from '@wash-and-go/domain';
 import {
   actionLabel,
+  collectsCash,
+  deliverSlideLabel,
   jobGroup,
+  needsCashRecord,
   needsConfirm,
   sortJobs,
 } from './triage';
@@ -73,5 +76,55 @@ describe('actionLabel + needsConfirm', () => {
   it('requires slide-confirm only for Delivered', () => {
     expect(needsConfirm('DELIVERED')).toBe(true);
     expect(needsConfirm('PICKED_UP')).toBe(false);
+  });
+});
+
+// U0 T2: delivering a COD order records its cash in the same step, so the one
+// slide names the amount; the separate record-cash slide survives only for
+// orders delivered before that (DELIVERED with no paidCashAt).
+describe('collectsCash', () => {
+  it('is true for a positive total (COD is the only payment method)', () => {
+    expect(collectsCash(job({ customerTotalPhp: '222' }))).toBe(true);
+  });
+  it('is false for a zero, negative or unparseable total', () => {
+    expect(collectsCash(job({ customerTotalPhp: '0.00' }))).toBe(false);
+    expect(collectsCash(job({ customerTotalPhp: '-5' }))).toBe(false);
+    expect(collectsCash(job({ customerTotalPhp: 'abc' }))).toBe(false);
+  });
+});
+
+describe('deliverSlideLabel', () => {
+  it('names the cash collected, formatted with the peso helper', () => {
+    expect(
+      deliverSlideLabel(job({ status: 'OUT_FOR_RETURN', customerTotalPhp: '1547' })),
+    ).toBe('Slide: collected ₱1,547.00 & delivered');
+  });
+  it('falls back to a plain delivered slide when there is no cash to collect', () => {
+    expect(
+      deliverSlideLabel(job({ status: 'OUT_FOR_RETURN', customerTotalPhp: '0' })),
+    ).toBe('Slide to mark delivered');
+  });
+});
+
+describe('needsCashRecord', () => {
+  it('is true for a legacy delivered order with no cash recorded', () => {
+    expect(needsCashRecord(job({ status: 'DELIVERED', paidCashAt: null }))).toBe(true);
+  });
+  it('is false once cash is recorded (the normal path after delivery)', () => {
+    expect(
+      needsCashRecord(
+        job({ status: 'DELIVERED', paidCashAt: '2026-09-28T03:00:00.000Z' }),
+      ),
+    ).toBe(false);
+  });
+  it('is false before delivery — the combined slide handles the cash', () => {
+    expect(needsCashRecord(job({ status: 'OUT_FOR_RETURN', paidCashAt: null }))).toBe(
+      false,
+    );
+  });
+  it('is false for a delivered order with nothing to collect', () => {
+    expect(
+      needsCashRecord(job({ status: 'DELIVERED', paidCashAt: null, customerTotalPhp: '0' })),
+    ).toBe(false);
   });
 });
