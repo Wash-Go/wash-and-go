@@ -1,27 +1,3 @@
-import type { RemittanceBatchView } from '@wash-and-go/domain';
-
-// Sum the payout still owed (PENDING batches). Money is stringified Decimal, so
-// sum in centavos to avoid float drift, then format back.
-export function pendingTotalPhp(batches: RemittanceBatchView[]): string {
-  const centavos = batches
-    .filter((b) => b.status === 'PENDING')
-    .reduce((acc, b) => acc + Math.round(Number(b.totalPhp) * 100), 0);
-  return (centavos / 100).toFixed(2);
-}
-
-export function countByStatus(batches: RemittanceBatchView[]): {
-  pending: number;
-  paid: number;
-} {
-  let pending = 0;
-  let paid = 0;
-  for (const b of batches) {
-    if (b.status === 'PAID') paid += 1;
-    else pending += 1;
-  }
-  return { pending, paid };
-}
-
 // Last full week [Mon 00:00Z, next Mon 00:00Z) as of `now` — the default close
 // period. Computed in UTC so it's deterministic regardless of the runner's
 // timezone; the admin can adjust the range in the UI. ISO strings the API's

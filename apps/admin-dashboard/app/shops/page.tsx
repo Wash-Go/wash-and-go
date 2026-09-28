@@ -11,6 +11,7 @@ import type {
 import { api, API_BASE_URL } from '../../lib/api';
 import { TableSkeleton } from '../Skeleton';
 import { c } from '../../lib/theme';
+import { mutationErrorMessage } from '../../lib/mutation-errors';
 
 // Leaflet touches window — load the map client-only.
 const ShopsMap = dynamic(() => import('../ShopsMap'), {
@@ -167,7 +168,9 @@ function NewShop({ onSaved }: { onSaved: (m: string) => void }) {
           {create.isPending ? '…' : 'Create'}
         </button>
         {create.isError ? (
-          <span style={{ color: c.danger, fontSize: 12 }}>failed — check inputs</span>
+          <span role="alert" style={{ color: c.danger, fontSize: 12 }}>
+            {mutationErrorMessage('create-shop', create.error)}
+          </span>
         ) : null}
       </div>
     </div>
@@ -335,8 +338,13 @@ function ShopRow({
                 border: `1px solid ${shop.active ? c.danger : c.success}`,
               }}
             >
-              {shop.active ? 'Deactivate' : 'Activate'}
+              {toggleActive.isPending ? '…' : shop.active ? 'Deactivate' : 'Activate'}
             </button>
+            {toggleActive.isError ? (
+              <span role="alert" style={{ color: c.danger, fontSize: 12, alignSelf: 'center' }}>
+                {mutationErrorMessage('update-shop', toggleActive.error)}
+              </span>
+            ) : null}
           </div>
         </td>
       </tr>
@@ -463,7 +471,11 @@ function Services({
         >
           {add.isPending ? '…' : 'Add'}
         </button>
-        {add.isError ? <span style={{ color: c.danger, fontSize: 12 }}>failed</span> : null}
+        {add.isError ? (
+          <span role="alert" style={{ color: c.danger, fontSize: 12 }}>
+            {mutationErrorMessage('add-service', add.error)}
+          </span>
+        ) : null}
       </div>
     </div>
   );
@@ -533,8 +545,13 @@ function ServiceRow({
           border: `1px solid ${svc.active ? c.danger : c.success}`,
         }}
       >
-        {svc.active ? 'Disable' : 'Enable'}
+        {toggle.isPending ? '…' : svc.active ? 'Disable' : 'Enable'}
       </button>
+      {save.isError || toggle.isError ? (
+        <span role="alert" style={{ color: c.danger, fontSize: 12 }}>
+          {mutationErrorMessage('update-service', save.isError ? save.error : toggle.error)}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -579,14 +596,15 @@ function Members({ shop, onSaved }: { shop: AdminShopDetail; onSaved: (m: string
             >
               <span style={{ fontWeight: 600, minWidth: 60 }}>{m.role}</span>
               <span style={{ flex: 1 }}>
-                {m.displayName || '—'} <span style={{ color: c.muted }}>· {m.phone}</span>
+                {m.displayName || '—'}{' '}
+                <span style={{ color: c.muted }}>· {m.phone ?? 'No phone yet'}</span>
               </span>
               <button
                 onClick={() => remove.mutate(m.id)}
                 disabled={remove.isPending}
                 style={{ ...btn('transparent', c.danger), border: `1px solid ${c.danger}` }}
               >
-                Remove
+                {remove.isPending && remove.variables === m.id ? '…' : 'Remove'}
               </button>
             </div>
           ))}
@@ -618,7 +636,16 @@ function Members({ shop, onSaved }: { shop: AdminShopDetail; onSaved: (m: string
         >
           {add.isPending ? '…' : 'Add staff'}
         </button>
-        {add.isError ? <span style={{ color: c.danger, fontSize: 12 }}>failed</span> : null}
+        {add.isError ? (
+          <span role="alert" style={{ color: c.danger, fontSize: 12 }}>
+            {mutationErrorMessage('add-staff', add.error)}
+          </span>
+        ) : null}
+        {remove.isError ? (
+          <span role="alert" style={{ color: c.danger, fontSize: 12 }}>
+            {mutationErrorMessage('remove-staff', remove.error)}
+          </span>
+        ) : null}
       </div>
     </div>
   );

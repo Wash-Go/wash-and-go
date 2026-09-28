@@ -4,6 +4,7 @@ import { AddressController } from '../users/address.controller';
 import { AdminUsersController } from '../users/admin-users.controller';
 import { OrdersController } from '../orders/orders.controller';
 import { PlatformConfigController } from '../platform-config/platform-config.controller';
+import { BookingConfigController } from '../platform-config/booking-config.controller';
 import { RemittanceController } from '../remittance/remittance.controller';
 import { ShopRemittanceController } from '../remittance/shop-remittance.controller';
 import { RidersController } from '../riders/riders.controller';
@@ -18,6 +19,7 @@ import { ZonesController } from '../zones/zones.controller';
 import { GeocodeController } from '../maps/geocode.controller';
 import { NotificationsController } from '../notifications/notifications.controller';
 import { UploadsController } from '../uploads/uploads.controller';
+import { AuthController } from '../auth/auth.controller';
 
 /*
  * B6: lock the coarse role matrix. RolesGuard reads @Roles metadata off each
@@ -65,11 +67,16 @@ describe('route role matrix', () => {
     expect(rolesOf(c, 'audit')).toEqual(['ADMIN']);
   });
 
+  it('the booking rules read is CUSTOMER-only (same audience as quote/create)', () => {
+    expect(rolesOf(BookingConfigController.prototype, 'get')).toEqual(['CUSTOMER']);
+  });
+
   it('admin remittance routes are ADMIN-only', () => {
     const c = RemittanceController.prototype;
     expect(rolesOf(c, 'close')).toEqual(['ADMIN']);
     expect(rolesOf(c, 'list')).toEqual(['ADMIN']);
     expect(rolesOf(c, 'markPaid')).toEqual(['ADMIN']);
+    expect(rolesOf(c, 'summary')).toEqual(['ADMIN']);
   });
 
   it('the riders picker is ADMIN-only', () => {
@@ -176,5 +183,10 @@ describe('route role matrix', () => {
       'SHOP_OWNER',
       'SHOP_STAFF',
     ]);
+  });
+
+  it('own profile routes are any-authenticated (the caller edits only themselves)', () => {
+    expect(rolesOf(AuthController.prototype, 'me')).toBeUndefined();
+    expect(rolesOf(AuthController.prototype, 'updateMe')).toBeUndefined();
   });
 });

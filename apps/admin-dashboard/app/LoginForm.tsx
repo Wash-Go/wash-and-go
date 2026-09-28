@@ -1,7 +1,9 @@
 'use client';
 import { useState } from 'react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { api } from '../lib/api';
 import { auth } from '../lib/firebase';
+import { sessionAfterSignIn } from '../lib/session';
 import { c } from '../lib/theme';
 
 function mapErr(code?: string): string {
@@ -22,8 +24,16 @@ function mapErr(code?: string): string {
 }
 
 // Full-screen sign-in shown by AuthGate when no one is signed in (prod). Admins
-// are provisioned — sign-in only, no self-signup.
-export function LoginForm() {
+// are provisioned — sign-in only, no self-signup. A successful Firebase sign-in
+// also creates/refreshes the DB user (POST /auth/session) before the console
+// opens; AuthGate stays on this form from onSubmitStart until onSignedIn.
+export function LoginForm({
+  onSubmitStart,
+  onSignedIn,
+}: {
+  onSubmitStart: () => void;
+  onSignedIn: () => void;
+}) {
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
   const [err, setErr] = useState<string | null>(null);
@@ -33,13 +43,20 @@ export function LoginForm() {
     e.preventDefault();
     setBusy(true);
     setErr(null);
+    onSubmitStart();
     try {
       await signInWithEmailAndPassword(auth, email.trim(), pw);
     } catch (ex) {
       setErr(mapErr((ex as { code?: string })?.code));
-    } finally {
       setBusy(false);
+      return;
     }
+    // No DB user → every API call 401s, so a failure here keeps the form up
+    // (signed back out of Firebase) with the reason, instead of opening the console.
+    const res = await sessionAfterSignIn(auth.currentUser, api, () => signOut(auth));
+    setBusy(false);
+    if (res.ok) onSignedIn();
+    else setErr(res.message);
   }
 
   return (

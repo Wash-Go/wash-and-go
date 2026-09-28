@@ -4,7 +4,8 @@ import { useMemo, useState } from 'react';
 import type { ZoneView } from '@wash-and-go/domain';
 import { api, API_BASE_URL } from '../../lib/api';
 import { CardsSkeleton } from '../Skeleton';
-import { c } from '../../lib/theme';
+import { c, tint } from '../../lib/theme';
+import { mutationErrorMessage } from '../../lib/mutation-errors';
 import { parseVertices, polygonSvgPoints } from '../../lib/zones';
 
 const SAMPLE = '6.86, 122.02\n6.86, 122.14\n6.98, 122.14\n6.98, 122.02';
@@ -146,7 +147,7 @@ function ZonePreview({ points }: { points: string }) {
         <svg viewBox="0 0 100 100" width="100%" height="100%" aria-label="zone shape">
           <polygon
             points={points}
-            fill={c.brand + '22'}
+            fill={tint(c.brand, '22')}
             stroke={c.brand}
             strokeWidth={1.5}
           />
@@ -190,7 +191,7 @@ function ZoneCard({ zone, onChanged }: { zone: ZoneView; onChanged: (m: string) 
         <svg viewBox="0 0 100 100" width="100%" height="100%">
           <polygon
             points={pts}
-            fill={(zone.active ? c.success : c.muted) + '22'}
+            fill={tint(zone.active ? c.success : c.muted, '22')}
             stroke={zone.active ? c.success : c.muted}
             strokeWidth={2}
           />
@@ -204,6 +205,11 @@ function ZoneCard({ zone, onChanged }: { zone: ZoneView; onChanged: (m: string) 
             {zone.active ? 'Active' : 'Inactive'}
           </span>
         </div>
+        {toggle.isError ? (
+          <div role="alert" style={{ color: c.danger, fontSize: 12, marginTop: 4 }}>
+            {mutationErrorMessage('toggle-zone', toggle.error)}
+          </div>
+        ) : null}
       </div>
       <button
         onClick={() => toggle.mutate()}

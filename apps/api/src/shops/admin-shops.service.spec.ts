@@ -81,6 +81,7 @@ describe('AdminShopsService', () => {
           ],
           members: [
             { id: 'm1', userId: 'u1', role: 'OWNER', user: { displayName: 'Owner', phone: '+63917' } },
+            { id: 'm2', userId: 'u2', role: 'STAFF', user: { displayName: '', phone: 'pending:fb-u2' } },
           ],
         }),
       },
@@ -88,7 +89,9 @@ describe('AdminShopsService', () => {
     const detail = await svc.get('s1');
     expect(detail.services).toHaveLength(1);
     expect(detail.services[0]).toMatchObject({ code: 'WDF', ratePhp: '25.00' });
-    expect(detail.members[0]).toMatchObject({ role: 'OWNER', displayName: 'Owner' });
+    expect(detail.members[0]).toMatchObject({ role: 'OWNER', displayName: 'Owner', phone: '+63917' });
+    // U0 T4: a member still on the placeholder phone shows as null.
+    expect(detail.members[1].phone).toBeNull();
   });
 
   it('get 404s a missing shop', async () => {
@@ -157,6 +160,23 @@ describe('AdminShopsService', () => {
     await expect(
       svc.addMember('s1', { userId: 'ghost', role: 'STAFF' }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('addMember reports a member still on the placeholder phone as null', async () => {
+    const { svc } = makeService({
+      shop: { findUnique: jest.fn().mockResolvedValue({ id: 's1' }) },
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ id: 'u2', displayName: '', phone: 'pending:fb-u2' }),
+      },
+      shopMember: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: 'm2', role: 'STAFF' }),
+      },
+    });
+    const m = await svc.addMember('s1', { userId: 'u2', role: 'STAFF' });
+    expect(m).toMatchObject({ id: 'm2', userId: 'u2', phone: null });
   });
 
   it('removeMember guards against deleting another shop’s member', async () => {

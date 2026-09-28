@@ -7,6 +7,7 @@ import type {
   AdminShopServiceView,
   AdminShopView,
   AdminUserView,
+  BookingConfigView,
   CloseRemittanceBody,
   CreateShopBody,
   OwnerShopView,
@@ -23,11 +24,13 @@ import type {
   CreateOrderBody,
   CreateZoneBody,
   GeocodeHit,
+  MeView,
   NotificationList,
   RecordDepositBody,
   RiderCashBalance,
   RiderCashDetail,
   UpdateAddressBody,
+  UpdateMeBody,
   ZoneView,
   OrderQuote,
   OrderStatus,
@@ -39,6 +42,7 @@ import type {
   QuoteOrderBody,
   RateOrderBody,
   RemittanceBatchView,
+  RemittanceSummaryView,
   Rider,
   ShopView,
   UserRole,
@@ -152,6 +156,18 @@ export class ApiClient {
     return this.request('POST', '/auth/session', { idToken: token });
   }
 
+  // The signed-in user's own account. phone is null until they add a mobile
+  // number (email sign-ups start without one).
+  getMe(): Promise<MeView> {
+    return this.request('GET', '/auth/me');
+  }
+
+  // Set the own name and/or mobile number. 400 = not a PH mobile number;
+  // 409 = another account already has that number.
+  updateMe(body: UpdateMeBody): Promise<MeView> {
+    return this.request('PATCH', '/auth/me', body);
+  }
+
   // Rider-facing: my own cash balance + deposit history.
   getMyCash(): Promise<RiderCashDetail> {
     return this.request('GET', '/me/cash');
@@ -183,6 +199,11 @@ export class ApiClient {
   // Resolve nearest shop (or the override) + a priced quote for checkout.
   quoteOrder(body: QuoteOrderBody): Promise<OrderQuote> {
     return this.request('POST', '/orders/quote', body);
+  }
+
+  // Customer: the booking rules the Book screen gates on (Express ceiling kg).
+  getBookingConfig(): Promise<BookingConfigView> {
+    return this.request('GET', '/config/booking');
   }
 
   // Admin-only: riders for the dispatch assign picker.
@@ -274,6 +295,11 @@ export class ApiClient {
     if (filter?.status) q.set('status', filter.status);
     const qs = q.toString();
     return this.request('GET', `/admin/remittance/batches${qs ? `?${qs}` : ''}`);
+  }
+
+  // Owed / paid totals over every batch, independent of the list filter.
+  getRemittanceSummary(): Promise<RemittanceSummaryView> {
+    return this.request('GET', '/admin/remittance/summary');
   }
 
   closeRemittance(body: CloseRemittanceBody): Promise<RemittanceBatchView[]> {

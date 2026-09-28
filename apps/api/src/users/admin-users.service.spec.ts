@@ -40,6 +40,16 @@ describe('AdminUsersService', () => {
       expect(repo.listUsers).toHaveBeenCalledWith({ role: 'RIDER', q: 'one' });
       expect(out[0]).toMatchObject({ id: 'u1', roles: ['CUSTOMER', 'RIDER'], disabledAt: null });
     });
+
+    // U0 T4: the directory shows "No phone yet" rather than pending:<uid>.
+    it('reports a placeholder phone as null and a real one as-is', async () => {
+      repo.listUsers.mockResolvedValue([
+        makeUser({ id: 'u1', phone: 'pending:fb-u1' }),
+        makeUser({ id: 'u2', phone: '+639171234567' }),
+      ]);
+      const out = await service.list({});
+      expect(out.map((u) => u.phone)).toEqual([null, '+639171234567']);
+    });
   });
 
   describe('setRoles', () => {

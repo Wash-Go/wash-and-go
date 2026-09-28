@@ -544,6 +544,107 @@ describe('OrdersService', () => {
       expect(q.shopServiceId).toBe('shopsvc1'); // nearest, capacity ignored
       expect(repo.countExpressUsedByShopForDay).not.toHaveBeenCalled();
     });
+
+    // U0 T6: the quote runs the same coverage gate as create. Before, an
+    // out-of-area customer was shown a full price and only Confirm failed.
+    describe('coverage (same gate as create)', () => {
+      // Manila — outside the pilot Zamboanga ring.
+      const outside = { pickupLat: 14.5995, pickupLng: 120.9842 };
+      // A shop right next to the out-of-area pickup, so the old radius check
+      // (maxResolveKm) alone would have happily quoted it.
+      function shopNextToOutside() {
+        const base = makeShopService();
+        return {
+          ...base,
+          id: 'shopsvc-mnl',
+          shop: { ...base.shop, id: 'shop-mnl', lat: D('14.5995'), lng: D('120.9842') },
+        };
+      }
+
+      async function rejection(p: Promise<unknown>): Promise<BadRequestException> {
+        const e = await p.then(
+          () => {
+            throw new Error('expected a rejection, got a quote');
+          },
+          (err: unknown) => err,
+        );
+        expect(e).toBeInstanceOf(BadRequestException);
+        return e as BadRequestException;
+      }
+
+      it('refuses an out-of-coverage pickup before resolving a shop', async () => {
+        repo.findActiveShopServices.mockResolvedValue([shopNextToOutside()] as never);
+        const e = await rejection(
+          service.quoteOrder({ ...outside, loadCategory: 'M' }),
+        );
+        expect(e.message).toBe('Pickup location is outside coverage');
+        expect(repo.findActiveShopServices).not.toHaveBeenCalled();
+      });
+
+      it('refuses it on the shopServiceId override path too', async () => {
+        repo.findShopServiceWithShop.mockResolvedValue(shopNextToOutside() as never);
+        const e = await rejection(
+          service.quoteOrder({
+            ...outside,
+            loadCategory: 'M',
+            shopServiceId: 'shopsvc-mnl',
+          }),
+        );
+        expect(e.message).toBe('Pickup location is outside coverage');
+        expect(repo.findShopServiceWithShop).not.toHaveBeenCalled();
+      });
+
+      it('refuses it for a SCHEDULED quote too', async () => {
+        repo.findActiveShopServices.mockResolvedValue([shopNextToOutside()] as never);
+        const e = await rejection(
+          service.quoteOrder({ ...outside, loadCategory: 'L', serviceType: 'SCHEDULED' }),
+        );
+        expect(e.message).toBe('Pickup location is outside coverage');
+      });
+
+      it('answers exactly like create: same status and same response body', async () => {
+        repo.findActiveShopServices.mockResolvedValue([shopNextToOutside()] as never);
+        repo.findShopServiceWithShop.mockResolvedValue(shopNextToOutside() as never);
+        const customer = makeUser(['CUSTOMER'], 'cust');
+        const body = {
+          shopServiceId: 'shopsvc-mnl',
+          pickupAddress: 'Manila',
+          ...outside,
+        };
+
+        const quoteExpress = await rejection(
+          service.quoteOrder({ ...outside, loadCategory: 'M' }),
+        );
+        const createExpress = await rejection(
+          service.createExpressOrder(customer, { ...body, loadCategory: 'M' }),
+        );
+        expect(quoteExpress.getStatus()).toBe(createExpress.getStatus());
+        expect(quoteExpress.getResponse()).toEqual(createExpress.getResponse());
+
+        const quoteScheduled = await rejection(
+          service.quoteOrder({ ...outside, loadCategory: 'L', serviceType: 'SCHEDULED' }),
+        );
+        const createScheduled = await rejection(
+          service.createScheduledOrder(customer, {
+            ...body,
+            loadCategory: 'L',
+            serviceType: 'SCHEDULED',
+            scheduledPickupAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+          }),
+        );
+        expect(quoteScheduled.getStatus()).toBe(createScheduled.getStatus());
+        expect(quoteScheduled.getResponse()).toEqual(createScheduled.getResponse());
+      });
+
+      it('still checks the Express ceiling first, in the same order as create', async () => {
+        // Large Express AND out of area: create answers with the ceiling
+        // message, so the quote must too.
+        const e = await rejection(
+          service.quoteOrder({ ...outside, loadCategory: 'L' }),
+        );
+        expect(e.message).toMatch(/Express limit/);
+      });
+    });
   });
 
   describe('assignRider', () => {
@@ -638,6 +739,62 @@ describe('OrdersService', () => {
       await expect(
         service.weigh(makeUser(['ADMIN']), 'o1', { weightKg: 6 }),
       ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    // U0 T3: the weigh-in sets the customer's final bill, so the service
+    // refuses an impossible weight itself (the DTO checks it too, but only on
+    // the HTTP path) — and writes nothing.
+    describe('rejects an impossible weight with a 400 and writes nothing', () => {
+      it.each([0, -3, 50.01, 70, Number.NaN, Number.POSITIVE_INFINITY])(
+        '%p kg',
+        async (weightKg) => {
+          repo.findByIdForUpdate.mockResolvedValue(makeOrder({ status: 'AT_SHOP' }));
+          repo.findShopServiceWithShop.mockResolvedValue(makeShopService() as never);
+
+          const err = await service
+            .weigh(makeUser(['ADMIN']), 'o1', { weightKg })
+            .catch((e: unknown) => e);
+
+          expect(err).toBeInstanceOf(BadRequestException);
+          expect((err as Error).message).toBe(
+            'Enter a weight above 0 kg and no more than 50 kg.',
+          );
+          expect(repo.updateOrder).not.toHaveBeenCalled();
+          expect(repo.insertOrderEvent).not.toHaveBeenCalled();
+        },
+      );
+    });
+
+    it('accepts the 50kg maximum exactly', async () => {
+      repo.findByIdForUpdate.mockResolvedValue(makeOrder({ status: 'AT_SHOP' }));
+      repo.findShopServiceWithShop.mockResolvedValue(makeShopService() as never);
+      repo.updateOrder.mockImplementation((_tx, _id, data) =>
+        Promise.resolve(data as never),
+      );
+
+      await service.weigh(makeUser(['ADMIN']), 'o1', { weightKg: 50 });
+
+      const upd = repo.updateOrder.mock.calls[0][2] as { weightKg: Prisma.Decimal };
+      expect(upd.weightKg.toFixed(2)).toBe('50.00');
+    });
+
+    it('lets the shop re-weigh (fix a typo) while the order is being washed', async () => {
+      repo.findByIdForUpdate.mockResolvedValue(
+        makeOrder({ status: 'PROCESSING', weightKg: D('70') }),
+      );
+      repo.findShopServiceWithShop.mockResolvedValue(makeShopService() as never);
+      repo.updateOrder.mockImplementation((_tx, _id, data) =>
+        Promise.resolve(data as never),
+      );
+
+      await service.weigh(makeUser(['ADMIN']), 'o1', { weightKg: 7 });
+
+      const upd = repo.updateOrder.mock.calls[0][2] as {
+        weightKg: Prisma.Decimal;
+        washValuePhp: Prisma.Decimal;
+      };
+      expect(upd.weightKg.toFixed(2)).toBe('7.00');
+      expect(upd.washValuePhp.toFixed(2)).toBe('175.00'); // 7 × 25
     });
   });
 
@@ -739,6 +896,75 @@ describe('OrdersService', () => {
       expect(line.payoutPhp.toFixed(2)).toBe('132.00'); // == shopRemittancePhp
     });
 
+    // U0 T3: an unweighed order would be billed on the booking estimate, so it
+    // can't be marked ready until the shop records the actual weight.
+    describe('READY_FOR_RETURN requires a recorded weight', () => {
+      it.each([
+        ['a shop member', ['SHOP_STAFF'] as UserRole[]],
+        ['an admin', ['ADMIN'] as UserRole[]],
+      ])('refuses %s with a 400 and writes nothing', async (_who, roles) => {
+        repo.isShopMember.mockResolvedValue(true);
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({ status: 'PROCESSING', weightKg: null }),
+        );
+
+        const err = await service
+          .transition(makeUser(roles, 'staff1'), 'o1', {
+            status: 'READY_FOR_RETURN',
+          })
+          .catch((e: unknown) => e);
+
+        expect(err).toBeInstanceOf(BadRequestException);
+        expect((err as Error).message).toBe(
+          'Weigh this order before marking it ready',
+        );
+        expect(repo.updateOrder).not.toHaveBeenCalled();
+        expect(repo.insertOrderEvent).not.toHaveBeenCalled();
+      });
+
+      it('marks a weighed order ready', async () => {
+        repo.isShopMember.mockResolvedValue(true);
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({ status: 'PROCESSING', weightKg: D('6.40') }),
+        );
+        repo.updateOrder.mockResolvedValue(
+          makeOrder({ status: 'READY_FOR_RETURN', weightKg: D('6.40') }),
+        );
+
+        await service.transition(makeUser(['SHOP_STAFF'], 'staff1'), 'o1', {
+          status: 'READY_FOR_RETURN',
+        });
+
+        expect(repo.updateOrder.mock.calls[0][2]).toEqual({
+          status: 'READY_FOR_RETURN',
+        });
+      });
+
+      it('checks ownership before the weight (a stranger gets 403, not the weigh hint)', async () => {
+        repo.isShopMember.mockResolvedValue(false);
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({ status: 'PROCESSING', weightKg: null }),
+        );
+        await expect(
+          service.transition(makeUser(['SHOP_STAFF'], 'stranger'), 'o1', {
+            status: 'READY_FOR_RETURN',
+          }),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+      });
+
+      it('still offers "ready" as an action on an unweighed order (the portal explains why it is disabled)', async () => {
+        repo.isShopMember.mockResolvedValue(true);
+        repo.findByIdWithRelations.mockResolvedValue(
+          makeRelOrder({ status: 'PROCESSING', weightKg: null }) as never,
+        );
+        const detail = await service.getOrder(
+          makeUser(['SHOP_STAFF'], 'staff1'),
+          'o1',
+        );
+        expect(detail.availableActions).toContain('READY_FOR_RETURN');
+      });
+    });
+
     it('does not write remittance on a non-DELIVERED transition', async () => {
       repo.findByIdForUpdate.mockResolvedValue(
         makeOrder({ status: 'ASSIGNED', assignedRiderId: 'r1' }),
@@ -748,6 +974,182 @@ describe('OrdersService', () => {
         status: 'PICKED_UP',
       });
       expect(repo.insertRemittanceLine).not.toHaveBeenCalled();
+    });
+
+    // U0 T2: delivering a COD order IS collecting its cash — one atomic write,
+    // so a rider can't deliver, skip "record cash", and dodge the COD cap.
+    describe('DELIVERED records the COD cash in the same write', () => {
+      type Upd = { status: string; deliveredAt?: Date; paidCashAt?: Date };
+      const deliveredEventMeta = () =>
+        repo.insertOrderEvent.mock.calls.find(
+          (c) => (c[1] as { status: string }).status === 'DELIVERED',
+        )?.[1].meta as Record<string, unknown> | undefined;
+
+      it('sets paidCashAt with deliveredAt when the assigned rider delivers', async () => {
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({ status: 'OUT_FOR_RETURN', assignedRiderId: 'r1' }),
+        );
+        repo.updateOrder.mockResolvedValue(makeOrder({ status: 'DELIVERED' }));
+
+        await service.transition(makeUser(['RIDER'], 'r1'), 'o1', {
+          status: 'DELIVERED',
+        });
+
+        expect(repo.updateOrder).toHaveBeenCalledTimes(1); // one atomic write
+        const upd = repo.updateOrder.mock.calls[0][2] as Upd;
+        expect(upd.status).toBe('DELIVERED');
+        expect(upd.paidCashAt).toBeInstanceOf(Date);
+        expect(upd.paidCashAt).toBe(upd.deliveredAt); // same instant
+        // Audit: the DELIVERED event says cash was taken, and how much.
+        expect(deliveredEventMeta()).toEqual({
+          paidCash: true,
+          cashCollectedPhp: '222.00',
+        });
+      });
+
+      it('records the cash the same way when an admin marks it delivered', async () => {
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({ status: 'OUT_FOR_RETURN', assignedRiderId: 'r1' }),
+        );
+        repo.updateOrder.mockResolvedValue(makeOrder({ status: 'DELIVERED' }));
+
+        await service.transition(makeUser(['ADMIN'], 'admin1'), 'o1', {
+          status: 'DELIVERED',
+        });
+
+        const upd = repo.updateOrder.mock.calls[0][2] as Upd;
+        expect(upd.paidCashAt).toBeInstanceOf(Date);
+        expect(deliveredEventMeta()).toMatchObject({ paidCash: true });
+      });
+
+      it('keeps an earlier paidCashAt (idempotent — never re-stamps)', async () => {
+        const earlier = new Date('2026-09-01T02:00:00Z');
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({
+            status: 'OUT_FOR_RETURN',
+            assignedRiderId: 'r1',
+            paidCashAt: earlier,
+          }),
+        );
+        repo.updateOrder.mockResolvedValue(makeOrder({ status: 'DELIVERED' }));
+
+        await service.transition(makeUser(['RIDER'], 'r1'), 'o1', {
+          status: 'DELIVERED',
+        });
+
+        const upd = repo.updateOrder.mock.calls[0][2] as Upd;
+        expect(upd).not.toHaveProperty('paidCashAt');
+        expect(deliveredEventMeta()).toBeUndefined();
+      });
+
+      it('invents no cash on a zero-total order', async () => {
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({
+            status: 'OUT_FOR_RETURN',
+            assignedRiderId: 'r1',
+            customerTotalPhp: D('0.00'),
+          }),
+        );
+        repo.updateOrder.mockResolvedValue(makeOrder({ status: 'DELIVERED' }));
+
+        await service.transition(makeUser(['RIDER'], 'r1'), 'o1', {
+          status: 'DELIVERED',
+        });
+
+        const upd = repo.updateOrder.mock.calls[0][2] as Upd;
+        expect(upd).not.toHaveProperty('paidCashAt');
+      });
+
+      it('blocks an admin delivering a riderless unpaid COD order (nobody would owe the cash)', async () => {
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({ status: 'OUT_FOR_RETURN', assignedRiderId: null }),
+        );
+        repo.updateOrder.mockResolvedValue(makeOrder({ status: 'DELIVERED' }));
+
+        const err = await service
+          .transition(makeUser(['ADMIN'], 'admin1'), 'o1', { status: 'DELIVERED' })
+          .catch((e: unknown) => e);
+
+        expect(err).toBeInstanceOf(ConflictException);
+        expect((err as Error).message).toMatch(/pay-cash/);
+        expect((err as Error).message).toContain('₱222.00');
+        // Nothing written: no status change, no audit, no shop payout accrued.
+        expect(repo.updateOrder).not.toHaveBeenCalled();
+        expect(repo.insertOrderEvent).not.toHaveBeenCalled();
+        expect(repo.insertRemittanceLine).not.toHaveBeenCalled();
+      });
+
+      it('lets an admin deliver a riderless order once its cash was recorded with pay-cash', async () => {
+        const paidAt = new Date('2026-09-01T02:00:00Z');
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({
+            status: 'OUT_FOR_RETURN',
+            assignedRiderId: null,
+            paidCashAt: paidAt,
+          }),
+        );
+        repo.updateOrder.mockResolvedValue(makeOrder({ status: 'DELIVERED' }));
+
+        await service.transition(makeUser(['ADMIN'], 'admin1'), 'o1', {
+          status: 'DELIVERED',
+        });
+
+        const upd = repo.updateOrder.mock.calls[0][2] as Upd;
+        expect(upd.status).toBe('DELIVERED');
+        expect(upd).not.toHaveProperty('paidCashAt'); // kept, not re-stamped
+      });
+
+      it('lets an admin deliver a riderless order with nothing to collect', async () => {
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({
+            status: 'OUT_FOR_RETURN',
+            assignedRiderId: null,
+            customerTotalPhp: D('0.00'),
+          }),
+        );
+        repo.updateOrder.mockResolvedValue(makeOrder({ status: 'DELIVERED' }));
+
+        await service.transition(makeUser(['ADMIN'], 'admin1'), 'o1', {
+          status: 'DELIVERED',
+        });
+
+        const upd = repo.updateOrder.mock.calls[0][2] as Upd;
+        expect(upd).not.toHaveProperty('paidCashAt');
+      });
+
+      it('never records cash on a non-DELIVERED transition', async () => {
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({ status: 'READY_FOR_RETURN', assignedRiderId: 'r1' }),
+        );
+        repo.updateOrder.mockResolvedValue(
+          makeOrder({ status: 'OUT_FOR_RETURN' }),
+        );
+
+        await service.transition(makeUser(['RIDER'], 'r1'), 'o1', {
+          status: 'OUT_FOR_RETURN',
+        });
+
+        const upd = repo.updateOrder.mock.calls[0][2] as Upd;
+        expect(upd).not.toHaveProperty('paidCashAt');
+      });
+
+      it('writes nothing if the delivery is rejected (a second DELIVERED 409s)', async () => {
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({
+            status: 'DELIVERED',
+            assignedRiderId: 'r1',
+            paidCashAt: new Date('2026-09-01T02:00:00Z'),
+          }),
+        );
+
+        await expect(
+          service.transition(makeUser(['RIDER'], 'r1'), 'o1', {
+            status: 'DELIVERED',
+          }),
+        ).rejects.toBeInstanceOf(ConflictException);
+        expect(repo.updateOrder).not.toHaveBeenCalled();
+        expect(repo.insertOrderEvent).not.toHaveBeenCalled();
+      });
     });
   });
 
@@ -786,6 +1188,40 @@ describe('OrdersService', () => {
       const d = await service.getOrder(makeUser(['RIDER'], 'r1'), 'o1');
       expect(d.shop?.address).toContain('Zamboanga');
       expect(d.customer.phone).toBeTruthy();
+    });
+
+    // U0 T4: an email sign-up without a number yet has phone "pending:<uid>".
+    // Riders / shops must never get it as a callable number.
+    it.each([
+      ['assigned rider', ['RIDER'], 'r1'],
+      ['shop member', ['SHOP_OWNER'], 'owner1'],
+      ['admin', ['ADMIN'], 'adm'],
+    ] as [string, UserRole[], string][])(
+      'reports a placeholder customer phone as null to the %s',
+      async (_who, roles, id) => {
+        const rel = makeRelOrder({ status: 'ASSIGNED', assignedRiderId: 'r1' });
+        rel.customer = { ...rel.customer, phone: `pending:fb-${rel.customerId}` };
+        repo.findByIdWithRelations.mockResolvedValue(rel as never);
+        repo.isShopMember.mockResolvedValue(true);
+        const d = await service.getOrder(makeUser(roles, id), 'o1');
+        expect(d.customer.phone).toBeNull();
+      },
+    );
+
+    it('passes a real customer phone through unchanged', async () => {
+      repo.findByIdWithRelations.mockResolvedValue(
+        makeRelOrder({ status: 'ASSIGNED', assignedRiderId: 'r1' }) as never,
+      );
+      const d = await service.getOrder(makeUser(['RIDER'], 'r1'), 'o1');
+      expect(d.customer.phone).toBe('+639170000000');
+    });
+
+    it('masks placeholder phones in the order list too', async () => {
+      const rel = makeRelOrder({ status: 'ASSIGNED', assignedRiderId: 'r1' });
+      rel.customer = { ...rel.customer, phone: 'pending:fb-cust' };
+      repo.findManyWithRelations.mockResolvedValue([rel] as never);
+      const [d] = await service.listOrders(makeUser(['RIDER'], 'r1'));
+      expect(d.customer.phone).toBeNull();
     });
   });
 

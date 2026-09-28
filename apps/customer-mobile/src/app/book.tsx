@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import type { AddressView } from '@wash-and-go/domain';
+import type { AddressView, BookingConfigView, LoadCategoryKey } from '@wash-and-go/domain';
 import { MapPicker } from '../components/MapPicker';
 import {
   Card,
@@ -15,7 +15,7 @@ import {
   useToast,
 } from '@wash-and-go/ui';
 import { api } from '../lib/api';
-import { LOAD_BUCKETS, LoadBucket } from '../lib/format';
+import { expressCeilingKg, loadBuckets } from '../lib/format';
 
 interface PickupSlot {
   iso: string;
@@ -24,7 +24,9 @@ interface PickupSlot {
 
 // Preset pickup windows for Scheduled (Tier 1) bookings — a few concrete future
 // slots so the customer taps one instead of a raw date picker. Always in the
-// future (bumped a day if the hour has passed).
+// future (bumped a day if the hour has passed). Built here on purpose: the API
+// has no pickup-slot model yet (it only checks the time is in the future), so
+// there is nothing server-side to read them from.
 function buildSlots(): PickupSlot[] {
   const now = new Date();
   const mk = (addDays: number, hour: number, label: string): PickupSlot => {
@@ -42,7 +44,16 @@ function buildSlots(): PickupSlot[] {
 }
 
 export default function BookScreen() {
-  const [bucket, setBucket] = useState<LoadBucket | null>(null);
+  // The Express ceiling is admin-editable on the server; gate on its value so
+  // this screen and the quote agree (U0 T6). Until it loads, or if it can't be
+  // fetched, expressCeilingKg falls back to the shared default.
+  const [bookingCfg, setBookingCfg] = useState<BookingConfigView | null>(null);
+  const thresholdKg = expressCeilingKg(bookingCfg);
+  const buckets = useMemo(() => loadBuckets(thresholdKg), [thresholdKg]);
+  // Keep the key, not the bucket, so eligibility re-derives when the ceiling
+  // arrives after the customer has already picked a size.
+  const [bucketKey, setBucketKey] = useState<LoadCategoryKey | null>(null);
+  const bucket = buckets.find((b) => b.key === bucketKey) ?? null;
   const [slot, setSlot] = useState<PickupSlot | null>(null);
   const slots = useMemo(buildSlots, []);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -57,6 +68,15 @@ export default function BookScreen() {
       .getAddresses()
       .then(setSaved)
       .catch(() => setSaved([]));
+  }, []);
+
+  // Best-effort too: on failure (offline) the default ceiling stays in force and
+  // the API still enforces the real one at checkout.
+  useEffect(() => {
+    api
+      .getBookingConfig()
+      .then(setBookingCfg)
+      .catch(() => setBookingCfg(null));
   }, []);
 
   const pickSaved = useCallback((a: AddressView) => {
@@ -114,14 +134,14 @@ export default function BookScreen() {
       <Text style={styles.section}>How big is the load?</Text>
       <Muted>An estimate only — the shop weighs it at pickup and sets the final price.</Muted>
       <View style={{ gap: space.sm }}>
-        {LOAD_BUCKETS.map((b) => {
+        {buckets.map((b) => {
           const selected = bucket?.key === b.key;
           const eligible = b.expressEligible;
           return (
             <Card
               key={b.key}
               testID={`bucket-${b.key}`}
-              onPress={() => setBucket(b)}
+              onPress={() => setBucketKey(b.key)}
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -159,7 +179,7 @@ export default function BookScreen() {
       {isScheduled ? (
         <View style={{ gap: space.sm }}>
           <Text style={styles.section}>When should we pick up?</Text>
-          <Muted>Large loads use our Scheduled service — pick a window.</Muted>
+          <Muted>Loads over {thresholdKg}kg use our Scheduled service — pick a window.</Muted>
           {slots.map((s, i) => {
             const on = slot?.iso === s.iso;
             return (
