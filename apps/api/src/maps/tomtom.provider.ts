@@ -186,6 +186,36 @@ export class TomTomProvider implements MapsProvider {
     };
   }
 
+  // Boot probe: one cheap Search call to prove the key works. Every other method
+  // degrades a rejected key to null/[] (by design — a booking must not hard-fail
+  // on maps), which also means a dead key is invisible. This makes it loud once.
+  // Never throws; never logs the key.
+  async checkKey(): Promise<'ok' | 'rejected' | 'unreachable'> {
+    const url =
+      `${this.base}/search/2/search/Zamboanga.json` +
+      `?key=${this.apiKey}&countrySet=PH&limit=1`;
+    try {
+      const res = await this.fetchFn(url);
+      if (res.ok) {
+        this.logger.log('TomTom key OK (Search API)');
+        return 'ok';
+      }
+      if (res.status === 401 || res.status === 403) {
+        this.logger.error(
+          `TomTom key rejected (${res.status}) — invalid/expired key or Search API ` +
+            `not enabled on it. Geocode + address search return nothing until ` +
+            `TOMTOM_API_KEY is replaced; reverse geocode falls back to Nominatim.`,
+        );
+        return 'rejected';
+      }
+      this.logger.warn(`TomTom key check inconclusive (HTTP ${res.status})`);
+      return 'unreachable';
+    } catch (e) {
+      this.logger.warn(`TomTom key check failed to reach TomTom: ${String(e)}`);
+      return 'unreachable';
+    }
+  }
+
   private warnNull(op: string, status: number, q?: string): null {
     this.logger.warn(
       `TomTom ${op} ${status}${q ? ` for "${q}"` : ''} — degrading to null`,

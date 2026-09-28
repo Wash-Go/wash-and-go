@@ -27,7 +27,11 @@ export { MAPS_PROVIDER } from './maps.constants';
         const tomtomKey = config.get<string>('TOMTOM_API_KEY');
         if (provider === 'tomtom' && tomtomKey) {
           logger.log('Maps provider: tomtom');
-          return new TomTomProvider(tomtomKey);
+          const tomtom = new TomTomProvider(tomtomKey);
+          // Fire-and-forget key probe: logs loudly on a dead key, never blocks
+          // or fails boot. Skipped in tests (no outbound HTTP).
+          if (config.get<string>('NODE_ENV') !== 'test') void tomtom.checkKey();
+          return tomtom;
         }
         logger.log('Maps provider: haversine (no key — distance only)');
         return new HaversineProvider();

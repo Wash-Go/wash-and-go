@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { TomTomProvider, type FetchLike } from './tomtom.provider';
 
 function mockFetch(
@@ -168,6 +169,53 @@ describe('TomTomProvider', () => {
       expect(
         await new TomTomProvider(KEY, fetchFn).reverseGeocode({ lat: 1, lng: 1 }),
       ).toBeNull();
+    });
+  });
+
+  // A set-but-dead key used to fail silently (search → [], geocode → null), so a
+  // 401 key sat in prod for weeks. checkKey() makes it loud once at boot.
+  describe('checkKey (boot probe)', () => {
+    let errorSpy: jest.SpyInstance;
+    let warnSpy: jest.SpyInstance;
+    beforeEach(() => {
+      errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+      warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    });
+    afterEach(() => jest.restoreAllMocks());
+
+    it('reports ok when the Search API accepts the key', async () => {
+      const fetchFn = mockFetch((url) => {
+        expect(url).toContain('/search/2/search/');
+        expect(url).toContain(`key=${KEY}`);
+        return { ok: true, status: 200, body: { results: [] } };
+      });
+      expect(await new TomTomProvider(KEY, fetchFn).checkKey()).toBe('ok');
+      expect(errorSpy).not.toHaveBeenCalled();
+    });
+
+    it.each([401, 403])('logs an error and reports rejected on %i', async (status) => {
+      const fetchFn = mockFetch(() => ({ ok: false, status, body: {} }));
+      expect(await new TomTomProvider(KEY, fetchFn).checkKey()).toBe('rejected');
+      expect(errorSpy).toHaveBeenCalledTimes(1);
+      const msg = String(errorSpy.mock.calls[0][0]);
+      expect(msg).toContain(String(status));
+      expect(msg).toContain('TOMTOM_API_KEY');
+      expect(msg).not.toContain(KEY); // never log the secret
+    });
+
+    it('warns (not errors) on other HTTP failures — TomTom may be having a bad day', async () => {
+      const fetchFn = mockFetch(() => ({ ok: false, status: 503, body: {} }));
+      expect(await new TomTomProvider(KEY, fetchFn).checkKey()).toBe('unreachable');
+      expect(errorSpy).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalled();
+    });
+
+    it('never throws on a network error', async () => {
+      const fetchFn: FetchLike = async () => {
+        throw new Error('ECONNRESET');
+      };
+      expect(await new TomTomProvider(KEY, fetchFn).checkKey()).toBe('unreachable');
+      expect(errorSpy).not.toHaveBeenCalled();
     });
   });
 });
