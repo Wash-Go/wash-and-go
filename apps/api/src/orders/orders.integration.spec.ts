@@ -22,6 +22,8 @@ import { OrdersService } from './orders.service';
  *   4. U0 T2: DELIVERED records the COD cash atomically — the rider's
  *      outstanding grows on delivery, repeats are idempotent, and the debt cap
  *      sees the new amount
+ *   5. U0 T3: READY_FOR_RETURN is refused until the order has a recorded
+ *      weight; the weigh-in is bounded (0, 50kg] and the latest weight bills
  */
 
 const D = (v: Prisma.Decimal.Value) => new Prisma.Decimal(v);
@@ -331,6 +333,7 @@ describe('Orders integration (Docker Postgres)', () => {
     await service.assignRider(admin, order.id, { riderId: rider.id });
     await service.transition(rider, order.id, { status: OrderStatus.PICKED_UP });
     await service.transition(rider, order.id, { status: OrderStatus.AT_SHOP });
+    await service.weigh(admin, order.id, { weightKg: 6 }); // required before ready
     await service.transition(admin, order.id, { status: OrderStatus.PROCESSING });
     await service.transition(admin, order.id, {
       status: OrderStatus.READY_FOR_RETURN,
@@ -352,17 +355,61 @@ describe('Orders integration (Docker Postgres)', () => {
     expect(lines).toBe(1);
   });
 
+  // ── U0 T3: no READY_FOR_RETURN without a recorded weight ────────────────
+
+  it('refuses READY_FOR_RETURN until the order is weighed, then bills the latest weight', async () => {
+    const { shopServiceId } = await makeShop(5);
+    const order = await book(shopServiceId); // M → priced on the 6kg estimate
+    await service.assignRider(admin, order.id, { riderId: rider.id });
+    await service.transition(rider, order.id, { status: OrderStatus.PICKED_UP });
+    await service.transition(rider, order.id, { status: OrderStatus.AT_SHOP });
+    await service.transition(admin, order.id, { status: OrderStatus.PROCESSING });
+    const reload = () => prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+    const eventsBefore = await prisma.orderEvent.count({
+      where: { orderId: order.id },
+    });
+
+    // Unweighed: refused with the human message; nothing written.
+    const err = await service
+      .transition(admin, order.id, { status: OrderStatus.READY_FOR_RETURN })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(BadRequestException);
+    expect((err as Error).message).toBe('Weigh this order before marking it ready');
+    expect((await reload()).status).toBe(OrderStatus.PROCESSING);
+    expect(
+      await prisma.orderEvent.count({ where: { orderId: order.id } }),
+    ).toBe(eventsBefore);
+
+    // An impossible weight is refused and records nothing either.
+    await expect(
+      service.weigh(admin, order.id, { weightKg: 70 }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect((await reload()).weightKg).toBeNull();
+
+    // A typo, then the correction while washing — the latest weight wins.
+    await service.weigh(admin, order.id, { weightKg: 45 });
+    await service.weigh(admin, order.id, { weightKg: 4.5 });
+    const ready = await service.transition(admin, order.id, {
+      status: OrderStatus.READY_FOR_RETURN,
+    });
+    expect(ready.status).toBe(OrderStatus.READY_FOR_RETURN);
+    expect(ready.weightKg!.toFixed(2)).toBe('4.50');
+    // 4.5kg × ₱25 = ₱112.50 wash + ₱40 delivery + ₱7 service = ₱159.50
+    expect(ready.customerTotalPhp.toFixed(2)).toBe('159.50');
+  });
+
   // ── U0 T2: deliver + collect cash is one atomic action ──────────────────
 
   // Book, assign to `who`, and drive the order to OUT_FOR_RETURN (the shop
-  // steps run as admin). Optional reweigh sets the COD amount.
-  async function bookOutForReturn(who: User, weightKg?: number) {
+  // steps run as admin). The weigh-in is required before READY_FOR_RETURN
+  // (U0 T3); it defaults to the Medium 6kg estimate, keeping the golden ₱197.
+  async function bookOutForReturn(who: User, weightKg = 6) {
     const { shopServiceId } = await makeShop(5);
     const order = await book(shopServiceId);
     await service.assignRider(admin, order.id, { riderId: who.id });
     await service.transition(who, order.id, { status: OrderStatus.PICKED_UP });
     await service.transition(who, order.id, { status: OrderStatus.AT_SHOP });
-    if (weightKg != null) await service.weigh(admin, order.id, { weightKg });
+    await service.weigh(admin, order.id, { weightKg });
     await service.transition(admin, order.id, { status: OrderStatus.PROCESSING });
     await service.transition(admin, order.id, {
       status: OrderStatus.READY_FOR_RETURN,
@@ -458,6 +505,10 @@ describe('Orders integration (Docker Postgres)', () => {
       OrderStatus.READY_FOR_RETURN,
       OrderStatus.OUT_FOR_RETURN,
     ]) {
+      // U0 T3: no ready-for-return without a weigh-in (6kg keeps ₱197).
+      if (status === OrderStatus.READY_FOR_RETURN) {
+        await service.weigh(admin, order.id, { weightKg: 6 });
+      }
       await service.transition(admin, order.id, { status });
     }
 
@@ -486,10 +537,20 @@ describe('Orders integration (Docker Postgres)', () => {
   });
 
   it('cap: a delivery that crosses riderCodCapPhp blocks the next assignment', async () => {
-    // 60kg × ₱25 = ₱1,500 wash + ₱40 delivery + ₱7 service = ₱1,547 ≥ ₱1,500 cap.
-    const order = await bookOutForReturn(capRider, 60);
-    expect(order.customerTotalPhp.toFixed(2)).toBe('1547.00');
+    // A single weigh-in is capped at 50kg (U0 T3), so it takes two COD orders
+    // to cross the ₱1,500 cap: 50kg × ₱25 = ₱1,250 wash + ₱40 delivery + ₱7
+    // service = ₱1,297 (under), then 10kg → ₱297; ₱1,594 ≥ ₱1,500.
+    const first = await bookOutForReturn(capRider, 50);
+    expect(first.customerTotalPhp.toFixed(2)).toBe('1297.00');
     expect((await outstanding(capRider)).toFixed(2)).toBe('0.00');
+    await service.transition(capRider, first.id, {
+      status: OrderStatus.DELIVERED,
+    });
+    expect((await outstanding(capRider)).toFixed(2)).toBe('1297.00');
+
+    // Still under the cap, so the next assignment goes through.
+    const order = await bookOutForReturn(capRider, 10);
+    expect(order.customerTotalPhp.toFixed(2)).toBe('297.00');
     // Auto-dispatch's cap filter (private; reached by bracket access so the
     // assertion is deterministic, unlike the least-loaded pick) — under cap now.
     const underCap = (ids: string[]) =>
@@ -499,10 +560,10 @@ describe('Orders integration (Docker Postgres)', () => {
     await service.transition(capRider, order.id, {
       status: OrderStatus.DELIVERED,
     });
-    expect((await outstanding(capRider)).toFixed(2)).toBe('1547.00');
+    expect((await outstanding(capRider)).toFixed(2)).toBe('1594.00');
     // The dispatch gate reads the same number.
     expect((await repo.riderOutstandingCod(capRider.id)).toFixed(2)).toBe(
-      '1547.00',
+      '1594.00',
     );
 
     // Skipping a separate "record cash" step no longer hides the debt: the

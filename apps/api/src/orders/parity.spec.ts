@@ -1,7 +1,11 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { OrderStatus } from '@prisma/client';
-import { LOAD_CATEGORIES as API_LOADS, LOAD_CATEGORY_KEYS as API_KEYS } from './load';
+import {
+  LOAD_CATEGORIES as API_LOADS,
+  LOAD_CATEGORY_KEYS as API_KEYS,
+  MAX_WEIGH_KG as API_MAX_WEIGH_KG,
+} from './load';
 
 /*
  * Cross-package parity. The API hand-mirrors shared runtime constants because it
@@ -41,5 +45,15 @@ describe('cross-package parity', () => {
   it('API and domain load categories agree on estimate kg per key', () => {
     const apiKg = API_LOADS.map((c) => [c.key, c.estimateKg] as [string, number]);
     expect(apiKg).toEqual(domainLoads());
+  });
+
+  // The laundry portal gates the weigh input on the domain value; the API
+  // enforces its mirror. A drift would let the UI offer a weight the API
+  // refuses (or silently accept one the UI meant to block).
+  it('API and domain agree on the maximum weigh-in kg', () => {
+    const m = loadSrc.match(/MAX_WEIGH_KG\s*=\s*(\d+(?:\.\d+)?)/);
+    if (!m) throw new Error('MAX_WEIGH_KG not found in domain/load.ts');
+    expect(API_MAX_WEIGH_KG).toBe(Number(m[1]));
+    expect(API_MAX_WEIGH_KG).toBe(50);
   });
 });

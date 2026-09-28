@@ -639,6 +639,62 @@ describe('OrdersService', () => {
         service.weigh(makeUser(['ADMIN']), 'o1', { weightKg: 6 }),
       ).rejects.toBeInstanceOf(ConflictException);
     });
+
+    // U0 T3: the weigh-in sets the customer's final bill, so the service
+    // refuses an impossible weight itself (the DTO checks it too, but only on
+    // the HTTP path) — and writes nothing.
+    describe('rejects an impossible weight with a 400 and writes nothing', () => {
+      it.each([0, -3, 50.01, 70, Number.NaN, Number.POSITIVE_INFINITY])(
+        '%p kg',
+        async (weightKg) => {
+          repo.findByIdForUpdate.mockResolvedValue(makeOrder({ status: 'AT_SHOP' }));
+          repo.findShopServiceWithShop.mockResolvedValue(makeShopService() as never);
+
+          const err = await service
+            .weigh(makeUser(['ADMIN']), 'o1', { weightKg })
+            .catch((e: unknown) => e);
+
+          expect(err).toBeInstanceOf(BadRequestException);
+          expect((err as Error).message).toBe(
+            'Enter a weight above 0 kg and no more than 50 kg.',
+          );
+          expect(repo.updateOrder).not.toHaveBeenCalled();
+          expect(repo.insertOrderEvent).not.toHaveBeenCalled();
+        },
+      );
+    });
+
+    it('accepts the 50kg maximum exactly', async () => {
+      repo.findByIdForUpdate.mockResolvedValue(makeOrder({ status: 'AT_SHOP' }));
+      repo.findShopServiceWithShop.mockResolvedValue(makeShopService() as never);
+      repo.updateOrder.mockImplementation((_tx, _id, data) =>
+        Promise.resolve(data as never),
+      );
+
+      await service.weigh(makeUser(['ADMIN']), 'o1', { weightKg: 50 });
+
+      const upd = repo.updateOrder.mock.calls[0][2] as { weightKg: Prisma.Decimal };
+      expect(upd.weightKg.toFixed(2)).toBe('50.00');
+    });
+
+    it('lets the shop re-weigh (fix a typo) while the order is being washed', async () => {
+      repo.findByIdForUpdate.mockResolvedValue(
+        makeOrder({ status: 'PROCESSING', weightKg: D('70') }),
+      );
+      repo.findShopServiceWithShop.mockResolvedValue(makeShopService() as never);
+      repo.updateOrder.mockImplementation((_tx, _id, data) =>
+        Promise.resolve(data as never),
+      );
+
+      await service.weigh(makeUser(['ADMIN']), 'o1', { weightKg: 7 });
+
+      const upd = repo.updateOrder.mock.calls[0][2] as {
+        weightKg: Prisma.Decimal;
+        washValuePhp: Prisma.Decimal;
+      };
+      expect(upd.weightKg.toFixed(2)).toBe('7.00');
+      expect(upd.washValuePhp.toFixed(2)).toBe('175.00'); // 7 × 25
+    });
   });
 
   describe('transition', () => {
@@ -737,6 +793,75 @@ describe('OrdersService', () => {
         payoutPhp: Prisma.Decimal;
       };
       expect(line.payoutPhp.toFixed(2)).toBe('132.00'); // == shopRemittancePhp
+    });
+
+    // U0 T3: an unweighed order would be billed on the booking estimate, so it
+    // can't be marked ready until the shop records the actual weight.
+    describe('READY_FOR_RETURN requires a recorded weight', () => {
+      it.each([
+        ['a shop member', ['SHOP_STAFF'] as UserRole[]],
+        ['an admin', ['ADMIN'] as UserRole[]],
+      ])('refuses %s with a 400 and writes nothing', async (_who, roles) => {
+        repo.isShopMember.mockResolvedValue(true);
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({ status: 'PROCESSING', weightKg: null }),
+        );
+
+        const err = await service
+          .transition(makeUser(roles, 'staff1'), 'o1', {
+            status: 'READY_FOR_RETURN',
+          })
+          .catch((e: unknown) => e);
+
+        expect(err).toBeInstanceOf(BadRequestException);
+        expect((err as Error).message).toBe(
+          'Weigh this order before marking it ready',
+        );
+        expect(repo.updateOrder).not.toHaveBeenCalled();
+        expect(repo.insertOrderEvent).not.toHaveBeenCalled();
+      });
+
+      it('marks a weighed order ready', async () => {
+        repo.isShopMember.mockResolvedValue(true);
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({ status: 'PROCESSING', weightKg: D('6.40') }),
+        );
+        repo.updateOrder.mockResolvedValue(
+          makeOrder({ status: 'READY_FOR_RETURN', weightKg: D('6.40') }),
+        );
+
+        await service.transition(makeUser(['SHOP_STAFF'], 'staff1'), 'o1', {
+          status: 'READY_FOR_RETURN',
+        });
+
+        expect(repo.updateOrder.mock.calls[0][2]).toEqual({
+          status: 'READY_FOR_RETURN',
+        });
+      });
+
+      it('checks ownership before the weight (a stranger gets 403, not the weigh hint)', async () => {
+        repo.isShopMember.mockResolvedValue(false);
+        repo.findByIdForUpdate.mockResolvedValue(
+          makeOrder({ status: 'PROCESSING', weightKg: null }),
+        );
+        await expect(
+          service.transition(makeUser(['SHOP_STAFF'], 'stranger'), 'o1', {
+            status: 'READY_FOR_RETURN',
+          }),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+      });
+
+      it('still offers "ready" as an action on an unweighed order (the portal explains why it is disabled)', async () => {
+        repo.isShopMember.mockResolvedValue(true);
+        repo.findByIdWithRelations.mockResolvedValue(
+          makeRelOrder({ status: 'PROCESSING', weightKg: null }) as never,
+        );
+        const detail = await service.getOrder(
+          makeUser(['SHOP_STAFF'], 'staff1'),
+          'o1',
+        );
+        expect(detail.availableActions).toContain('READY_FOR_RETURN');
+      });
     });
 
     it('does not write remittance on a non-DELIVERED transition', async () => {

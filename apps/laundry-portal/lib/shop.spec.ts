@@ -11,9 +11,13 @@ describe('shop logic', () => {
     expect(canWeigh(o({ status: 'DELIVERED' }))).toBe(false);
   });
 
-  it('validates weight: positive, <= 100kg', () => {
+  it('validates weight: positive, <= 50kg (the API maximum)', () => {
     expect(parseWeight('6.4')).toEqual({ ok: true, kg: 6.4 });
+    expect(parseWeight('50').ok).toBe(true);
+    expect(parseWeight('50.01').ok).toBe(false);
+    expect(parseWeight('70').ok).toBe(false);
     expect(parseWeight('0').ok).toBe(false);
+    expect(parseWeight('').ok).toBe(false);
     expect(parseWeight('-3').ok).toBe(false);
     expect(parseWeight('200').ok).toBe(false);
     expect(parseWeight('abc').ok).toBe(false);

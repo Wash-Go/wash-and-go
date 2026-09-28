@@ -19,7 +19,13 @@ import {
   cashToRecordOnDelivery,
   isRiderlessCodDelivery,
 } from './cash-on-delivery';
-import { isExpressEligible, loadCategory, LoadCategoryKey } from './load';
+import {
+  isExpressEligible,
+  isWeighableKg,
+  loadCategory,
+  LoadCategoryKey,
+  WEIGH_RANGE_MESSAGE,
+} from './load';
 import { rankShopCandidates, ShopCandidate } from './shop-match';
 import { isUniqueViolation } from '../common/prisma-errors';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -36,6 +42,10 @@ const STATUS_MSG: Partial<Record<OrderStatus, string>> = {
   DELIVERED: 'Your laundry was delivered',
   CANCELLED: 'Your order was cancelled',
 };
+
+// Shown to the shop verbatim (the laundry portal maps it to the same copy).
+const READY_NEEDS_WEIGHT_MESSAGE =
+  'Weigh this order before marking it ready';
 import { pricePreview, PricingBreakdown, PricingError } from '../pricing/pricing';
 import { PlatformConfigService } from '../platform-config/platform-config.service';
 import { computeDeliveryFee, haversineKm } from '../pricing/distance';
@@ -545,8 +555,15 @@ export class OrdersService {
     });
   }
 
-  // POST /orders/:id/weigh — shop sets actual weight; price recomputes.
+  // POST /orders/:id/weigh — shop sets actual weight; price recomputes. The
+  // shop may re-weigh (fix a typo) while the order is AT_SHOP or PROCESSING;
+  // the latest weight is what READY_FOR_RETURN checks and what gets billed.
   async weigh(actor: User, orderId: string, dto: WeighDto): Promise<Order> {
+    // U0 T3: this sets the customer's final bill. The DTO bounds it on the
+    // HTTP path; re-check here so no caller can bill an impossible weight.
+    if (!isWeighableKg(Number(dto.weightKg))) {
+      throw new BadRequestException(WEIGH_RANGE_MESSAGE);
+    }
     return this.prisma.$transaction(async (tx) => {
       const order = await this.repo.findByIdForUpdate(tx, orderId);
       if (!order) throw new NotFoundException('Order not found');
@@ -626,6 +643,12 @@ export class OrdersService {
         );
       }
       await this.assertTransitionOwnership(actor, order, from, to);
+      // U0 T3: an unweighed order still carries its booking-estimate price.
+      // Refuse to release it for return (admin included) until the shop has
+      // recorded the actual weight, so the customer is billed on the scale.
+      if (to === OrderStatus.READY_FOR_RETURN && order.weightKg == null) {
+        throw new BadRequestException(READY_NEEDS_WEIGHT_MESSAGE);
+      }
       // Money first: refuse (and explain) rather than deliver a COD order whose
       // cash nobody would owe while the shop payout still accrues.
       if (to === OrderStatus.DELIVERED && isRiderlessCodDelivery(order)) {

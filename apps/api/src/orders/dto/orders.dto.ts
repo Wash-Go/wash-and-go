@@ -1,6 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { OrderStatus, ServiceType } from '@prisma/client';
-import { LOAD_CATEGORY_KEYS, LoadCategoryKey } from '../load';
+import {
+  LOAD_CATEGORY_KEYS,
+  LoadCategoryKey,
+  MAX_WEIGH_KG,
+  WEIGH_RANGE_MESSAGE,
+} from '../load';
 import {
   IsEnum,
   IsIn,
@@ -108,9 +113,13 @@ export class AssignRiderDto {
 }
 
 export class WeighDto {
-  @ApiProperty({ example: 6.4, description: 'Actual weighed kg — triggers price recompute' })
-  @IsPositive()
-  @Max(100)
+  @ApiProperty({
+    example: 6.4,
+    maximum: MAX_WEIGH_KG,
+    description: `Actual weighed kg (above 0, at most ${MAX_WEIGH_KG}) — sets the final bill`,
+  })
+  @IsPositive({ message: WEIGH_RANGE_MESSAGE })
+  @Max(MAX_WEIGH_KG, { message: WEIGH_RANGE_MESSAGE })
   weightKg!: number;
 }
 
