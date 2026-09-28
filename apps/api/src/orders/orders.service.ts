@@ -49,8 +49,8 @@ const READY_NEEDS_WEIGHT_MESSAGE =
 
 // One message for every out-of-area answer (quote, both creates, and the
 // no-shop-in-range resolve). The customer app matches on it to show its own
-// plain-words copy (apps/customer-mobile/src/lib/coverage.ts; pinned by
-// parity.spec.ts), so keep it stable.
+// plain-words copy, so keep it stable. Mirrors packages/domain/src/coverage.ts
+// OUTSIDE_COVERAGE_MESSAGE (pinned by parity.spec.ts).
 export const OUTSIDE_COVERAGE_MESSAGE = 'Pickup location is outside coverage';
 import { pricePreview, PricingBreakdown, PricingError } from '../pricing/pricing';
 import { PlatformConfigService } from '../platform-config/platform-config.service';

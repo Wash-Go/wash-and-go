@@ -1,11 +1,10 @@
-// Plain-words copy for the API's out-of-area answer (U0 T6). Quote and create
-// both refuse a pickup outside the service zones with this exact 400, so the
-// checkout shows it before any price instead of failing at Confirm. The API has
-// no customer-facing zone names, so the copy stays generic.
+import { OUTSIDE_COVERAGE_MESSAGE as API_OUTSIDE_COVERAGE } from '@wash-and-go/domain';
 
-// The API message (apps/api orders.service.ts OUTSIDE_COVERAGE_MESSAGE; the
-// API's parity.spec.ts pins the two).
-const API_OUTSIDE_COVERAGE = 'Pickup location is outside coverage';
+// Plain-words copy for the API's out-of-area answer (U0 T6). Quote and create
+// both refuse a pickup outside the service zones with this exact 400 (the
+// shared domain constant, which the API's parity.spec.ts pins), so the checkout
+// shows it before any price instead of failing at Confirm. The API has no
+// customer-facing zone names, so the copy stays generic.
 
 export const OUT_OF_COVERAGE_MESSAGE =
   "We don't pick up there yet. Wash & Go currently serves a limited area, so please choose a different pickup point.";

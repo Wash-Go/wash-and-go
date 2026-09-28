@@ -16,18 +16,14 @@ import { OUTSIDE_COVERAGE_MESSAGE } from './orders.service';
  * the mirrors self-enforcing:
  *  - domain ORDER_STATUSES must equal the Prisma-generated enum (schema truth)
  *  - API + domain load catalogs must agree on keys + estimate kg
- *  - the customer app's out-of-area matcher must equal the API's message
+ *  - API + domain must agree on the out-of-coverage message (the customer app
+ *    matches on the domain constant)
  * A drift now fails CI instead of shipping silently.
  */
 const DOMAIN = join(__dirname, '../../../../packages/domain/src');
 const orderStatusSrc = readFileSync(join(DOMAIN, 'order-status.ts'), 'utf8');
 const loadSrc = readFileSync(join(DOMAIN, 'load.ts'), 'utf8');
-// The customer app's out-of-area matcher (U0 T6) — an app file, not domain,
-// because it is the only consumer of the message.
-const customerCoverageSrc = readFileSync(
-  join(__dirname, '../../../customer-mobile/src/lib/coverage.ts'),
-  'utf8',
-);
+const coverageSrc = readFileSync(join(DOMAIN, 'coverage.ts'), 'utf8');
 
 function domainOrderStatuses(): string[] {
   const block = orderStatusSrc.match(/ORDER_STATUSES\s*=\s*\[([\s\S]*?)\]/);
@@ -65,11 +61,13 @@ describe('cross-package parity', () => {
     expect(API_MAX_WEIGH_KG).toBe(50);
   });
 
-  // The customer checkout swaps this exact API message for plain words. A
-  // reworded API message would silently fall back to showing the raw text.
-  it('the customer app matches the exact out-of-coverage message the API sends', () => {
-    const m = customerCoverageSrc.match(/API_OUTSIDE_COVERAGE\s*=\s*'([^']+)'/);
-    if (!m) throw new Error('API_OUTSIDE_COVERAGE not found in customer-mobile/src/lib/coverage.ts');
-    expect(m[1]).toBe(OUTSIDE_COVERAGE_MESSAGE);
+  // The customer checkout swaps this exact API message for plain words, matching
+  // on the domain constant. A reworded API message would silently fall back to
+  // showing the raw text.
+  it('API and domain agree on the out-of-coverage message', () => {
+    const m = coverageSrc.match(/OUTSIDE_COVERAGE_MESSAGE\s*=\s*'([^']+)'/);
+    if (!m) throw new Error('OUTSIDE_COVERAGE_MESSAGE not found in domain/coverage.ts');
+    expect(OUTSIDE_COVERAGE_MESSAGE).toBe(m[1]);
+    expect(OUTSIDE_COVERAGE_MESSAGE).toBe('Pickup location is outside coverage');
   });
 });
