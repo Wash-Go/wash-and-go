@@ -381,6 +381,8 @@ export type RemittanceBatchStatus = 'PENDING' | 'PAID';
 export interface RemittanceBatchView {
   id: string;
   shopId: string;
+  // The shop's display name; null only if the shop row no longer exists.
+  shopName: string | null;
   periodStart: string;
   periodEnd: string;
   totalPhp: string;
@@ -390,6 +392,18 @@ export interface RemittanceBatchView {
   paidAt: string | null;
   paidByUid: string | null;
   createdAt: string;
+}
+
+// Payout count + total per status over ALL batches (GET /admin/remittance/
+// summary) — independent of the list's status filter and row cap.
+export interface RemittanceStatusTotal {
+  count: number;
+  totalPhp: string;
+}
+
+export interface RemittanceSummaryView {
+  pending: RemittanceStatusTotal;
+  paid: RemittanceStatusTotal;
 }
 
 export interface CloseRemittanceBody {

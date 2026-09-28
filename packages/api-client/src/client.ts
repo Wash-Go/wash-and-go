@@ -42,6 +42,7 @@ import type {
   QuoteOrderBody,
   RateOrderBody,
   RemittanceBatchView,
+  RemittanceSummaryView,
   Rider,
   ShopView,
   UserRole,
@@ -294,6 +295,11 @@ export class ApiClient {
     if (filter?.status) q.set('status', filter.status);
     const qs = q.toString();
     return this.request('GET', `/admin/remittance/batches${qs ? `?${qs}` : ''}`);
+  }
+
+  // Owed / paid totals over every batch, independent of the list filter.
+  getRemittanceSummary(): Promise<RemittanceSummaryView> {
+    return this.request('GET', '/admin/remittance/summary');
   }
 
   closeRemittance(body: CloseRemittanceBody): Promise<RemittanceBatchView[]> {

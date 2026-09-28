@@ -290,4 +290,34 @@ describe('ApiClient', () => {
     expect(url).toBe('http://api.test/config/booking');
     expect(init.method).toBe('GET');
   });
+
+  it('pages listOrders by status with a limit and a before cursor', async () => {
+    const fetchFn = jest.fn().mockResolvedValue(res(200, []));
+    const client = new ApiClient({
+      baseUrl: 'http://api.test',
+      tokens: tokensFrom(['t']),
+      fetchFn,
+    });
+    await client.listOrders('BOOKED', undefined, 50, 'ord-50');
+    expect(fetchFn.mock.calls[0][0]).toBe(
+      'http://api.test/orders?status=BOOKED&limit=50&before=ord-50',
+    );
+  });
+
+  it('reads the payout totals from GET /admin/remittance/summary', async () => {
+    const summary = {
+      pending: { count: 2, totalPhp: '145.50' },
+      paid: { count: 5, totalPhp: '900.00' },
+    };
+    const fetchFn = jest.fn().mockResolvedValue(res(200, summary));
+    const client = new ApiClient({
+      baseUrl: 'http://api.test',
+      tokens: tokensFrom(['t']),
+      fetchFn,
+    });
+    await expect(client.getRemittanceSummary()).resolves.toEqual(summary);
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe('http://api.test/admin/remittance/summary');
+    expect(init.method).toBe('GET');
+  });
 });

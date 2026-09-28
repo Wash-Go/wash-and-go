@@ -76,6 +76,7 @@ describe('route role matrix', () => {
     expect(rolesOf(c, 'close')).toEqual(['ADMIN']);
     expect(rolesOf(c, 'list')).toEqual(['ADMIN']);
     expect(rolesOf(c, 'markPaid')).toEqual(['ADMIN']);
+    expect(rolesOf(c, 'summary')).toEqual(['ADMIN']);
   });
 
   it('the riders picker is ADMIN-only', () => {
