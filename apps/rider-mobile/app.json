@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "rider-mobile",
-    "slug": "rider-mobile",
+    "name": "Wash & Go Rider",
+    "slug": "wash-and-go-rider",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "ridermobile",
+    "scheme": "washandgo-rider",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
