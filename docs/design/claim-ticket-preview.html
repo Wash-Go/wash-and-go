@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wash & Go — Claim Ticket design system</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,500..900&family=Atkinson+Hyperlegible+Next:wght@400;500;700;800&family=Atkinson+Hyperlegible+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#004375; --ink-deep:#00335a; --ink-tint:#E3ECF4;
+  --stamp:#A64B16; --stamp-press:#8A4012; --terracotta:#C96A28; --peach:#FFE3CC; --peach-ink:#8A4012;
+  --carbon:#14202B; --muted:#4A5968; --line:#D9DEE3; --line-strong:#B9C2CB;
+  --ground:#F5F3EE; --surface:#FFFFFF; --sunken:#EEF0F2;
+  --success:#1F7A4D; --success-tint:#DDF1E6; --success-ink:#155C39;
+  --danger:#B3261E; --danger-tint:#FBE4E2;
+  --warn-ink:#7A5200; --warn-tint:#FFF1CC;
+  --shop-ink:#5B4631; --shop-tint:#EFE7DC;
+  --gray-ink:#475563; --gray-tint:#ECEEF0;
+  --display:'Archivo', 'Arial Narrow', sans-serif;
+  --body:'Atkinson Hyperlegible Next', 'Segoe UI', sans-serif;
+  --mono:'Atkinson Hyperlegible Mono', ui-monospace, monospace;
+  --r-sm:6px; --r-md:10px; --r-lg:16px;
+  color-scheme: light;
+}
+[data-theme="dark"]{
+  --ink:#8CB8E0; --ink-deep:#B7D3EE; --ink-tint:#15283A;
+  --stamp:#E07A3A; --stamp-press:#F08E50; --terracotta:#E07A3A; --peach:#3A2416; --peach-ink:#FFC9A3;
+  --carbon:#E8EEF4; --muted:#9FB3C8; --line:#253545; --line-strong:#34495D;
+  --ground:#0E1A24; --surface:#142331; --sunken:#0B151E;
+  --success:#5FC08F; --success-tint:#12301F; --success-ink:#8FDDB3;
+  --danger:#F08A82; --danger-tint:#3A1715;
+  --warn-ink:#F2C45A; --warn-tint:#33280A;
+  --shop-ink:#E2CDB4; --shop-tint:#2E251B;
+  --gray-ink:#B4C0CC; --gray-tint:#1C2A37;
+  color-scheme: dark;
+}
+*{box-sizing:border-box} html{background:var(--ground)}
+body{margin:0;font-family:var(--body);color:var(--carbon);background:var(--ground);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+.display{font-family:var(--display);font-stretch:125%;font-weight:800;letter-spacing:-.01em;line-height:.98}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+a{color:var(--ink)}
+/* top bar */
+.bar{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.bar .wrap{display:flex;align-items:center;justify-content:space-between;height:64px;gap:16px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-stretch:112%;font-weight:800;font-size:19px;color:var(--ink);text-decoration:none}
+.brand img{width:34px;height:34px;border-radius:50%}
+.theme{font:600 14px var(--body);border:1.5px solid var(--line-strong);background:var(--surface);color:var(--carbon);border-radius:999px;padding:8px 14px;cursor:pointer}
+/* intro */
+.intro{padding:72px 0 40px;display:grid;grid-template-columns:1.25fr .75fr;gap:48px;align-items:end}
+.intro h1{font-size:clamp(2.6rem,6vw,4.6rem);margin:0;color:var(--ink)}
+.intro h1 em{font-style:normal;color:var(--stamp)}
+.intro p{font-size:19px;color:var(--muted);max-width:52ch;margin:20px 0 0}
+.intro aside{border-top:3px solid var(--carbon);padding-top:14px;font-size:15px;color:var(--muted)}
+.intro aside b{color:var(--carbon);display:block;font-size:13px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
+section{padding:56px 0;border-top:1px solid var(--line)}
+h2.sec{font-family:var(--display);font-stretch:115%;font-weight:800;font-size:28px;margin:0 0 6px;color:var(--carbon)}
+.sec-sub{color:var(--muted);margin:0 0 32px;max-width:70ch}
+/* type specimen */
+.spec{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.spec .cell{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:24px}
+.spec .role{font:700 12px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;display:flex;justify-content:space-between}
+.spec .sample-d{font-size:40px;color:var(--ink)}
+.spec .sample-b{font-size:17px}
+.spec .sample-m{font-size:22px;line-height:1.7}
+.scale{margin-top:20px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:8px 24px}
+.scale div{display:grid;grid-template-columns:120px 1fr;align-items:baseline;padding:12px 0;border-bottom:1px solid var(--line)}
+.scale div:last-child{border:0}
+.scale span{font:500 13px var(--mono);color:var(--muted)}
+/* colors */
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}
+.sw{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
+.sw i{display:block;height:84px}
+.sw div{padding:10px 12px;font-size:14px}
+.sw b{display:block}
+.sw small{font:500 12px var(--mono);color:var(--muted)}
+.cut{margin-top:18px;font-size:14px;color:var(--muted)}
+.cut s{font-family:var(--mono)}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:28px}
+.btn{font:700 16px var(--body);border-radius:var(--r-md);padding:13px 20px;border:0;cursor:pointer;min-height:48px;display:inline-flex;align-items:center;gap:8px}
+.btn-primary{background:var(--stamp);color:#fff}
+[data-theme="dark"] .btn-primary{color:#1a0d05}
+.btn-primary:hover{background:var(--stamp-press)}
+.btn-secondary{background:transparent;color:var(--ink);border:2px solid var(--ink)}
+.btn-ink{background:var(--ink);color:#fff}
+[data-theme="dark"] .btn-ink{color:#07141f}
+.btn-text{background:none;color:var(--ink);padding:13px 6px;text-decoration:underline;text-underline-offset:4px}
+.btn-danger{background:transparent;color:var(--danger);border:2px solid var(--danger)}
+.btn:disabled{background:var(--sunken);color:var(--muted);border-color:transparent;cursor:not-allowed}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}
+.chip{display:inline-flex;align-items:center;gap:6px;font:700 13px var(--body);padding:5px 11px 5px 9px;border-radius:999px}
+.chip svg{width:14px;height:14px}
+.c-needs{background:var(--peach);color:var(--peach-ink);box-shadow:inset 0 0 0 1.5px var(--stamp)}
+.c-move{background:var(--ink-tint);color:var(--ink)}
+.c-shop{background:var(--shop-tint);color:var(--shop-ink)}
+.c-done{background:var(--success-tint);color:var(--success-ink)}
+.c-cancel{background:var(--gray-tint);color:var(--gray-ink)}
+.c-warn{background:var(--warn-tint);color:var(--warn-ink)}
+.legend{margin-top:14px;font-size:14px;color:var(--muted)}
+/* surfaces */
+.surfaces{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px;align-items:start}
+.cap{font:700 12px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+.cap b{color:var(--carbon)}
+.phone{width:100%;max-width:360px;background:var(--ground);border:10px solid #111;border-radius:40px;overflow:hidden;box-shadow:0 18px 40px -18px rgba(20,32,43,.45);position:relative}
+.phone .scr{height:720px;overflow:hidden;position:relative;display:flex;flex-direction:column}
+.status{height:28px;display:flex;justify-content:space-between;align-items:center;padding:0 20px;font:700 12px var(--body);color:var(--carbon)}
+.appbar{padding:8px 18px 12px;display:flex;align-items:center;gap:10px}
+.appbar .back{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--surface);border:1px solid var(--line)}
+.appbar h3{margin:0;font:800 18px var(--body)}
+.body{padding:0 16px;flex:1;overflow:hidden}
+/* customer ticket */
+.statusblock{background:var(--ink);color:#fff;border-radius:var(--r-lg);padding:18px}
+[data-theme="dark"] .statusblock{background:#12304A}
+.statusblock .k{font:700 12px var(--body);letter-spacing:.08em;text-transform:uppercase;opacity:.8}
+.statusblock .t{font-family:var(--display);font-stretch:118%;font-weight:800;font-size:26px;line-height:1.05;margin:6px 0 4px}
+.statusblock .s{font-size:15px;opacity:.92}
+.cod{margin-top:12px;display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.12);border-radius:var(--r-md);padding:10px 12px;font-size:15px}
+.cod b{font:700 20px var(--mono)}
+.ticket{margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);position:relative}
+.ticket .top{padding:14px 16px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.ticket .code{font:700 22px var(--mono);letter-spacing:.02em}
+.ticket .code small{display:block;font:500 12px var(--body);color:var(--muted);letter-spacing:0}
+.perf{height:0;border-top:2px dashed var(--line-strong);margin:0 14px;position:relative}
+.perf:before,.perf:after{content:"";position:absolute;top:-10px;width:18px;height:18px;border-radius:50%;background:var(--ground);border:1px solid var(--line)}
+.perf:before{left:-24px;clip-path:inset(0 0 0 50%)} .perf:after{right:-24px;clip-path:inset(0 50% 0 0)}
+.trail{padding:10px 16px 14px;list-style:none;margin:0}
+.trail li{display:grid;grid-template-columns:22px 1fr auto;gap:10px;align-items:start;padding:7px 0;font-size:15px}
+.trail .dot{width:14px;height:14px;border-radius:50%;margin-top:4px;background:var(--ink)}
+.trail .now .dot{background:var(--stamp);box-shadow:0 0 0 4px var(--peach)}
+.trail .next{color:var(--muted)} .trail .next .dot{background:transparent;border:2px solid var(--line-strong)}
+.trail small{display:block;color:var(--muted);font-size:13px}
+.trail time{font:500 13px var(--mono);color:var(--muted)}
+.chop{width:74px;height:74px;flex:none;color:var(--terracotta);transform:rotate(-8deg);opacity:.9}
+.people{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.person{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:12px;font-size:14px}
+.person .av{width:36px;height:36px;border-radius:50%;background:var(--shop-tint);color:var(--shop-ink);display:grid;place-items:center;font:800 14px var(--body);margin-bottom:8px}
+.person .av.r{background:var(--ink-tint);color:var(--ink)}
+.person b{display:block;font-size:15px}
+.person span{color:var(--muted)}
+.sticky{margin-top:auto;background:var(--surface);border-top:1px solid var(--line);padding:12px 16px 18px;display:flex;gap:10px}
+.sticky .btn{flex:1;justify-content:center}
+/* rider sun mode */
+.sun{background:#fff!important}
+.sun .appbar h3{font-size:20px}
+.leg{display:inline-flex;align-items:center;gap:8px;background:#14202B;color:#fff;font:800 14px var(--body);letter-spacing:.06em;text-transform:uppercase;padding:7px 12px;border-radius:var(--r-sm)}
+.stop{margin-top:14px;border:2.5px solid #14202B;border-radius:var(--r-lg);padding:16px;background:#fff;color:#14202B}
+.stop .lbl{font:800 14px var(--body);text-transform:uppercase;letter-spacing:.06em;color:#14202B}
+.stop .addr{font:700 22px/1.25 var(--body);margin:6px 0 2px}
+.stop .who{font-size:17px;color:#2E3B48}
+.collect{margin-top:14px;background:var(--peach);border:2.5px solid #8A4012;border-radius:var(--r-lg);padding:14px 16px;color:#5A2A0A}
+[data-theme="dark"] .collect{background:#FFE3CC}
+.collect .lbl{font:800 14px var(--body);text-transform:uppercase;letter-spacing:.06em}
+.collect .amt{font:700 44px/1.1 var(--mono);color:#14202B}
+.icons{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.icons button{height:60px;border-radius:var(--r-md);border:2.5px solid #004375;background:#fff;color:#004375;font:800 18px var(--body);display:flex;align-items:center;justify-content:center;gap:8px}
+.slide{margin:auto 16px 18px;height:64px;border-radius:999px;background:#004375;color:#fff;position:relative;display:flex;align-items:center;justify-content:center;font:800 17px var(--body);padding-left:56px}
+.slide .knob{position:absolute;left:6px;top:6px;width:52px;height:52px;border-radius:50%;background:#fff;display:grid;place-items:center;color:#004375}
+.sun-note{font-size:13px;color:#4A5968;margin:10px 16px 0}
+/* portal weigh */
+.shopbar{background:var(--ink);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center}
+[data-theme="dark"] .shopbar{background:#12304A}
+.shopbar b{font-family:var(--display);font-stretch:112%;font-weight:800;font-size:16px}
+.tabs{display:flex;gap:6px;padding:12px 16px 4px;overflow:hidden}
+.tab{font:700 14px var(--body);padding:8px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line);white-space:nowrap}
+.tab.on{background:var(--carbon);color:var(--surface);border-color:var(--carbon)}
+.tab em{font-style:normal;font-family:var(--mono);margin-left:4px;opacity:.8}
+.wcard{margin:10px 16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px}
+.wcard .head{display:flex;justify-content:space-between;align-items:center}
+.wcard .code{font:700 26px var(--mono)} .wcard .code small{font:500 13px var(--mono);color:var(--muted)}
+.meta{font-size:14px;color:var(--muted);margin:4px 0 12px}
+.field label{display:block;font:700 14px var(--body);margin-bottom:6px}
+.inp{display:flex;align-items:center;border:2px solid var(--stamp);border-radius:var(--r-md);height:56px;padding:0 14px;background:var(--surface)}
+.inp span{font:700 26px var(--mono);flex:1}
+.inp i{font:700 16px var(--body);font-style:normal;color:var(--muted)}
+.delta{margin-top:10px;background:var(--warn-tint);color:var(--warn-ink);border-radius:var(--r-md);padding:10px 12px;font-size:14px;display:flex;gap:8px}
+.bd{margin:12px 0;border-top:1px solid var(--line)}
+.bd div{display:flex;justify-content:space-between;padding:7px 0;font-size:15px}
+.bd div span:last-child{font-family:var(--mono)}
+.bd .tot{border-top:2px solid var(--carbon);margin-top:4px;padding-top:10px;font-weight:800}
+.bd .tot span:last-child{font:700 22px var(--mono)}
+/* admin */
+.admin{grid-column:1 / -1;display:grid;grid-template-columns:212px 1fr;border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;background:var(--surface);min-height:520px}
+.side{background:var(--ink);color:#fff;padding:18px 12px;font-size:14px}
+[data-theme="dark"] .side{background:#0B1824;border-right:1px solid var(--line)}
+.side .b{font-family:var(--display);font-stretch:112%;font-weight:800;font-size:16px;padding:0 8px 16px}
+.side .g{font:700 11px var(--body);letter-spacing:.1em;text-transform:uppercase;opacity:.65;padding:14px 8px 6px}
+.side a{display:flex;justify-content:space-between;color:#fff;text-decoration:none;padding:8px;border-radius:var(--r-sm);opacity:.88}
+.side a.on{background:rgba(255,255,255,.14);opacity:1;font-weight:700}
+.side a em{font:700 12px var(--mono);font-style:normal;background:var(--stamp);color:#fff;border-radius:999px;padding:1px 7px}
+.main{padding:20px 24px;min-width:0}
+.main h4{margin:0;font:800 22px var(--body)}
+.main .sub{color:var(--muted);font-size:14px;margin:2px 0 14px}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.filters .tab{font-size:13px;padding:6px 10px}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{font:700 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1.5px solid var(--line-strong);position:sticky;top:0;background:var(--surface)}
+.tbl td{padding:0 10px;height:40px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td.num,.tbl th.num{text-align:right;font-family:var(--mono)}
+.tbl .code{font:700 13px var(--mono)}
+.tbl .age{font-family:var(--mono)}
+.tbl .late{color:var(--stamp);font-weight:700}
+.tbl .act{display:flex;gap:6px;justify-content:flex-end}
+.mini{font:700 13px var(--body);border-radius:var(--r-sm);padding:6px 10px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--carbon)}
+.mini.p{background:var(--stamp);border-color:var(--stamp);color:#fff}
+.more{width:30px;height:30px;border-radius:var(--r-sm);border:1px solid var(--line);background:none;color:var(--muted)}
+/* landing */
+.land{grid-column:1 / -1;border-radius:var(--r-lg);overflow:hidden;border:1px solid var(--line);background:var(--surface)}
+.land .nav{display:flex;justify-content:space-between;align-items:center;padding:16px 28px;border-bottom:1px solid var(--line)}
+.land .nav nav{display:flex;gap:22px;font-size:15px;font-weight:700}
+.land .nav nav a{text-decoration:none;color:var(--carbon)}
+.hero{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;padding:56px 28px 48px;align-items:start}
+.hero h2{font-size:clamp(2.4rem,5vw,4rem);margin:0;color:var(--ink)}
+.hero p.lead{font-size:19px;color:var(--muted);max-width:44ch;margin:18px 0 26px}
+.trust{display:flex;flex-wrap:wrap;gap:18px;font-size:15px;color:var(--carbon);font-weight:700}
+.trust span{display:flex;align-items:center;gap:8px}
+.trust svg{color:var(--success)}
+.wait{background:var(--ground);border:1px solid var(--line);border-radius:var(--r-lg);padding:22px}
+.wait h3{margin:0 0 4px;font:800 20px var(--body)}
+.wait p{margin:0 0 14px;color:var(--muted);font-size:15px}
+.wait label{display:block;font:700 14px var(--body);margin:10px 0 6px}
+.wait .f{height:48px;border:1.5px solid var(--line-strong);border-radius:var(--r-md);background:var(--surface);display:flex;align-items:center;padding:0 12px;color:var(--muted);font-size:16px}
+.wait .btn{width:100%;justify-content:center;margin-top:16px}
+.wait small{display:block;margin-top:10px;color:var(--muted);font-size:13px}
+.strip{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line)}
+.strip div{padding:18px 28px;border-right:1px solid var(--line);font-size:14px;color:var(--muted)}
+.strip div:last-child{border:0}
+.strip b{display:block;color:var(--carbon);font-size:16px;margin-bottom:2px}
+/* rules */
+.rules{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.rules ul{margin:0;padding-left:20px}
+.rules li{margin:8px 0}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px 24px}
+.box h3{margin:0 0 8px;font:800 17px var(--body)}
+footer{padding:40px 0 64px;color:var(--muted);font-size:14px}
+@media (max-width:980px){
+  .intro,.spec,.surfaces,.hero,.rules{grid-template-columns:1fr}
+  .admin{grid-template-columns:1fr} .side{display:none}
+  .strip{grid-template-columns:1fr 1fr}
+  .phone{margin:0 auto}
+  .tblwrap{overflow-x:auto}
+}
+</style>
+</head>
+<body>
+<header class="bar"><div class="wrap">
+  <a class="brand" href="#"><img src="../../apps/landing-page/src/assets/images/logos/branding.svg" alt="">Wash &amp; Go</a>
+  <button class="theme" id="theme" aria-pressed="false">Dark mode</button>
+</div></header>
+
+<main class="wrap">
+  <div class="intro">
+    <div>
+      <h1 class="display">Your laundry, <em>signed for</em> at every step.</h1>
+      <p>Claim Ticket: the Wash &amp; Go design system. Customers hand their clothes to a shop and a rider they have never met, so every screen answers three questions first: who has my clothes, what did they weigh, what do I owe.</p>
+    </div>
+    <aside><b>One sentence</b>Navy is the structure, terracotta is the stamp that means "your turn", and plain, sturdy type does the talking.</aside>
+  </div>
+
+  <section>
+    <h2 class="sec">Type</h2>
+    <p class="sec-sub">Three families, all on Google Fonts (OFL, latin-ext for ñ and ₱). Bundled in the apps so riders on mobile data pay nothing to load them.</p>
+    <div class="spec">
+      <div class="cell"><div class="role"><span>Display</span><span>Archivo Expanded 800</span></div><div class="display sample-d">Tetuan to your door by 5pm</div><p style="color:var(--muted);font-size:14px;margin:14px 0 0">Headlines and the one big status line per screen. Wide and heavy like a painted shop sign. Never below 22px.</p></div>
+      <div class="cell"><div class="role"><span>Body / UI</span><span>Atkinson Hyperlegible Next</span></div><p class="sample-b" style="margin:0">Jun picked up your bag at 9:14 and dropped it at Tetuan Laundry Hub. The shop will weigh it and send you the final price before anything is washed.</p><p style="color:var(--muted);font-size:14px;margin:14px 0 0">Every surface, every label. Built for low-vision reading, so it survives noon sun on a budget Android.</p></div>
+      <div class="cell"><div class="role"><span>Numbers</span><span>Atkinson Hyperlegible Mono</span></div><div class="mono sample-m">WG-2026-000015<br>4.2 kg × ₱45.00<br>₱137.92 · 09:14</div><p style="color:var(--muted);font-size:14px;margin:14px 0 0">Money, weights, codes, times. Fixed-width digits so columns line up and 1/7 never blur.</p></div>
+    </div>
+    <div class="scale">
+      <div><span>display 44/0.98</span><b class="display" style="font-size:44px;color:var(--ink)">Out for delivery</b></div>
+      <div><span>h1 26/1.2 800</span><b style="font-size:26px;font-weight:800">Order details</b></div>
+      <div><span>h2 20/1.3 700</span><b style="font-size:20px">Picked up by Jun</b></div>
+      <div><span>body 16/1.5</span><span style="font:400 16px var(--body);color:var(--carbon)">The shop re-weighs your bag before you pay.</span></div>
+      <div><span>small 14/1.45</span><span style="font:400 14px var(--body);color:var(--muted)">Updated 2 minutes ago</span></div>
+      <div><span>label 12 caps</span><span style="font:700 12px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">Cash to collect</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="sec">Color</h2>
+    <p class="sec-sub">Restrained. Navy carries structure; terracotta appears only where someone must act. Every text pair below passes WCAG AA; rider-critical text passes 7:1.</p>
+    <div class="swatches">
+      <div class="sw"><i style="background:#004375"></i><div><b>Ink navy</b><small>#004375 · white 10.2:1</small></div></div>
+      <div class="sw"><i style="background:#A64B16"></i><div><b>Stamp</b><small>#A64B16 · white 5.8:1</small></div></div>
+      <div class="sw"><i style="background:#C96A28"></i><div><b>Terracotta</b><small>#C96A28 · graphics ≥24px</small></div></div>
+      <div class="sw"><i style="background:#FFE3CC"></i><div><b>Peach tint</b><small>#FFE3CC · ink 6.1:1</small></div></div>
+      <div class="sw"><i style="background:#14202B"></i><div><b>Carbon</b><small>#14202B · 16.5:1</small></div></div>
+      <div class="sw"><i style="background:#4A5968"></i><div><b>Muted</b><small>#4A5968 · 7.2:1</small></div></div>
+      <div class="sw"><i style="background:#F5F3EE;border-bottom:1px solid #D9DEE3"></i><div><b>Ground</b><small>#F5F3EE</small></div></div>
+      <div class="sw"><i style="background:#1F7A4D"></i><div><b>Success</b><small>#1F7A4D · 5.3:1</small></div></div>
+      <div class="sw"><i style="background:#B3261E"></i><div><b>Danger</b><small>#B3261E · 6.5:1</small></div></div>
+    </div>
+    <p class="cut">Retired: <s>#FF9F5A</s> fails contrast and reads as foodpanda/Shopee · <s>#A9D6EE</s> <s>#5E9ACB</s> laundry-water cliché · <s>#3D5975</s> <s>#586779</s> duplicate navies · <s>#208AEF</s> Expo template blue · <s>#D07A29</s> drifted terracotta.</p>
+    <div class="row">
+      <button class="btn btn-primary">Confirm pickup</button>
+      <button class="btn btn-ink">Call rider</button>
+      <button class="btn btn-secondary">Change laundry</button>
+      <button class="btn btn-text">View receipt</button>
+      <button class="btn btn-danger">Cancel booking</button>
+      <button class="btn" disabled>Weigh first</button>
+    </div>
+    <div class="chips">
+      <span class="chip c-needs"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="4"/></svg>Needs you</span>
+      <span class="chip c-move"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 8h9M8 4l4 4-4 4"/></svg>Booked</span>
+      <span class="chip c-move"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 8h9M8 4l4 4-4 4"/></svg>Rider on the way</span>
+      <span class="chip c-move"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 8h9M8 4l4 4-4 4"/></svg>Picked up</span>
+      <span class="chip c-shop"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>At the shop</span>
+      <span class="chip c-shop"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>Washing</span>
+      <span class="chip c-move"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 8h9M8 4l4 4-4 4"/></svg>Out for delivery</span>
+      <span class="chip c-done"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3 8.5l3 3 7-7"/></svg>Delivered · paid</span>
+      <span class="chip c-cancel"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8"/></svg>Cancelled</span>
+      <span class="chip c-warn"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l7 13H1z"/></svg>Over cash limit</span>
+    </div>
+    <p class="legend">Phases, not rainbows: moving = navy, at the shop = warm neutral, done = green, cancelled = gray. "Needs you" (peach tint + stamp outline) is actor-relative; a solid stamp fill is reserved for the one primary button: the rider sees it on pickups, the shop on weigh-ins, ops on unassigned orders. Always icon + word, never color alone.</p>
+  </section>
+
+  <section>
+    <h2 class="sec">On real screens</h2>
+    <p class="sec-sub">Same tokens, three densities. Customer is comfortable and tells a custody story; the rider is Sun Mode; the shop portal error-proofs the money step.</p>
+    <div class="surfaces">
+      <!-- CUSTOMER -->
+      <div>
+        <p class="cap"><b>Customer</b> · order detail</p>
+        <div class="phone"><div class="scr">
+          <div class="status"><span>9:41</span><span>5G ▮▮▮</span></div>
+          <div class="appbar"><span class="back">‹</span><h3>Your order</h3></div>
+          <div class="body">
+            <div class="statusblock">
+              <div class="k">Out for delivery</div>
+              <div class="t">Arriving 4:30 – 5:00pm</div>
+              <div class="s">Jun is bringing your bag from Tetuan Laundry Hub.</div>
+              <div class="cod"><span>Have cash ready</span><b>₱137.92</b></div>
+            </div>
+            <div class="ticket">
+              <div class="top">
+                <div class="code">…0015<small>Bag tag #0412 · weighed 4.2 kg</small></div>
+                <svg class="chop" viewBox="0 0 100 100" aria-label="Stamped at Tetuan, 9:14">
+                  <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" stroke-width="3"/>
+                  <circle cx="50" cy="50" r="36" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                  <defs><path id="rim" d="M50,50 m-41,0 a41,41 0 1,1 82,0 a41,41 0 1,1 -82,0"/></defs>
+                  <text font-family="Atkinson Hyperlegible Mono" font-size="9.5" font-weight="700" fill="currentColor" letter-spacing="2"><textPath href="#rim">TETUAN · ZAMBOANGA · 09:14 ·</textPath></text>
+                  <text x="50" y="47" text-anchor="middle" font-family="Archivo" font-stretch="125%" font-weight="800" font-size="13" fill="currentColor">PICKED</text>
+                  <text x="50" y="62" text-anchor="middle" font-family="Archivo" font-stretch="125%" font-weight="800" font-size="13" fill="currentColor">UP</text>
+                </svg>
+              </div>
+              <div class="perf"></div>
+              <ul class="trail">
+                <li><span class="dot"></span><span>Picked up by Jun<small>Veterans Ave, Tetuan</small></span><time>09:14</time></li>
+                <li><span class="dot"></span><span>Weighed at the shop<small>4.2 kg · you approved ₱137.92</small></span><time>11:02</time></li>
+                <li class="now"><span class="dot"></span><span><b>On the way back</b><small>Washed, folded, sealed</small></span><time>15:48</time></li>
+                <li class="next"><span class="dot"></span><span>Delivered, you pay cash</span><time>—</time></li>
+              </ul>
+            </div>
+            <div class="people">
+              <div class="person"><div class="av r">JR</div><b>Jun Ramos</b><span>Rider · e-bike ZAM 214</span></div>
+              <div class="person"><div class="av">TL</div><b>Tetuan Laundry Hub</b><span>Partner since Oct</span></div>
+            </div>
+          </div>
+          <div class="sticky"><button class="btn btn-ink">Call Jun</button><button class="btn btn-secondary">Help</button></div>
+        </div></div>
+      </div>
+
+      <!-- RIDER -->
+      <div>
+        <p class="cap"><b>Rider</b> · Sun Mode, return leg</p>
+        <div class="phone"><div class="scr sun">
+          <div class="status" style="color:#14202B"><span>9:41</span><span>4G ▮▮▯</span></div>
+          <div class="appbar"><span class="back" style="background:#fff;border:2px solid #14202B;color:#14202B">‹</span><h3 style="color:#14202B">Job …0015</h3></div>
+          <div class="body">
+            <span class="leg">↩ Return · to customer</span>
+            <div class="stop">
+              <div class="lbl">Current stop</div>
+              <div class="addr">Gov. Camins Ave, Camino Nuevo</div>
+              <div class="who">Maria Santos · blue gate, beside sari-sari store</div>
+            </div>
+            <div class="collect">
+              <div class="lbl">Collect cash</div>
+              <div class="amt">₱137.92</div>
+            </div>
+            <div class="icons"><button>📞 Call</button><button>➚ Navigate</button></div>
+          </div>
+          <p class="sun-note">Next stop hidden until this one is done · 2 jobs after this</p>
+          <div class="slide"><span class="knob">→</span>Slide: collected ₱137.92</div>
+        </div></div>
+      </div>
+
+      <!-- PORTAL -->
+      <div>
+        <p class="cap"><b>Shop portal</b> · weigh-in on a phone</p>
+        <div class="phone"><div class="scr">
+          <div class="status"><span>9:41</span><span>WiFi</span></div>
+          <div class="shopbar"><b>Tetuan Laundry Hub</b><span style="font-size:13px">Pending payout <span class="mono">₱2,418</span></span></div>
+          <div class="tabs"><span class="tab on">Needs you <em>3</em></span><span class="tab">Washing <em>2</em></span><span class="tab">Ready <em>1</em></span><span class="tab">Done</span></div>
+          <div class="wcard">
+            <div class="head"><div class="code"><small>WG-2026-00</small>0012</div><span class="chip c-needs">Weigh now</span></div>
+            <div class="meta">Express · Wash &amp; Fold · arrived 38 min ago · est. 6 kg (Medium)</div>
+            <div class="field"><label for="kg">Actual weight</label>
+              <div class="inp" id="kg"><span>7.2</span><i>kg</i></div></div>
+            <div class="delta">▲ 1.2 kg more than the estimate. The customer will be asked to approve ₱54 extra.</div>
+            <div class="bd">
+              <div><span>7.2 kg × ₱45.00</span><span>₱324.00</span></div>
+              <div><span>Delivery (2.8 km)</span><span>₱46.40</span></div>
+              <div><span>Service fee</span><span>₱15.00</span></div>
+              <div class="tot"><span>New total</span><span>₱385.40</span></div>
+            </div>
+            <button class="btn btn-primary" style="width:100%;justify-content:center">Send ₱385.40 for approval</button>
+          </div>
+        </div></div>
+      </div>
+
+      <!-- ADMIN -->
+      <div class="admin">
+        <div class="side">
+          <div class="b">Wash &amp; Go Ops</div>
+          <div class="g">Operations</div>
+          <a class="on" href="#">Dispatch <em>2</em></a><a href="#">Applications <em>2</em></a>
+          <div class="g">Network</div><a href="#">Shops</a><a href="#">Riders</a><a href="#">Zones</a>
+          <div class="g">Money</div><a href="#">Rider cash <em>1</em></a><a href="#">Payouts</a>
+          <div class="g">Settings</div><a href="#">Users</a><a href="#">Business rules</a>
+        </div>
+        <div class="main">
+          <h4>Dispatch</h4>
+          <div class="sub">2 orders need a rider · auto-dispatch off</div>
+          <div class="filters"><span class="tab on">Needs rider <em>2</em></span><span class="tab">In motion <em>6</em></span><span class="tab">At shop <em>3</em></span><span class="tab">Done today <em>4</em></span><span class="tab">Cancelled</span></div>
+          <div class="tblwrap"><table class="tbl">
+            <thead><tr><th>Code</th><th>Age</th><th>Status</th><th>Pickup</th><th>Shop</th><th>Tier</th><th>Rider</th><th class="num">Total</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="code">…0018</td><td class="age late">1h 12m</td><td><span class="chip c-needs">Needs rider</span></td><td>Pasonanca Rd, Sta. Maria</td><td>Tetuan Hub</td><td>Scheduled</td><td>—</td><td class="num">₱292.80</td><td><div class="act"><button class="mini p">Assign</button><button class="more">⋯</button></div></td></tr>
+              <tr><td class="code">…0009</td><td class="age">24m</td><td><span class="chip c-needs">Needs rider</span></td><td>Veterans Ave, Tetuan</td><td>Tetuan Hub</td><td>Express</td><td>—</td><td class="num">₱122.00</td><td><div class="act"><button class="mini p">Assign</button><button class="more">⋯</button></div></td></tr>
+              <tr><td class="code">…0015</td><td class="age">6h 02m</td><td><span class="chip c-move">Out for delivery</span></td><td>Gov. Camins Ave</td><td>Tetuan Hub</td><td>Express</td><td>Jun R.</td><td class="num">₱137.92</td><td><div class="act"><button class="more">⋯</button></div></td></tr>
+              <tr><td class="code">…0013</td><td class="age">4h 40m</td><td><span class="chip c-shop">Washing</span></td><td>Veterans Ave, Tetuan</td><td>Tetuan Hub</td><td>Express</td><td>Jun R.</td><td class="num">₱122.00</td><td><div class="act"><button class="more">⋯</button></div></td></tr>
+              <tr><td class="code">…0016</td><td class="age">—</td><td><span class="chip c-done">Delivered · paid</span></td><td>Pasonanca Rd</td><td>Tetuan Hub</td><td>Express</td><td>Jun R.</td><td class="num">₱217.80</td><td><div class="act"><button class="more">⋯</button></div></td></tr>
+              <tr><td class="code">…0017</td><td class="age">—</td><td><span class="chip c-cancel">Cancelled</span></td><td>Veterans Ave, Tetuan</td><td>Tetuan Hub</td><td>Express</td><td>—</td><td class="num">₱122.00</td><td><div class="act"><button class="more">⋯</button></div></td></tr>
+            </tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- LANDING -->
+      <div class="land">
+        <div class="nav"><a class="brand" href="#"><img src="../../apps/landing-page/src/assets/images/logos/branding.svg" alt="">Wash &amp; Go</a><nav><a href="#">How it works</a><a href="#">Prices</a><a href="#">For laundry shops</a><a href="#">Riders</a></nav></div>
+        <div class="hero">
+          <div>
+            <h2 class="display">Laundry pickup for Zamboanga City.</h2>
+            <p class="lead">A local rider collects your bag, a verified partner shop in your area washes it, and you see every handoff: who has it, what it weighed, what you owe. Pay cash when it comes back.</p>
+            <div class="trust">
+              <span><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3 8.5l3 3 7-7"/></svg>Cash on delivery</span>
+              <span><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3 8.5l3 3 7-7"/></svg>Re-weighed before you pay</span>
+              <span><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3 8.5l3 3 7-7"/></svg>Your bag is never mixed</span>
+            </div>
+          </div>
+          <div class="wait">
+            <h3>Be first when we open in your barangay</h3>
+            <p>We are onboarding shops in Tetuan, Canelar and Sta. Maria first.</p>
+            <label>Name</label><div class="f">Maria Santos</div>
+            <label>Mobile number</label><div class="f">0917 …</div>
+            <label>Barangay</label><div class="f">Choose your barangay ▾</div>
+            <button class="btn btn-primary">Join the waitlist</button>
+            <small>Own a laundry shop? <a href="#">Apply as a partner</a> · Want to ride? <a href="#">Apply as a rider</a></small>
+          </div>
+        </div>
+        <div class="strip">
+          <div><b>Express</b>Up to 6 kg, e-bike, same day</div>
+          <div><b>Scheduled</b>Any size, pick a pickup window</div>
+          <div><b>Business</b>Recurring pickups for shops and offices</div>
+          <div><b>Prices set by each shop</b>Typical ₱__–₱__ per kg, shown before you book</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="sec">Rules that keep it honest</h2>
+    <div class="rules">
+      <div class="box"><h3>Do</h3><ul>
+        <li>Lead every order screen with who has the clothes, the weight, and the amount owed.</li>
+        <li>One stamp-colored button per screen. It is the next step for whoever is looking.</li>
+        <li>Put money in mono, large, and in the same place on list and detail.</li>
+        <li>Rider: primary action in a sticky bottom bar, ≥56px, amount in the slide label.</li>
+        <li>Show status as icon + word + phase color, with a plain-language label per audience.</li>
+      </ul></div>
+      <div class="box"><h3>Don't</h3><ul>
+        <li>No water: bubbles, aqua, sparkle icons, spin-cycle art.</li>
+        <li>No white text on #C96A28 or #D07A29. Use Stamp #A64B16.</li>
+        <li>No emoji in UI chrome; one icon set.</li>
+        <li>No invented stats, stars, or "partner shops" before real ones exist.</li>
+        <li>No raw server errors, URLs, or order codes as headlines.</li>
+      </ul></div>
+    </div>
+  </section>
+</main>
+<footer class="wrap">Claim Ticket v0.1 · preview generated by /design-consultation · 2026-09-28. Emoji on the rider mock buttons are placeholders for the icon set.</footer>
+<script>
+const b=document.getElementById('theme');
+b.addEventListener('click',()=>{const d=document.documentElement.dataset.theme==='dark';document.documentElement.dataset.theme=d?'light':'dark';b.textContent=d?'Dark mode':'Light mode';b.setAttribute('aria-pressed',String(!d));});
+</script>
+</body>
+</html>
