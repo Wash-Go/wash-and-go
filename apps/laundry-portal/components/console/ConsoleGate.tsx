@@ -57,6 +57,11 @@ function fromSnapshot(snap: GateSnapshot): Boot {
         photoKeys: [],
         submittedAt: null,
         verifiedAt: null,
+        contactPhone: null,
+        description: null,
+        hours: null,
+        expressSlotsPerDay: 0,
+        documentsPending: false,
       }
     : null;
   const me: MeView = { id: '', phone: null, displayName: '', roles: [snap.owner ? 'SHOP_OWNER' : 'SHOP_STAFF'] };

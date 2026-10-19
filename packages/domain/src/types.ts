@@ -120,6 +120,23 @@ export interface OwnerShopView {
   photoKeys: string[];
   submittedAt: string | null;
   verifiedAt: string | null;
+  // Canonical "+639XXXXXXXXX" once set.
+  contactPhone: string | null;
+  description: string | null;
+  // Exactly 7 entries, day 0..6, once the owner sets hours.
+  hours: ShopHoursDay[] | null;
+  // The owner's own Express e-bike capacity (0..50).
+  expressSlotsPerDay: number;
+  // Derived: SUBMITTED or VERIFIED without a permit (uploads were off).
+  documentsPending: boolean;
+}
+
+// One weekday of opening hours. day 0 = Sunday … 6 = Saturday (JS getDay).
+// open/close are 24-hour "HH:MM", both null when closed; open < close.
+export interface ShopHoursDay {
+  day: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  open: string | null;
+  close: string | null;
 }
 
 export interface UpdateOnboardingBody {
@@ -129,6 +146,46 @@ export interface UpdateOnboardingBody {
   lng?: number;
   permitKey?: string;
   photoKeys?: string[];
+  contactPhone?: string;
+  description?: string;
+  hours?: ShopHoursDay[];
+  expressSlotsPerDay?: number;
+}
+
+export type BillingUnit = 'PER_KG' | 'PER_PIECE' | 'FLAT';
+
+// Owner/staff view of the service catalog (GET /shop/catalog).
+export interface ShopCatalogItem {
+  id: string;
+  code: string;
+  name: string;
+  billingUnit: BillingUnit;
+}
+
+// The caller's shop's priced services (GET /shop/services). serviceId is the
+// catalog id (the PUT key); id is the ShopService row id.
+export interface ShopServiceRow {
+  id: string;
+  serviceId: string;
+  code: string;
+  name: string;
+  billingUnit: BillingUnit;
+  ratePhp: string;
+  turnaroundHours: number;
+  active: boolean;
+}
+
+// PUT /shop/services/:serviceId — full replace; active is required.
+// ratePhp > 0, <= 99999, at most 2 decimals; turnaroundHours 1..720.
+export interface PutShopServiceBody {
+  ratePhp: number;
+  turnaroundHours: number;
+  active: boolean;
+}
+
+// GET /uploads/status — true only when R2 is configured.
+export interface UploadsStatus {
+  configured: boolean;
 }
 
 export interface RejectShopBody {

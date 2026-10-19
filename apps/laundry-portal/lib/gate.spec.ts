@@ -13,6 +13,11 @@ const shop = (status: OwnerShopView['status']): OwnerShopView => ({
   photoKeys: [],
   submittedAt: null,
   verifiedAt: null,
+  contactPhone: null,
+  description: null,
+  hours: null,
+  expressSlotsPerDay: 0,
+  documentsPending: false,
 });
 
 describe('resolveGate', () => {

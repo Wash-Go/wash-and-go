@@ -12,6 +12,10 @@ import type {
   CreateShopBody,
   OwnerShopView,
   PresignUploadResult,
+  PutShopServiceBody,
+  ShopCatalogItem,
+  ShopServiceRow,
+  UploadsStatus,
   RiderApplicationView,
   RiderProfileView,
   ServiceCatalogView,
@@ -502,6 +506,26 @@ export class ApiClient {
 
   uploadViewUrl(key: string): Promise<{ url: string }> {
     return this.request('GET', `/uploads/url?key=${encodeURIComponent(key)}`);
+  }
+
+  // Whether document upload (R2) is configured; the wizard gates step 5 on it.
+  uploadsStatus(): Promise<UploadsStatus> {
+    return this.request('GET', '/uploads/status');
+  }
+
+  // --- Shop services and rates (portal owner/staff; shop derived server-side) ---
+
+  shopCatalog(): Promise<ShopCatalogItem[]> {
+    return this.request('GET', '/shop/catalog');
+  }
+
+  shopServices(): Promise<ShopServiceRow[]> {
+    return this.request('GET', '/shop/services');
+  }
+
+  // Upsert the caller's rate for a catalog item (serviceId = catalog id).
+  putShopService(serviceId: string, body: PutShopServiceBody): Promise<ShopServiceRow> {
+    return this.request('PUT', `/shop/services/${encodeURIComponent(serviceId)}`, body);
   }
 
   // --- Self-serve rider onboarding (rider app) ---

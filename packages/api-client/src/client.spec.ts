@@ -320,4 +320,66 @@ describe('ApiClient', () => {
     expect(url).toBe('http://api.test/admin/remittance/summary');
     expect(init.method).toBe('GET');
   });
+
+  describe('shop wizard endpoints', () => {
+    const make = (body: unknown) => {
+      const fetchFn = jest.fn().mockResolvedValue(res(200, body));
+      const client = new ApiClient({ baseUrl: 'http://api.test', tokens: tokensFrom(['t']), fetchFn });
+      return { client, fetchFn };
+    };
+
+    it('reads GET /uploads/status', async () => {
+      const { client, fetchFn } = make({ configured: false });
+      await expect(client.uploadsStatus()).resolves.toEqual({ configured: false });
+      const [url, init] = fetchFn.mock.calls[0];
+      expect(url).toBe('http://api.test/uploads/status');
+      expect(init.method).toBe('GET');
+    });
+
+    it('reads the catalog from GET /shop/catalog', async () => {
+      const items = [{ id: 'c1', code: 'WDF', name: 'Wash, dry & fold', billingUnit: 'PER_KG' }];
+      const { client, fetchFn } = make(items);
+      await expect(client.shopCatalog()).resolves.toEqual(items);
+      const [url, init] = fetchFn.mock.calls[0];
+      expect(url).toBe('http://api.test/shop/catalog');
+      expect(init.method).toBe('GET');
+    });
+
+    it('reads the shop rates from GET /shop/services', async () => {
+      const { client, fetchFn } = make([]);
+      await client.shopServices();
+      const [url, init] = fetchFn.mock.calls[0];
+      expect(url).toBe('http://api.test/shop/services');
+      expect(init.method).toBe('GET');
+    });
+
+    it('puts a rate to PUT /shop/services/:serviceId with active always in the body', async () => {
+      const { client, fetchFn } = make({ id: 's1' });
+      await client.putShopService('cat/1', { ratePhp: 25, turnaroundHours: 24, active: false });
+      const [url, init] = fetchFn.mock.calls[0];
+      expect(url).toBe('http://api.test/shop/services/cat%2F1');
+      expect(init.method).toBe('PUT');
+      expect(JSON.parse(init.body)).toEqual({ ratePhp: 25, turnaroundHours: 24, active: false });
+    });
+
+    it('patches the wizard fields on PATCH /shop/onboarding', async () => {
+      const { client, fetchFn } = make({ id: 'shop1' });
+      const hours = ([0, 1, 2, 3, 4, 5, 6] as const).map((day) => ({ day, open: null, close: null }));
+      await client.updateShopOnboarding({
+        contactPhone: '09171234567',
+        description: 'Near the plaza',
+        hours,
+        expressSlotsPerDay: 6,
+      });
+      const [url, init] = fetchFn.mock.calls[0];
+      expect(url).toBe('http://api.test/shop/onboarding');
+      expect(init.method).toBe('PATCH');
+      expect(JSON.parse(init.body)).toEqual({
+        contactPhone: '09171234567',
+        description: 'Near the plaza',
+        hours,
+        expressSlotsPerDay: 6,
+      });
+    });
+  });
 });
