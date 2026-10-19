@@ -342,6 +342,9 @@ export interface OrderView {
   deliveryFeePhp: string;
   serviceFeePhp: string;
   customerTotalPhp: string;
+  // What the shop is paid for this order (wash value minus commission), as
+  // stored by the pricing engine. Recomputed at weigh-in.
+  shopRemittancePhp: string;
   paidCashAt: string | null;
   createdAt: string;
   deliveredAt: string | null;

@@ -1,6 +1,5 @@
-import { ApiClient } from '@wash-and-go/api-client';
 import type { OrderStatus, OrderView } from '@wash-and-go/domain';
-import { api, apiAuth } from './api';
+import { api } from './api';
 import { ACTIVE_LIMIT, DONE_PAGE } from './queue';
 
 // React Query keys and options for the queue. Everything order-shaped lives
@@ -8,22 +7,10 @@ import { ACTIVE_LIMIT, DONE_PAGE } from './queue';
 // the badge and any open detail.
 export const ORDERS_KEY = ['orders'] as const;
 
-// Every non-terminal order of the shop in one page, oldest first
-// (GET /orders?active=true; no cursor). packages/api-client has no method for
-// it yet, so this is a second client whose fetch adds active=true to the list
-// call: same auth, refresh and ApiError mapping. B6: replace it with
-// api.listActiveOrders once the shared client has it.
-const activeClient = new ApiClient({
-  ...apiAuth,
-  fetchFn: (input, init) => {
-    const url = new URL(String(input));
-    url.searchParams.set('active', 'true');
-    return fetch(url, init);
-  },
-});
-
+// Every non-terminal order of the shop in one page (GET /orders?active=true,
+// oldest first, no cursor).
 export function listActiveOrders(): Promise<OrderView[]> {
-  return activeClient.listOrders(undefined, undefined, ACTIVE_LIMIT);
+  return api.listActiveOrders(undefined, ACTIVE_LIMIT);
 }
 
 // ONE active query for the whole console: the queue, its counts, the tab
@@ -52,12 +39,3 @@ export function doneListQuery(status: OrderStatus, q: string, open: boolean, pag
 export function orderDetailKey(id: string) {
   return ['orders', 'detail', id] as const;
 }
-
-// The order's fields as the API sends them. GET /orders spreads every Order
-// column, so the stored commission and shop payout arrive too, although the
-// shared OrderView type does not declare them (packages/domain is read-only
-// in this slice). Read them as optional and show them only when present.
-export type ShopOrder = OrderView & {
-  commissionPhp?: string;
-  shopRemittancePhp?: string;
-};

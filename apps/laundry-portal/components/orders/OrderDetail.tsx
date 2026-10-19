@@ -5,7 +5,7 @@ import { Bike, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 import { api } from '../../lib/api';
 import { backHref, orderTimeline, payoutPhp, weighHistory } from '../../lib/order-detail';
-import { orderDetailKey, type ShopOrder } from '../../lib/order-queries';
+import { orderDetailKey } from '../../lib/order-queries';
 import { firstName, loadLabel, primaryAction, serviceLabel, shortName } from '../../lib/queue';
 import { manilaClock } from '../../lib/relative-time';
 import { canWeigh } from '../../lib/shop';
@@ -45,7 +45,7 @@ export function OrderDetail({
 }) {
   const q = useQuery({
     queryKey: orderDetailKey(id),
-    queryFn: () => api.getOrder(id) as Promise<ShopOrder>,
+    queryFn: () => api.getOrder(id),
     // Not found / not yours will not change on a retry.
     retry: (n, e) => statusOf(e) !== 404 && statusOf(e) !== 403 && n < 2,
   });

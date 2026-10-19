@@ -1,5 +1,4 @@
 import { EXPRESS_TIMELINE, STATUS_META, type OrderStatus, type OrderView } from '@wash-and-go/domain';
-import type { ShopOrder } from './order-queries';
 import { bucketOf, loadLabel, shortName } from './queue';
 import { formatKg } from './weigh';
 
@@ -49,8 +48,9 @@ export function weighHistory(o: Pick<OrderView, 'loadCategory' | 'weightEstimate
   return `Booked as ${est} · ${kg ? `weighed ${kg}` : 'not weighed yet'}`;
 }
 
-// The shop's payout as the API stored it (no hardcoded percentage).
-export function payoutPhp(o: ShopOrder): string | null {
+// The shop's payout as the API stored it (no hardcoded percentage); null
+// when an older API leaves it out.
+export function payoutPhp(o: Partial<Pick<OrderView, 'shopRemittancePhp'>>): string | null {
   const v = o.shopRemittancePhp;
   return v != null && Number.isFinite(Number(v)) ? v : null;
 }

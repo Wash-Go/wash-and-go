@@ -474,4 +474,13 @@ describe('ApiClient', () => {
       expect(b.fetchFn.mock.calls[0][1].headers['content-type']).toBeUndefined();
     });
   });
+
+  it('lists every active order in one page, with search and a limit', async () => {
+    const fetchFn = jest.fn().mockResolvedValue(res(200, []));
+    const client = new ApiClient({ baseUrl: 'http://api.test', tokens: tokensFrom(['t']), fetchFn });
+    await client.listActiveOrders();
+    expect(fetchFn.mock.calls[0][0]).toBe('http://api.test/orders?active=true');
+    await client.listActiveOrders('0147', 200);
+    expect(fetchFn.mock.calls[1][0]).toBe('http://api.test/orders?active=true&q=0147&limit=200');
+  });
 });

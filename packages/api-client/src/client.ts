@@ -277,6 +277,15 @@ export class ApiClient {
     return this.request('GET', `/orders${s ? `?${s}` : ''}`);
   }
 
+  // Every non-terminal order the caller can see, oldest first, in one page
+  // (no cursor; API default 200, max 500). Shops use it for the open queue.
+  listActiveOrders(q?: string, limit?: number): Promise<OrderView[]> {
+    const p = new URLSearchParams({ active: 'true' });
+    if (q) p.set('q', q);
+    if (limit != null) p.set('limit', String(limit));
+    return this.request('GET', `/orders?${p.toString()}`);
+  }
+
   // Drive a legal status transition (rider/shop/admin). Server enforces legality
   // + ownership; the client only offers actions the shaped read said are available.
   transition(id: string, status: OrderStatus, reason?: string): Promise<OrderView> {

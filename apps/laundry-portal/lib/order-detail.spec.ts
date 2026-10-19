@@ -1,8 +1,7 @@
 import type { OrderView } from '@wash-and-go/domain';
-import type { ShopOrder } from './order-queries';
 import { backHref, orderTimeline, payoutPhp, weighHistory } from './order-detail';
 
-const o = (over: Partial<ShopOrder>): ShopOrder =>
+const o = (over: Partial<OrderView>): OrderView =>
   ({
     id: 'o1',
     code: 'WG-2026-000141',
@@ -17,7 +16,7 @@ const o = (over: Partial<ShopOrder>): ShopOrder =>
     cancelReason: null,
     rider: { id: 'r1', displayName: 'Ana Reyes' },
     ...over,
-  }) as ShopOrder;
+  }) as OrderView;
 
 describe('orderTimeline', () => {
   it('marks past steps done, the current one now and the rest next', () => {
@@ -71,7 +70,7 @@ describe('weighHistory', () => {
 describe('payoutPhp', () => {
   it('shows the stored shop payout only when the API sent it', () => {
     expect(payoutPhp(o({ shopRemittancePhp: '158.4' }))).toBe('158.4');
-    expect(payoutPhp(o({}))).toBeNull();
+    expect(payoutPhp({})).toBeNull();
     expect(payoutPhp(o({ shopRemittancePhp: 'abc' }))).toBeNull();
   });
 });

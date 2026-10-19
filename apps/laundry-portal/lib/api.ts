@@ -9,10 +9,8 @@ async function idToken(force: boolean): Promise<string | null> {
   return auth.currentUser ? auth.currentUser.getIdToken(force) : null;
 }
 
-export const apiAuth = {
+export const api = new ApiClient({
   baseUrl: API_BASE_URL,
   tokens: { getToken: () => idToken(false), refreshToken: () => idToken(true) },
   devUid: DEV_UID,
-};
-
-export const api = new ApiClient(apiAuth);
+});
