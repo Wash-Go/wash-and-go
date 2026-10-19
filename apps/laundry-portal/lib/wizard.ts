@@ -274,3 +274,22 @@ export function servicePuts(d: WizardDraft, saved: ShopServiceRow[]): { serviceI
   }
   return out;
 }
+
+// Review / under-review summary: consecutive days with the same hours grouped,
+// Monday first ("Mon–Fri 08:00–18:00", "Sat 09:00–15:00", "Sun Closed").
+export function hoursSummary(rows: HoursRow[]): { days: string; hours: string }[] {
+  const order: Day[] = [1, 2, 3, 4, 5, 6, 0];
+  const text = (r: HoursRow) => (r.open ? `${r.from}–${r.to}` : 'Closed');
+  const out: { first: Day; last: Day; hours: string }[] = [];
+  for (const d of order) {
+    const r = rows[d];
+    if (!r) continue;
+    const prev = out[out.length - 1];
+    if (prev && prev.hours === text(r)) prev.last = d;
+    else out.push({ first: d, last: d, hours: text(r) });
+  }
+  return out.map((g) => ({
+    days: g.first === g.last ? DAY_SHORT[g.first] : `${DAY_SHORT[g.first]}–${DAY_SHORT[g.last]}`,
+    hours: g.hours,
+  }));
+}

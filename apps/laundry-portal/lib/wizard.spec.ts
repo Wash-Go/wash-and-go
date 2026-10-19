@@ -7,6 +7,7 @@ import {
   firstIncompleteStep,
   hoursFromApi,
   hoursPatch,
+  hoursSummary,
   hoursToApi,
   locationPatch,
   missingLabelToStep,
@@ -280,6 +281,16 @@ describe('validateStep', () => {
       accurate: 'Tick the box to confirm your details are accurate.',
     });
     expect(validateStep(5, draft({ accurate: true }), up)).toEqual({});
+  });
+});
+
+describe('hoursSummary', () => {
+  it('groups consecutive days with the same hours, Monday first', () => {
+    expect(hoursSummary(hoursFromApi(week))).toEqual([
+      { days: 'Mon–Fri', hours: '08:00–18:00' },
+      { days: 'Sat', hours: '09:00–15:00' },
+      { days: 'Sun', hours: 'Closed' },
+    ]);
   });
 });
 
