@@ -176,6 +176,7 @@ describe('route role matrix', () => {
   it('upload routes are any-authenticated (key-namespace + owner/admin gate)', () => {
     expect(rolesOf(UploadsController.prototype, 'presign')).toBeUndefined();
     expect(rolesOf(UploadsController.prototype, 'view')).toBeUndefined();
+    expect(rolesOf(UploadsController.prototype, 'status')).toBeUndefined();
   });
 
   it('shop-facing remittance is SHOP_OWNER/STAFF only', () => {

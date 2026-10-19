@@ -2,10 +2,11 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { Prisma } from '@prisma/client';
 import { ShopOnboardingService } from './shop-onboarding.service';
 import type { PrismaService } from '../prisma/prisma.service';
+import type { UploadsService } from '../uploads/uploads.service';
 
 const D = (n: number) => new Prisma.Decimal(n);
 
-function make(overrides: Record<string, unknown> = {}) {
+function make(overrides: Record<string, unknown> = {}, opts: { r2?: boolean } = {}) {
   const prisma = {
     shop: {},
     shopMember: {},
@@ -14,7 +15,8 @@ function make(overrides: Record<string, unknown> = {}) {
     $transaction: (fn: (tx: unknown) => unknown) => fn(prisma),
     ...overrides,
   } as unknown as PrismaService;
-  return { svc: new ShopOnboardingService(prisma), prisma: prisma as never };
+  const uploads = { configured: () => opts.r2 ?? true } as unknown as UploadsService;
+  return { svc: new ShopOnboardingService(prisma, uploads), prisma: prisma as never };
 }
 
 const user = { id: 'u1', roles: ['CUSTOMER'] } as never;
@@ -51,6 +53,18 @@ const completeShop = (over: Record<string, unknown> = {}) =>
 
 const week = (over: Record<number, unknown> = {}) =>
   [0, 1, 2, 3, 4, 5, 6].map((day) => over[day] ?? { day, open: '08:00', close: '18:00' });
+
+// The 400 body message — the wizard maps each label to its step.
+async function missingOf(p: Promise<unknown>): Promise<string> {
+  const e = await p.then(
+    () => {
+      throw new Error('expected a 400');
+    },
+    (err: unknown) => err,
+  );
+  expect(e).toBeInstanceOf(BadRequestException);
+  return (e as BadRequestException).message;
+}
 
 describe('ShopOnboardingService', () => {
   it('mine returns null when the caller owns no shop', async () => {
@@ -140,6 +154,7 @@ describe('ShopOnboardingService', () => {
         description: 'Fresh folds',
         hours: week(),
         expressSlotsPerDay: 6,
+        documentsPending: false,
       });
     });
 
@@ -199,6 +214,74 @@ describe('ShopOnboardingService', () => {
       const { svc, update } = editable(draftShop({ status: 'REJECTED' }));
       await svc.update(user, { description: 'Fixed' });
       expect(update).toHaveBeenCalled();
+    });
+  });
+
+  describe('submit rule (B3)', () => {
+    function submitting(shop: ReturnType<typeof draftShop>, opts: { r2?: boolean; services?: number } = {}) {
+      const update = jest.fn().mockImplementation(({ data }) => Promise.resolve({ ...shop, ...data }));
+      const count = jest.fn().mockResolvedValue(opts.services ?? 1);
+      const ctx = make(
+        {
+          shopMember: { findFirst: jest.fn().mockResolvedValue({ shop }) },
+          shop: { update },
+          shopService: { count },
+        },
+        { r2: opts.r2 },
+      );
+      return { ...ctx, update, count };
+    }
+
+    it('lists every missing field for an empty draft (R2 configured)', async () => {
+      const { svc } = submitting(draftShop(), { services: 0 });
+      expect(await missingOf(svc.submit(user))).toBe(
+        'Please add: shop name, address, map location, contact phone, services, business permit',
+      );
+    });
+
+    it('requires a contact phone', async () => {
+      const { svc } = submitting(completeShop({ contactPhone: null }));
+      expect(await missingOf(svc.submit(user))).toBe('Please add: contact phone');
+    });
+
+    it('requires at least one ACTIVE service', async () => {
+      const { svc, count } = submitting(completeShop(), { services: 0 });
+      expect(await missingOf(svc.submit(user))).toBe('Please add: services');
+      expect(count).toHaveBeenCalledWith({ where: { shopId: 's1', active: true } });
+    });
+
+    it('requires the permit when R2 is configured', async () => {
+      const { svc } = submitting(completeShop({ permitKey: null }), { r2: true });
+      expect(await missingOf(svc.submit(user))).toBe('Please add: business permit');
+    });
+
+    it('submits without a permit when R2 is not configured, flagging documentsPending', async () => {
+      const { svc, update } = submitting(completeShop({ permitKey: null }), { r2: false });
+      const view = await svc.submit(user);
+      expect(view.status).toBe('SUBMITTED');
+      expect(view.documentsPending).toBe(true);
+      expect(update.mock.calls[0][0].data).toMatchObject({ status: 'SUBMITTED' });
+    });
+
+    it('a submission with a permit is not documentsPending', async () => {
+      const { svc } = submitting(completeShop(), { r2: false });
+      expect((await svc.submit(user)).documentsPending).toBe(false);
+    });
+
+    it('documentsPending is derived: true only for SUBMITTED/VERIFIED without a permit', async () => {
+      const cases: Array<[string, string | null, boolean]> = [
+        ['DRAFT', null, false],
+        ['REJECTED', null, false],
+        ['SUBMITTED', null, true],
+        ['VERIFIED', null, true],
+        ['VERIFIED', 'uploads/u1/p.pdf', false],
+      ];
+      for (const [status, permitKey, pending] of cases) {
+        const { svc } = make({
+          shopMember: { findFirst: jest.fn().mockResolvedValue({ shop: draftShop({ status, permitKey }) }) },
+        });
+        expect((await svc.mine(user))?.documentsPending).toBe(pending);
+      }
     });
   });
 });

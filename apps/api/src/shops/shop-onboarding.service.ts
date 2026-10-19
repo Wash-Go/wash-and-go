@@ -7,6 +7,7 @@ import {
 import { Prisma, Shop, User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { assertOwnedKey } from '../uploads/object-key';
+import { UploadsService } from '../uploads/uploads.service';
 import { normalizePhMobile } from '../users/phone';
 import type { ShopHoursDayDto, UpdateOnboardingDto } from './dto/shop-onboarding.dto';
 
@@ -36,6 +37,9 @@ export interface OwnerShopView {
   description: string | null;
   hours: ShopHoursDay[] | null;
   expressSlotsPerDay: number;
+  // Derived, not a column: in review (or live) without a business permit —
+  // submitted while uploads were unavailable, so the admin must chase proof.
+  documentsPending: boolean;
 }
 
 // Cross-field checks the DTO can't express: one entry per weekday, open/close
@@ -67,7 +71,10 @@ export function normalizeHours(hours: ShopHoursDayDto[]): ShopHoursDay[] {
  */
 @Injectable()
 export class ShopOnboardingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly uploads: UploadsService,
+  ) {}
 
   // The caller's owned shop, or null (portal decides: show wizard vs "start").
   async mine(user: User): Promise<OwnerShopView | null> {
@@ -148,7 +155,15 @@ export class ShopOnboardingService {
     if (!shop.name || shop.name === 'My laundry') missing.push('shop name');
     if (!shop.address) missing.push('address');
     if (Number(shop.lat) === 0 && Number(shop.lng) === 0) missing.push('map location');
-    if (!shop.permitKey) missing.push('business permit');
+    if (!shop.contactPhone) missing.push('contact phone');
+    // A shop with no active service can't take an order.
+    const services = await this.prisma.shopService.count({
+      where: { shopId: shop.id, active: true },
+    });
+    if (services === 0) missing.push('services');
+    // The permit is required only while uploads work; without R2 the shop is
+    // submitted documentsPending and the admin collects proof out of band.
+    if (!shop.permitKey && this.uploads.configured()) missing.push('business permit');
     if (missing.length) {
       throw new BadRequestException(`Please add: ${missing.join(', ')}`);
     }
@@ -189,6 +204,8 @@ export class ShopOnboardingService {
       // Written only through normalizeHours, so the stored JSON is the grid shape.
       hours: (s.hours as unknown as ShopHoursDay[] | null) ?? null,
       expressSlotsPerDay: s.expressSlotsPerDay,
+      documentsPending:
+        (s.status === 'SUBMITTED' || s.status === 'VERIFIED') && !s.permitKey,
     };
   }
 }

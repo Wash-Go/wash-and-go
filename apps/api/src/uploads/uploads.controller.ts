@@ -26,6 +26,12 @@ import { UploadsService } from './uploads.service';
 export class UploadsController {
   constructor(private readonly uploads: UploadsService) {}
 
+  @Get('status')
+  @ApiOperation({ summary: 'Whether file uploads (R2) are configured on this server' })
+  status(): { configured: boolean } {
+    return { configured: this.uploads.configured() };
+  }
+
   @Post('presign')
   @ApiOperation({ summary: 'Presigned PUT to upload a file directly to R2' })
   presign(@CurrentUser() user: User, @Body() dto: PresignUploadDto) {
