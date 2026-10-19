@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 // Browser smoke for the investor landing page (apps/landing-page).
 //
-// It does not build or start anything. Build the page and serve it first:
+// Build first (the script does not build):
 //   pnpm --filter wash-and-go-landing-page build
-//   pnpm --filter wash-and-go-landing-page exec vite preview --port 4173 --strictPort
-// then run: node e2e/scripts/landing-smoke.cjs [baseUrl]   (default http://localhost:4173)
+// then run: pnpm --filter @wash-and-go/e2e smoke:landing
+//
+// The script starts its own `vite preview --strictPort` from apps/landing-page on
+// LANDING_SMOKE_PORT (default 4319), waits for it, and always stops it, also on
+// Ctrl-C. Set LANDING_SMOKE_URL to test an already running server instead.
 //
 // Checks, at 390x844 @2x and 1440x900: every <img> decodes after a full scroll
 // (the gallery is lazy), the full-page screenshot, no console errors or failed
@@ -15,12 +18,60 @@
 // Screenshots go to .superpowers/landing-smoke/ (git-ignored).
 const fs = require('node:fs')
 const path = require('node:path')
-const { chromium } = require('playwright')
+const { spawn } = require('node:child_process')
+const { chromium } = require('@playwright/test')
 
-const BASE = (process.argv[2] || process.env.LANDING_URL || 'http://localhost:4173').replace(/\/$/, '')
 const ROOT = path.resolve(__dirname, '..', '..')
+const LANDING = path.join(ROOT, 'apps', 'landing-page')
 const OUT = path.join(ROOT, '.superpowers', 'landing-smoke')
-const VERCEL_JSON = path.join(ROOT, 'apps', 'landing-page', 'vercel.json')
+const VERCEL_JSON = path.join(LANDING, 'vercel.json')
+const EXTERNAL_URL = process.env.LANDING_SMOKE_URL
+const PORT = Number(process.env.LANDING_SMOKE_PORT || 4319)
+const BASE = (EXTERNAL_URL || `http://localhost:${PORT}`).replace(/\/$/, '')
+
+let server = null
+
+function stopServer() {
+  if (!server || server.exitCode !== null || server.signalCode !== null) return
+  // The child leads its own process group, so this also stops anything vite spawned.
+  try {
+    process.kill(-server.pid, 'SIGTERM')
+  } catch {
+    server.kill('SIGTERM')
+  }
+}
+
+async function startServer() {
+  if (!fs.existsSync(path.join(LANDING, 'dist', 'client', 'index.html'))) {
+    throw new Error('apps/landing-page/dist/client/index.html is missing; run `pnpm --filter wash-and-go-landing-page build` first')
+  }
+  // Refuse a busy port: otherwise the poll below could pass against someone else's server.
+  const busy = await fetch(`${BASE}/`).then(() => true, () => false)
+  if (busy) throw new Error(`port ${PORT} is already serving; stop that server or set LANDING_SMOKE_PORT`)
+  const viteBin = path.join(path.dirname(require.resolve('vite/package.json', { paths: [LANDING] })), 'bin', 'vite.js')
+  let log = ''
+  server = spawn(process.execPath, [viteBin, 'preview', '--strictPort', '--port', String(PORT)], {
+    cwd: LANDING,
+    detached: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  server.stdout.on('data', (d) => { log += d })
+  server.stderr.on('data', (d) => { log += d })
+  const deadline = Date.now() + 30000
+  while (Date.now() < deadline) {
+    if (server.exitCode !== null) throw new Error(`vite preview exited (${server.exitCode}) before serving:\n${log}`)
+    try {
+      const res = await fetch(`${BASE}/`)
+      if (res.ok) return
+    } catch {}
+    await new Promise((r) => setTimeout(r, 250))
+  }
+  throw new Error(`vite preview did not answer on ${BASE} within 30s:\n${log}`)
+}
+
+process.on('SIGINT', () => { stopServer(); process.exit(130) })
+process.on('SIGTERM', () => { stopServer(); process.exit(143) })
+process.on('exit', stopServer)
 
 const failures = []
 const check = (ok, msg) => {
@@ -176,13 +227,22 @@ async function measure(browser) {
 async function main() {
   fs.mkdirSync(OUT, { recursive: true })
   checkRedirects()
-  const browser = await chromium.launch()
   try {
-    await runViewport(browser, { width: 390, height: 844, scale: 2 })
-    await runViewport(browser, { width: 1440, height: 900, scale: 1 })
-    await measure(browser)
+    if (EXTERNAL_URL) console.log(`     using external server ${BASE}`)
+    else {
+      await startServer()
+      console.log(`     started vite preview on ${BASE}`)
+    }
+    const browser = await chromium.launch()
+    try {
+      await runViewport(browser, { width: 390, height: 844, scale: 2 })
+      await runViewport(browser, { width: 1440, height: 900, scale: 1 })
+      await measure(browser)
+    } finally {
+      await browser.close()
+    }
   } finally {
-    await browser.close()
+    stopServer()
   }
   console.log(failures.length ? `\n${failures.length} check(s) failed` : '\nlanding smoke: all checks passed')
   process.exit(failures.length ? 1 : 0)
