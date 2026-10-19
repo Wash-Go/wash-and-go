@@ -6,7 +6,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { TextField } from '../auth/TextField';
 import { api } from '../../lib/api';
 import { useMedia } from '../../lib/useMedia';
-import { MAX_ADDRESS } from '../../lib/wizard';
+import { MAX_ADDRESS, pinAddressUpdate } from '../../lib/wizard';
 import { FieldError } from './fields';
 import type { FieldProps } from './types';
 
@@ -26,6 +26,11 @@ export function LocationStep({ draft, set, errors }: FieldProps) {
   const [debounced, setDebounced] = useState('');
   const [focusKey, setFocusKey] = useState(0);
   const [fromPin, setFromPin] = useState(false);
+  // The owner typed in the address field: later pin moves keep their text.
+  const [addressEdited, setAddressEdited] = useState(false);
+  const [pinKept, setPinKept] = useState(false);
+  const editedRef = useRef(false);
+  editedRef.current = addressEdited;
   const dark = useMedia('(prefers-color-scheme: dark)');
   const reverseSeq = useRef(0);
   const listId = useId();
@@ -50,9 +55,15 @@ export function LocationStep({ draft, set, errors }: FieldProps) {
     api
       .reverseGeocode(lat, lng)
       .then((r) => {
-        if (seq !== reverseSeq.current || !r.label) return;
-        set({ address: r.label.slice(0, MAX_ADDRESS) });
+        if (seq !== reverseSeq.current) return;
+        const address = pinAddressUpdate({ addressEdited: editedRef.current }, r.label ?? '');
+        if (address == null) {
+          setPinKept(editedRef.current);
+          return;
+        }
+        set({ address });
         setFromPin(true);
+        setPinKept(false);
       })
       .catch(() => undefined); // keep whatever the owner typed
   };
@@ -95,6 +106,8 @@ export function LocationStep({ draft, set, errors }: FieldProps) {
                     onClick={() => {
                       set({ address: h.label.slice(0, MAX_ADDRESS), lat: h.point.lat, lng: h.point.lng });
                       setFromPin(false);
+                      setAddressEdited(false);
+                      setPinKept(false);
                       setQuery('');
                       setDebounced('');
                       setFocusKey((k) => k + 1);
@@ -138,12 +151,18 @@ export function LocationStep({ draft, set, errors }: FieldProps) {
         autoComplete="street-address"
         maxLength={MAX_ADDRESS}
         value={draft.address}
-        onValue={(address) => set({ address })}
+        onValue={(address) => {
+          set({ address });
+          setAddressEdited(true);
+          setPinKept(false);
+        }}
         error={errors.address}
         hint={
-          fromPin
-            ? 'Filled in from the pin. Add a landmark riders can spot, e.g. “beside Tetuan church”.'
-            : 'Add a landmark riders can spot, e.g. “beside Tetuan church”.'
+          pinKept
+            ? 'Pin moved. We kept the address you typed.'
+            : fromPin && !addressEdited
+              ? 'Filled in from the pin. Add a landmark riders can spot, e.g. “beside Tetuan church”.'
+              : 'Add a landmark riders can spot, e.g. “beside Tetuan church”.'
         }
       />
       <div className="wiz-preview" role="note">

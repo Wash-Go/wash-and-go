@@ -1,4 +1,4 @@
-import { isCacheableApiGet } from './sw-routes';
+import { isCacheableApiGet, SW_CLAIM, SW_SIGNED_OUT, swControl } from './sw-routes';
 
 const API = 'https://api.washandgo.ph';
 const SELF = 'https://partner.washandgo.ph';
@@ -37,5 +37,19 @@ describe('isCacheableApiGet', () => {
   it('leaves other origins and app pages alone', () => {
     expect(isCacheableApiGet(new URL('https://identitytoolkit.googleapis.com/v1/x'), 'GET', SELF, API)).toBe(false);
     expect(isCacheableApiGet(new URL(`${SELF}/payouts`), 'GET', SELF, API)).toBe(false);
+  });
+});
+
+describe('swControl', () => {
+  it('reads the two page → worker messages', () => {
+    expect(swControl({ type: SW_SIGNED_OUT })).toBe('signed-out');
+    expect(swControl({ type: SW_CLAIM })).toBe('claim');
+  });
+
+  it('ignores anything else', () => {
+    expect(swControl({ type: 'SKIP_WAITING' })).toBeNull();
+    expect(swControl('signed-out')).toBeNull();
+    expect(swControl(null)).toBeNull();
+    expect(swControl(undefined)).toBeNull();
   });
 });

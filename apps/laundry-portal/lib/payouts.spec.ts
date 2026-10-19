@@ -8,6 +8,7 @@ import {
   periodDays,
   periodLabel,
   referenceText,
+  showPayoutNudge,
 } from './payouts';
 
 const b = (over: Partial<RemittanceBatchView> = {}): RemittanceBatchView =>
@@ -103,5 +104,17 @@ describe('service worker', () => {
     for (const p of ['/shop/remittance/batches', '/shop/remittance/pending', '/shop/remittance/batches/b1']) {
       expect(isCacheableApiGet(new URL(api + p), 'GET', 'http://portal.test', api)).toBe(true);
     }
+  });
+});
+
+describe('showPayoutNudge', () => {
+  it('asks an owner with no payout account to add one', () => {
+    expect(showPayoutNudge({ myRole: 'OWNER', payoutAccount: null })).toBe(true);
+  });
+
+  it('stays quiet for staff, an account on file, or while loading', () => {
+    expect(showPayoutNudge({ myRole: 'STAFF', payoutAccount: null })).toBe(false);
+    expect(showPayoutNudge({ myRole: 'OWNER', payoutAccount: { method: 'GCASH' } as never })).toBe(false);
+    expect(showPayoutNudge(undefined)).toBe(false);
   });
 });

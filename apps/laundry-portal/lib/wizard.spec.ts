@@ -10,8 +10,10 @@ import {
   hoursSummary,
   hoursToApi,
   locationPatch,
+  MAX_ADDRESS,
   missingLabelToStep,
   parseMissingLabels,
+  pinAddressUpdate,
   servicePuts,
   stepFromRejection,
   stepStatus,
@@ -342,5 +344,20 @@ describe('servicePuts', () => {
   it('ignores a service that is off and was never saved', () => {
     const services = draft().services.map((s) => (s.code === 'DRY_CLEAN' ? { ...s, enabled: false, rate: '5' } : s));
     expect(servicePuts(draft({ services }), rows)).toEqual([]);
+  });
+});
+
+describe('pinAddressUpdate', () => {
+  it('fills the address from a pin move while the owner has not edited it', () => {
+    expect(pinAddressUpdate({ addressEdited: false }, 'Don Alfaro St., Tetuan')).toBe('Don Alfaro St., Tetuan');
+  });
+
+  it('keeps the owner’s own address once they edited it', () => {
+    expect(pinAddressUpdate({ addressEdited: true }, 'Don Alfaro St., Tetuan')).toBeNull();
+  });
+
+  it('ignores an empty reverse-geocode label and caps the length', () => {
+    expect(pinAddressUpdate({ addressEdited: false }, '')).toBeNull();
+    expect(pinAddressUpdate({ addressEdited: false }, 'x'.repeat(MAX_ADDRESS + 10))).toHaveLength(MAX_ADDRESS);
   });
 });

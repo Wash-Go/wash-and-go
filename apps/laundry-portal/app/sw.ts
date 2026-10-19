@@ -2,7 +2,7 @@
 import { defaultCache } from '@serwist/next/worker';
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist';
 import { ExpirationPlugin, NetworkFirst, NetworkOnly, Serwist } from 'serwist';
-import { API_CACHE, isCacheableApiGet } from '../lib/sw-routes';
+import { API_CACHE, isCacheableApiGet, swControl } from '../lib/sw-routes';
 
 // Service worker (Serwist). Built to public/sw.js by @serwist/next in
 // production builds only; registered by components/PwaRegister.tsx with the
@@ -15,7 +15,8 @@ import { API_CACHE, isCacheableApiGet } from '../lib/sw-routes';
 //   only matches GET); identity (/auth/*, /shop/onboarding), signed upload
 //   links and other cross-origin requests (Firebase) go straight to the
 //   network. The cache is purged when the signed-in uid changes
-//   (lib/cache-owner.ts) and on sign-out.
+//   (lib/cache-owner.ts) and on sign-out, and nothing is stored between a
+//   sign-out and the next sign-in's claim (page messages, lib/sw-routes.ts).
 // - Pages: Serwist's defaults (network-first); a page never opened online
 //   falls back to /~offline.
 
@@ -34,6 +35,15 @@ try {
   // Bad param: only same-origin /api would be cached.
 }
 
+// Set by the page on sign-out; cleared by the next sign-in's cache claim.
+// While set, API responses are served but never stored.
+let signedOut = false;
+self.addEventListener('message', (event) => {
+  const c = swControl(event.data);
+  if (c === 'signed-out') signedOut = true;
+  else if (c === 'claim') signedOut = false;
+});
+
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   skipWaiting: true,
@@ -48,6 +58,8 @@ const serwist = new Serwist({
         plugins: [
           // Store the URL only: the original Request carries the bearer token.
           { cacheKeyWillBeUsed: async ({ request }) => new Request(request.url) },
+          // After sign-out, never store (a late response would recreate the cache).
+          { cacheWillUpdate: async ({ response }) => (signedOut ? null : response) },
           new ExpirationPlugin({ maxEntries: 64, maxAgeSeconds: 60 * 60 }),
         ],
       }),

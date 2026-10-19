@@ -66,3 +66,12 @@ export function clearGateSnapshot(store: Store | null | undefined): void {
     // Nothing to clear.
   }
 }
+
+// When the boot may fall back to the snapshot: the browser says it is
+// offline, or the request never got an answer (fetch rejects with a
+// TypeError). An API error (it has a status) or any other status-less error
+// online is a real failure and shows the error state, never stale data.
+export function snapshotAllowed(error: unknown, online: boolean): boolean {
+  if (typeof (error as { status?: unknown } | null)?.status === 'number') return false;
+  return !online || error instanceof TypeError;
+}

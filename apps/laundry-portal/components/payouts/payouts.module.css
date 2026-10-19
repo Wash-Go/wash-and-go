@@ -44,3 +44,7 @@
 .line dd { margin: 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .payout { font-weight: 700; color: var(--success-ink); }
 .code { font: 700 18px var(--font-mono); color: var(--navy); }
+
+.nudge { display: flex; gap: 12px; align-items: flex-start; }
+.nudge > svg { width: 24px; height: 24px; color: var(--navy); flex: none; margin-top: 2px; }
+.nudge b { display: block; margin-bottom: 10px; }

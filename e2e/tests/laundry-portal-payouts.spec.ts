@@ -116,6 +116,10 @@ test('the pending card shows a peso amount and the batch lists', async ({ page }
   await expect(pending.getByText(/^₱[\d,]+\.\d\d$/)).toBeVisible();
   await expect(page.getByTestId(`batch-${batch.id}`)).toContainText(`₱${Number(batch.totalPhp).toFixed(2)}`);
   await expect(page.getByTestId(`batch-${batch.id}`)).toContainText('Transfer pending');
+  // The seeded Tetuan shop has no payout account: the owner is nudged to add one.
+  const nudge = page.getByTestId('payout-nudge');
+  await expect(nudge).toContainText('Add a payout account so ops can send your payouts.');
+  await expect(nudge.getByRole('link', { name: 'Add a payout account' })).toHaveAttribute('href', '/shop');
 });
 
 test('batch list opens the detail, which downloads a CSV', async ({ page }) => {

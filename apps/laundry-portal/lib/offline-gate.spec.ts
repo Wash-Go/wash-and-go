@@ -1,4 +1,4 @@
-import { clearGateSnapshot, GATE_KEY, readGateSnapshot, saveGateSnapshot, type GateSnapshot } from './offline-gate';
+import { clearGateSnapshot, GATE_KEY, readGateSnapshot, saveGateSnapshot, snapshotAllowed, type GateSnapshot } from './offline-gate';
 
 function store() {
   const m = new Map<string, string>();
@@ -72,5 +72,27 @@ describe('gate snapshot', () => {
     expect(readGateSnapshot(broken, 'fb:abc')).toBeNull();
     expect(() => clearGateSnapshot(broken)).not.toThrow();
     expect(readGateSnapshot(null, 'fb:abc')).toBeNull();
+  });
+});
+
+describe('snapshotAllowed', () => {
+  it('opens the snapshot when the browser is offline', () => {
+    expect(snapshotAllowed(new Error('anything'), false)).toBe(true);
+  });
+
+  it('opens it online only for a fetch that never got an answer (TypeError)', () => {
+    expect(snapshotAllowed(new TypeError('Failed to fetch'), true)).toBe(true);
+  });
+
+  it('never for a status-less error of any other kind while online', () => {
+    expect(snapshotAllowed(new Error('boom'), true)).toBe(false);
+    expect(snapshotAllowed({ message: 'weird' }, true)).toBe(false);
+    expect(snapshotAllowed(undefined, true)).toBe(false);
+  });
+
+  it('never for an API error with a status', () => {
+    const apiError = Object.assign(new TypeError('x'), { status: 500 });
+    expect(snapshotAllowed(apiError, true)).toBe(false);
+    expect(snapshotAllowed({ status: 401 }, false)).toBe(false);
   });
 });

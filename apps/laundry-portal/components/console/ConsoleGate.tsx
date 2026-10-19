@@ -9,7 +9,7 @@ import { sessionUid } from '../../lib/cache-owner';
 import { DEV_UID } from '../../lib/firebase';
 import { isShopAccount, resolveGate, type Gate } from '../../lib/gate';
 import { gateRedirect } from '../../lib/gate-route';
-import { readGateSnapshot, saveGateSnapshot, type GateSnapshot } from '../../lib/offline-gate';
+import { readGateSnapshot, saveGateSnapshot, snapshotAllowed, type GateSnapshot } from '../../lib/offline-gate';
 import { ensureSession } from '../../lib/session';
 import { signOutEverywhere } from '../../lib/sign-out';
 import { useAuth } from '../../lib/useAuth';
@@ -122,7 +122,7 @@ export function ConsoleGate({ children }: { children: ReactNode }) {
         saveGateSnapshot(storage(), snapshotOf(id, me, shop, gate));
         return { me, shop, gate, offline: false };
       } catch (e) {
-        const snap = isNetworkError(e) ? readGateSnapshot(storage(), id) : null;
+        const snap = snapshotAllowed(e, navigator.onLine) ? readGateSnapshot(storage(), id) : null;
         if (snap) return fromSnapshot(snap);
         throw e;
       }

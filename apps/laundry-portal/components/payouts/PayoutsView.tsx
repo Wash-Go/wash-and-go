@@ -1,11 +1,14 @@
 'use client';
 import { useQuery } from '@tanstack/react-query';
 import type { RemittanceBatchView } from '@wash-and-go/domain';
-import { Wallet } from 'lucide-react';
+import { Landmark, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { api } from '../../lib/api';
 import { useOnline } from '../../lib/live';
-import { batchChip, money, pendingSummary, periodLabel, referenceText } from '../../lib/payouts';
+import { batchChip, money, pendingSummary, periodLabel, referenceText, showPayoutNudge } from '../../lib/payouts';
+import { shopMeKey } from '../../lib/shop-profile';
+import { useConsole } from '../console/ConsoleContext';
+import { Card } from '../ui/Card';
 import { Chip } from '../ui/Chip';
 import { EmptyState } from '../ui/EmptyState';
 import { ErrorState } from '../ui/ErrorState';
@@ -22,6 +25,14 @@ export const REMITTANCE_KEY = ['shop-remittance'] as const;
 // batches, a table from 560px and cards below.
 export function PayoutsView() {
   const online = useOnline();
+  const { me } = useConsole();
+  // Same query as the Shop page; only owners can hold a payout account.
+  const profile = useQuery({
+    queryKey: shopMeKey(me.id),
+    queryFn: () => api.shopMe(),
+    enabled: me.roles.includes('SHOP_OWNER'),
+    refetchInterval: false,
+  });
   const pending = useQuery({
     queryKey: [...REMITTANCE_KEY, 'pending'],
     queryFn: () => api.shopRemittancePending(),
@@ -66,6 +77,18 @@ export function PayoutsView() {
         <ErrorState title="The pending payout didn't load." onRetry={() => void pending.refetch()} />
       )}
       <p className={s.note}>Paid out per period by Wash &amp; Go ops; the reference shows here once sent.</p>
+
+      {showPayoutNudge(profile.data) ? (
+        <Card className={s.nudge} data-testid="payout-nudge">
+          <Landmark aria-hidden="true" />
+          <div>
+            <b>Add a payout account so ops can send your payouts.</b>
+            <Link href="/shop" className="btn btn-secondary">
+              Add a payout account
+            </Link>
+          </div>
+        </Card>
+      ) : null}
 
       <h2 className="lbl">Batches</h2>
       {batches.isLoading ? (

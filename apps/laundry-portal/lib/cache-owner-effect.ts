@@ -1,13 +1,23 @@
 'use client';
 import { CACHE_OWNER_KEY, cacheOwnerDecision } from './cache-owner';
 import { clearGateSnapshot } from './offline-gate';
-import { API_CACHE } from './sw-routes';
+import { API_CACHE, SW_CLAIM, SW_SIGNED_OUT } from './sw-routes';
 
 function storage(): Storage | null {
   try {
     return window.localStorage;
   } catch {
     return null;
+  }
+}
+
+// Tell the active service worker (if any) to stop or resume storing API
+// responses. No worker (dev, first load, unsupported): nothing to tell.
+export function postToServiceWorker(type: typeof SW_CLAIM | typeof SW_SIGNED_OUT): void {
+  try {
+    navigator.serviceWorker?.controller?.postMessage({ type });
+  } catch {
+    // Messaging unavailable: the owner check still purges at the next boot.
   }
 }
 
@@ -39,6 +49,8 @@ export async function claimApiCache(uid: string): Promise<void> {
   } catch {
     // Unrecorded: the next boot purges again, which is safe.
   }
+  // The cache now belongs to this uid: let the worker store again.
+  postToServiceWorker(SW_CLAIM);
 }
 
 // Sign-out: forget the owner and the gate snapshot.

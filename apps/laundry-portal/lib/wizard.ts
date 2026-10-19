@@ -293,3 +293,11 @@ export function hoursSummary(rows: HoursRow[]): { days: string; hours: string }[
     hours: g.hours,
   }));
 }
+
+// Location step: a pin move reverse-geocodes into the address line only
+// until the owner has typed in that field themselves (a landmark, a fix).
+// After that their text wins; picking a search result resets it.
+export function pinAddressUpdate(s: { addressEdited: boolean }, label: string): string | null {
+  if (s.addressEdited || !label) return null;
+  return label.slice(0, MAX_ADDRESS);
+}

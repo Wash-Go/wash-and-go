@@ -165,3 +165,31 @@ test('purges another account’s cached data before the gate opens', async ({ pa
   await expect.poll(() => apiKeys(page)).not.toContain('/someone-elses-queue');
   expect(await page.evaluate(() => localStorage.getItem('wg-portal-cache-owner'))).toBe('dev:dev-shop-owner');
 });
+
+test('after sign-out the worker stores nothing until the next sign-in claims the cache', async ({ page }) => {
+  await page.goto('/');
+  await swReady(page);
+  await page.reload();
+  await expect.poll(() => apiKeys(page)).toContain('/orders');
+
+  await page.locator('nav.tb').getByRole('button', { name: 'More' }).click();
+  await page.getByRole('dialog', { name: 'More' }).getByRole('button', { name: 'Sign out' }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect.poll(() => page.evaluate(() => caches.has('wg-api'))).toBe(false);
+
+  // A response that lands after sign-out (an in-flight poll) goes through the
+  // worker but is not stored, so it cannot recreate the cache.
+  const status = await page.evaluate(async (api) => {
+    const r = await fetch(`${api}/orders?limit=1`, { headers: { 'x-dev-uid': 'dev-shop-owner' } });
+    return r.status;
+  }, process.env.API_URL ?? 'http://localhost:4000');
+  expect(status).toBe(200);
+  await page.waitForTimeout(500);
+  expect(await page.evaluate(() => caches.has('wg-api'))).toBe(false);
+
+  // Signing back in (the dev stub boots straight into the console) claims the
+  // cache, and the worker stores again.
+  await page.goto('/');
+  await expect(page.getByTestId('shell-header')).toContainText('Tetuan Laundry Hub');
+  await expect.poll(() => apiKeys(page)).toContain('/orders');
+});

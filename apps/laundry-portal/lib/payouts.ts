@@ -4,6 +4,7 @@ import {
   type RemittanceBatchView,
   type RemittanceLineView,
   type RemittancePendingView,
+  type ShopProfileView,
 } from '@wash-and-go/domain';
 import { PORTAL_CHIPS, type ChipSpec } from './status-chip';
 
@@ -65,4 +66,10 @@ export function batchTotals(
   const sum = (k: 'washValuePhp' | 'commissionPhp' | 'payoutPhp') =>
     (lines.reduce((acc, l) => acc + Math.round(Number(l[k]) * 100), 0) / 100).toFixed(2);
   return { washValuePhp: sum('washValuePhp'), commissionPhp: sum('commissionPhp'), payoutPhp: sum('payoutPhp') };
+}
+
+// /payouts: an owner with no payout account is asked to add one (ops cannot
+// send a batch without it). Staff cannot set it, so they are not asked.
+export function showPayoutNudge(p: Pick<ShopProfileView, 'myRole' | 'payoutAccount'> | undefined): boolean {
+  return !!p && p.myRole === 'OWNER' && p.payoutAccount == null;
 }

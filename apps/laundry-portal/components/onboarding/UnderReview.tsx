@@ -17,9 +17,14 @@ import { ShopSummary } from './ShopSummary';
 export function UnderReview() {
   const { shop, me } = useConsole();
   const [open, setOpen] = useState(false);
-  const services = useQuery({
-    queryKey: ['shop-services', me.id],
-    queryFn: () => api.shopServices(),
+  // The summary needs the rates and whether uploads are configured at all
+  // (GET /uploads/status), not a guess from documentsPending.
+  const summary = useQuery({
+    queryKey: ['shop-services', me.id, 'summary'],
+    queryFn: async () => {
+      const [services, uploads] = await Promise.all([api.shopServices(), api.uploadsStatus()]);
+      return { services, uploads };
+    },
     enabled: open,
     refetchInterval: false,
   });
@@ -56,17 +61,17 @@ export function UnderReview() {
         <p className="small">{REVIEW_COPY.opsContact}</p>
       </Card>
       {open ? (
-        services.data ? (
+        summary.data ? (
           <ShopSummary
             draft={draftFromServer(
               shop,
-              services.data.map((s) => ({ id: s.serviceId, code: s.code, name: s.name, billingUnit: s.billingUnit })),
-              services.data,
+              summary.data.services.map((s) => ({ id: s.serviceId, code: s.code, name: s.name, billingUnit: s.billingUnit })),
+              summary.data.services,
             )}
-            uploadsConfigured={!shop.documentsPending}
+            uploadsConfigured={summary.data.uploads.configured}
             documentsPending={shop.documentsPending}
           />
-        ) : services.isError ? (
+        ) : summary.isError ? (
           <p className="small muted">We couldn&rsquo;t load your summary. Try again in a moment.</p>
         ) : (
           <SkeletonCard label="Loading what you submitted" />

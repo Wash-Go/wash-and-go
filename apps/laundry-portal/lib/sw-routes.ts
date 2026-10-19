@@ -19,3 +19,17 @@ export function isCacheableApiGet(url: URL, method: string, selfOrigin: string, 
 // Cache name, also cleared on sign-out so the next person on a shared phone
 // never sees the last shop's queue.
 export const API_CACHE = 'wg-api';
+
+// Page → worker messages. Sign-out posts SW_SIGNED_OUT: the worker stops
+// storing API responses, so a request that was already in flight cannot
+// recreate the cache after sign-out deleted it. The next sign-in's cache
+// claim (lib/cache-owner-effect.ts) posts SW_CLAIM and storing resumes.
+export const SW_SIGNED_OUT = 'wg-signed-out';
+export const SW_CLAIM = 'wg-claim';
+
+export function swControl(data: unknown): 'signed-out' | 'claim' | null {
+  const type = (data as { type?: unknown } | null | undefined)?.type;
+  if (type === SW_SIGNED_OUT) return 'signed-out';
+  if (type === SW_CLAIM) return 'claim';
+  return null;
+}
