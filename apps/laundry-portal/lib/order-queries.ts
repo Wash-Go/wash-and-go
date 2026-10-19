@@ -22,28 +22,30 @@ const activeClient = new ApiClient({
   },
 });
 
-export function listActiveOrders(q?: string): Promise<OrderView[]> {
-  return activeClient.listOrders(undefined, q || undefined, ACTIVE_LIMIT);
+export function listActiveOrders(): Promise<OrderView[]> {
+  return activeClient.listOrders(undefined, undefined, ACTIVE_LIMIT);
 }
 
-export function activeListKey(q: string) {
-  return ['orders', 'active', q] as const;
+// ONE active query for the whole console: the queue, its counts, the tab
+// badge, the title and the new-order ring share this key, so it is polled
+// once every 5 s (the app default). Search filters it client-side
+// (filterByCode) rather than polling a second, filtered active list.
+export const ACTIVE_LIST_KEY = ['orders', 'active'] as const;
+
+export function activeListQuery() {
+  return { queryKey: ACTIVE_LIST_KEY, queryFn: listActiveOrders };
 }
 
-// Incoming, Needs you, Washing and Ready, the counts, the badge and the
-// new-order ring all read this one query (5 s poll, the app default).
-export function activeListQuery(q: string) {
-  return { queryKey: activeListKey(q), queryFn: () => listActiveOrders(q) };
-}
-
-// Done, one terminal status per query, newest first. Polled every 5 s while
-// the Done tab is open and every 30 s otherwise, so the queue stays at or
-// under 3 requests per 5 s against the API's 60/min limit.
-export function doneListQuery(status: OrderStatus, q: string, open: boolean) {
+// Done, one terminal status per query, newest first, searched server-side.
+// Polled only while the Done tab is open, every 10 s: Done changes slowly,
+// and that keeps the worst case (active 12 + Done 12 + an open detail 12)
+// at 36 requests a minute against the API's 60/min limit.
+export function doneListQuery(status: OrderStatus, q: string, open: boolean, pageSize = DONE_PAGE) {
   return {
-    queryKey: ['orders', 'done', status, q] as const,
-    queryFn: (): Promise<OrderView[]> => api.listOrders(status, q || undefined, DONE_PAGE),
-    refetchInterval: open ? 5_000 : 30_000,
+    queryKey: ['orders', 'done', status, q, pageSize] as const,
+    queryFn: (): Promise<OrderView[]> => api.listOrders(status, q || undefined, pageSize),
+    enabled: open,
+    refetchInterval: open ? 10_000 : (false as const),
   };
 }
 

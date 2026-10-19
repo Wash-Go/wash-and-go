@@ -31,9 +31,11 @@ test.describe('orders queue (phone)', () => {
       await expect(tabs.getByRole('tab', { name: new RegExp(`^${name}`) })).toBeVisible();
     }
     await expect(tabs.getByRole('tab', { name: /^Needs you/ })).toHaveAttribute('aria-selected', 'true');
-    for (const key of ['needs', 'washing', 'ready', 'done']) {
-      await expect(page.getByTestId(`count-${key}`)).toHaveText(/^\d+\+?$/);
+    // Active counts are exact; Done is fetched (and counted) once its tab opens.
+    for (const key of ['needs', 'washing', 'ready']) {
+      await expect(page.getByTestId(`count-${key}`)).toHaveText(/^\d+$/);
     }
+    await expect(page.getByTestId('count-done')).toHaveCount(0);
     const needs = Number(await page.getByTestId('count-needs').textContent());
     expect(needs).toBeGreaterThanOrEqual(2);
     // Tab title and the Orders tab carry the Needs-you count.
@@ -65,6 +67,25 @@ test.describe('orders queue (phone)', () => {
     await expect(page.locator('article.oc').first().getByText(/Delivered|Cancelled/)).toBeVisible();
   });
 
+  test('Load more on Done pages older orders with the before cursor', async ({ page }) => {
+    // ?donePage=3 shrinks the Done page (a test hook) so the design DB's
+    // cancelled orders, including those this spec cancels, fill more than one
+    // page without seeding 100+ delivered orders.
+    const before: string[] = [];
+    page.on('request', (r) => {
+      if (r.url().includes('before=')) before.push(r.url());
+    });
+    await page.goto('/?tab=done&donePage=3');
+    const rows = page.locator('article.oc');
+    await expect(page.getByTestId('count-done')).toHaveText(/^\d+\+$/);
+    const firstCount = await rows.count();
+    expect(firstCount).toBeGreaterThan(0);
+    await page.getByRole('button', { name: 'Load more' }).click();
+    await expect.poll(() => rows.count()).toBeGreaterThan(firstCount);
+    expect(before.length).toBeGreaterThan(0);
+    expect(before.every((u) => /status=(DELIVERED|CANCELLED)/.test(u) && u.includes('limit=3'))).toBe(true);
+  });
+
   test('says so when the active page comes back full', async ({ page }) => {
     // Pad the real active page to the 200-order limit.
     await page.route(/\/orders\?.*active=true/, async (route) => {
@@ -86,8 +107,14 @@ test.describe('orders queue (phone)', () => {
     const [a, b] = seeded;
     await expect(page.getByTestId(`order-${a.code}`)).toBeVisible();
     await expect(page.getByTestId(`order-${b.code}`)).toBeVisible();
+    const activeCalls: string[] = [];
+    page.on('request', (r) => {
+      if (r.url().includes('active=true')) activeCalls.push(r.url());
+    });
     await page.getByRole('searchbox', { name: 'Search by order code' }).fill(a.code.slice(-6));
     await expect(page.getByTestId(`order-${b.code}`)).toBeHidden();
+    // Search filters the one polled active list; it never polls a second one.
+    expect(activeCalls.every((u) => !u.includes('q='))).toBe(true);
     await expect(page.getByTestId(`order-${a.code}`)).toBeVisible();
     await expect(page.getByTestId('count-needs')).toHaveText('1');
     await page.getByRole('searchbox', { name: 'Search by order code' }).fill('');

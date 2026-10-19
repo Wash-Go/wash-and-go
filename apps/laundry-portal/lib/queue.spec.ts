@@ -10,6 +10,7 @@ import {
   bucketOf,
   cardMeta,
   countLabel,
+  filterByCode,
   firstName,
   mergeOrders,
   partitionQueue,
@@ -208,5 +209,15 @@ describe('partitionQueue', () => {
     expect(p.ready.map((x) => x.id)).toEqual(['3']);
     expect(p.washing).toEqual([]);
     expect(p.done.map((x) => x.id)).toEqual(['5']);
+  });
+});
+
+describe('filterByCode', () => {
+  it('keeps orders whose code contains the search, any case, trimmed', () => {
+    const list = [o({ id: 'a', code: 'WG-2026-000147' }), o({ id: 'b', code: 'WG-2026-000245' })];
+    expect(filterByCode(list, '0147').map((x) => x.id)).toEqual(['a']);
+    expect(filterByCode(list, ' wg-2026 ').map((x) => x.id)).toEqual(['a', 'b']);
+    expect(filterByCode(list, '')).toBe(list);
+    expect(filterByCode(list, '999')).toEqual([]);
   });
 });

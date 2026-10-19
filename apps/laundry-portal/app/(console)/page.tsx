@@ -1,6 +1,6 @@
 'use client';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { OrderStatus, OrderView } from '@wash-and-go/domain';
+import type { OrderView } from '@wash-and-go/domain';
 import { Bell, BellOff, ChevronDown, Inbox, RefreshCw, Search, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react';
@@ -23,12 +23,13 @@ import {
   countLabel,
   DONE_PAGE,
   DONE_STATUSES,
-  mergeOrders,
+  filterByCode,
   partitionQueue,
   QUEUE_TABS,
   sortQueue,
   type QueueTab,
 } from '../../lib/queue';
+import { applyDonePages, doneView, parseDonePage, type DoneFirsts, type DonePages } from '../../lib/done-pages';
 import { formatUpdatedAgo } from '../../lib/relative-time';
 import { DESKTOP, useMedia } from '../../lib/useMedia';
 
@@ -54,8 +55,8 @@ export default function OrdersPage() {
   const [search, setSearch] = useState('');
   const [q, setQ] = useState('');
   // Older Done pages per terminal status (before cursor).
-  const [extras, setExtras] = useState<Partial<Record<OrderStatus, OrderView[]>>>({});
-  const [exhausted, setExhausted] = useState<Partial<Record<OrderStatus, boolean>>>({});
+  const [donePages, setDonePages] = useState<DonePages>({});
+  const [donePage, setDonePage] = useState(DONE_PAGE);
   const [loadingMore, setLoadingMore] = useState(false);
   const [moreError, setMoreError] = useState(false);
   const [weighing, setWeighing] = useState<OrderView | null>(null);
@@ -64,8 +65,11 @@ export default function OrdersPage() {
 
   // The tab lives in the URL (?tab=washing) so back from a detail returns to it.
   useEffect(() => {
-    const t = new URLSearchParams(window.location.search).get('tab');
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get('tab');
     if (isTab(t)) setTabState(t);
+    // Test hook: ?donePage=N shrinks the Done page so Load more is reachable.
+    setDonePage(parseDonePage(params.get('donePage')));
   }, []);
   const setTab = (t: QueueTab) => {
     setTabState(t);
@@ -79,42 +83,35 @@ export default function OrdersPage() {
     return () => clearTimeout(id);
   }, [search]);
   useEffect(() => {
-    setExtras({});
-    setExhausted({});
+    setDonePages({});
     setMoreError(false);
   }, [q]);
 
-  const active = useQuery(activeListQuery(q));
-  const doneQs = useQueries({ queries: DONE_STATUSES.map((st) => doneListQuery(st, q, tab === 'done')) });
+  const active = useQuery(activeListQuery());
+  const doneQs = useQueries({
+    queries: DONE_STATUSES.map((st) => doneListQuery(st, q, tab === 'done', donePage)),
+  });
   const isNew = useCallback((id: string) => live.isNew(id, now), [live, now]);
 
-  const parts = useMemo(() => partitionQueue(active.data ?? []), [active.data]);
+  const parts = useMemo(() => partitionQueue(filterByCode(active.data ?? [], q)), [active.data, q]);
   const truncated = activeTruncated(active.data?.length ?? 0);
 
-  // Done: each terminal status's polled first page plus any older pages.
-  const doneByStatus = DONE_STATUSES.map((st, i) => {
-    const first = doneQs[i].data;
-    const more = extras[st] ?? [];
-    const orders = mergeOrders(first ?? [], more);
-    const canMore = first !== undefined && (more.length ? !exhausted[st] : first.length >= DONE_PAGE);
-    return { status: st, first, orders, canMore };
-  });
-  const done = doneByStatus.flatMap((d) => d.orders);
-  const doneCanMore = doneByStatus.some((d) => d.canMore);
-  const doneNoData = doneQs.some((r) => r.data === undefined);
+  const firsts = Object.fromEntries(DONE_STATUSES.map((st, i) => [st, doneQs[i].data])) as DoneFirsts;
+  const done = doneView(firsts, donePages, donePage);
 
   const isDone = tab === 'done';
-  const view = isDone ? sortQueue(done, () => false) : sortQueue(parts[tab], isNew);
+  const view = isDone ? done.orders : sortQueue(parts[tab], isNew);
   const incoming = tab === 'needs' ? sortQueue(parts.incoming, isNew) : [];
-  const noData = isDone ? doneNoData : active.data === undefined;
+  const noData = isDone ? !done.ready : active.data === undefined;
   const loading = noData && (isDone ? doneQs.some((r) => r.isLoading) : active.isLoading);
   const failed = isDone ? doneQs.some((r) => r.isError) : active.isError;
-  // Active counts are exact (one page holds every active order); Done shows
-  // "N+" while older orders remain.
+  // Active counts are exact (one page holds every active order). Done is only
+  // fetched while its tab is open, so its count appears (and refreshes) then;
+  // it reads "N+" while older pages remain.
   const counts = Object.fromEntries(
     QUEUE_TABS.map((t) =>
       t.key === 'done'
-        ? [t.key, doneNoData ? '' : countLabel(done.length, doneCanMore)]
+        ? [t.key, done.ready ? countLabel(done.orders.length, done.canMore) : '']
         : [t.key, active.data === undefined ? '' : String(parts[t.key].length)],
     ),
   ) as Record<QueueTab, string>;
@@ -123,31 +120,13 @@ export default function OrdersPage() {
     setLoadingMore(true);
     setMoreError(false);
     try {
-      const pages = await Promise.all(
-        doneByStatus
-          .filter((d) => d.canMore)
-          .map(async (d) => {
-            const last = d.orders[d.orders.length - 1];
-            const page = await api.listOrders(d.status, q || undefined, DONE_PAGE, last?.id);
-            return { d, page };
-          }),
+      const loaded = await Promise.all(
+        done.next.map(async ({ status, before }) => ({
+          status,
+          page: await api.listOrders(status, q || undefined, donePage, before),
+        })),
       );
-      // Keep a snapshot of the first page too: as new orders arrive, its
-      // oldest rows slide off the polled page and would otherwise fall into
-      // the gap before the loaded pages (the polled copy still wins).
-      setExtras((prev) => {
-        const next = { ...prev };
-        for (const { d, page } of pages) {
-          const had = prev[d.status];
-          next[d.status] = [...(had?.length ? had : (d.first ?? [])), ...page];
-        }
-        return next;
-      });
-      setExhausted((prev) => {
-        const next = { ...prev };
-        for (const { d, page } of pages) next[d.status] = page.length < DONE_PAGE;
-        return next;
-      });
+      setDonePages((prev) => applyDonePages(prev, firsts, loaded, donePage));
     } catch {
       setMoreError(true);
     } finally {
@@ -236,7 +215,7 @@ export default function OrdersPage() {
         <div className="stale" role="status" data-testid="active-truncated">
           <TriangleAlert aria-hidden="true" />
           <span>
-            Showing the oldest {ACTIVE_LIMIT} active orders. Search by order code to find a newer one.
+            Showing the oldest {ACTIVE_LIMIT} active orders. Newer ones appear here as these move on.
           </span>
         </div>
       ) : null}
@@ -318,7 +297,7 @@ export default function OrdersPage() {
           ))
         )}
 
-        {isDone && doneCanMore ? (
+        {isDone && done.canMore ? (
           <div className="qmore">
             <Button variant="secondary" onClick={() => void loadMore()} disabled={loadingMore} aria-busy={loadingMore || undefined}>
               {loadingMore ? 'Loading…' : 'Load more'}

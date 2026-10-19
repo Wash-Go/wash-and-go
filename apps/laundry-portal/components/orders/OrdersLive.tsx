@@ -39,7 +39,7 @@ function storage(): Storage | null {
 }
 
 export function OrdersLiveProvider({ children }: { children: ReactNode }) {
-  const list = useQuery(activeListQuery(''));
+  const list = useQuery(activeListQuery());
   const [rings, setRings] = useState<NewOrdersState>(emptyNewOrders);
   const ringsRef = useRef(rings);
   const [chimeOn, setChimeOn] = useState(false);

@@ -155,3 +155,12 @@ export function sortQueue(orders: OrderView[], isNew: (id: string) => boolean): 
     return b.createdAt < a.createdAt ? -1 : b.createdAt > a.createdAt ? 1 : 0;
   });
 }
+
+// Search on the already-polled active list: the API's `q` is a
+// case-insensitive "code contains", so the client matches it the same way
+// instead of polling a second active list per search.
+export function filterByCode(orders: OrderView[], q: string): OrderView[] {
+  const needle = q.trim().toLowerCase();
+  if (!needle) return orders;
+  return orders.filter((o) => o.code.toLowerCase().includes(needle));
+}
