@@ -104,7 +104,10 @@ export default function OrdersPage() {
     try {
       const last = all[all.length - 1];
       const page = await api.listOrders(undefined, q || undefined, QUEUE_PAGE, last?.id);
-      setExtras((prev) => [...prev, ...page]);
+      // Keep a snapshot of the first page too: as new orders arrive, its
+      // oldest rows slide off the polled page and would otherwise fall into
+      // the gap before the loaded pages (the polled copy still wins).
+      setExtras((prev) => [...(prev.length ? prev : (list.data ?? [])), ...page]);
       setExhausted(page.length < QUEUE_PAGE);
     } catch {
       setMoreError(true);
