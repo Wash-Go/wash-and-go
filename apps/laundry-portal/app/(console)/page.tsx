@@ -7,17 +7,18 @@ import {
   type OrderStatus,
   type OrderView,
 } from '@wash-and-go/domain';
-import { api, API_BASE_URL } from '../lib/api';
-import { c, statusColor, tint } from '../lib/theme';
-import { canWeigh, parseWeight } from '../lib/shop';
+import { api } from '../../lib/api';
+import { ErrorState } from '../../components/ui/ErrorState';
+import { c, statusColor, tint } from '../../lib/theme';
+import { canWeigh, parseWeight } from '../../lib/shop';
 import {
   formatKg,
   orderEstimateKg,
   readyBlockedReason,
   WEIGH_RANGE_HINT,
   weighCheck,
-} from '../lib/weigh';
-import { mutationErrorMessage, shouldRefreshQueue, type PortalAction } from '../lib/mutation-errors';
+} from '../../lib/weigh';
+import { mutationErrorMessage, shouldRefreshQueue, type PortalAction } from '../../lib/mutation-errors';
 
 export default function ShopPage() {
   const orders = useQuery({ queryKey: ['orders'], queryFn: () => api.listOrders() });
@@ -35,10 +36,12 @@ export default function ShopPage() {
 
       {orders.isLoading ? (
         <p style={{ color: c.muted }}>Loading queue…</p>
-      ) : orders.isError ? (
-        <p style={{ color: c.danger }}>
-          Could not load. Is the API running on {API_BASE_URL}?
-        </p>
+      ) : orders.isError && !orders.data ? (
+        <ErrorState
+          title="Your queue didn't load."
+          body="Check your connection, then try again."
+          onRetry={() => void orders.refetch()}
+        />
       ) : (orders.data ?? []).length === 0 ? (
         <p style={{ color: c.muted }}>No orders in your queue.</p>
       ) : (
@@ -49,71 +52,7 @@ export default function ShopPage() {
         </div>
       )}
 
-      <Payouts />
     </>
-  );
-}
-
-function Payouts() {
-  const batches = useQuery({
-    queryKey: ['shop-remittance'],
-    queryFn: () => api.getShopRemittance(),
-  });
-  const rows = batches.data ?? [];
-
-  return (
-    <section style={{ marginTop: 40 }} data-testid="payouts">
-      <div className="page-head" style={{ marginBottom: 12 }}>
-        <div className="page-eyebrow">Payouts</div>
-        <h2 style={{ margin: 0 }}>Your payout batches</h2>
-        <p className="page-sub">What the platform owes your shop and whether it’s been transferred.</p>
-      </div>
-      {batches.isLoading ? (
-        <p style={{ color: c.muted }}>Loading payouts…</p>
-      ) : batches.isError ? (
-        <p style={{ color: c.danger }}>Could not load payouts.</p>
-      ) : rows.length === 0 ? (
-        <p style={{ color: c.muted }}>No payout batches yet. They appear after a weekly close.</p>
-      ) : (
-        <div className="card" style={{ overflow: 'auto' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Period</th>
-                <th>Orders</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th>Reference</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((b) => (
-                <tr key={b.id} data-testid={`batch-${b.id}`}>
-                  <td>
-                    {new Date(b.periodStart).toLocaleDateString()} –{' '}
-                    {new Date(b.periodEnd).toLocaleDateString()}
-                  </td>
-                  <td>{b.lineCount}</td>
-                  <td className="tnum">{peso(b.totalPhp)}</td>
-                  <td>
-                    <span
-                      style={{
-                        color: b.status === 'PAID' ? c.success : c.warning,
-                        fontWeight: 600,
-                        fontSize: 12,
-                      }}
-                    >
-                      {b.status === 'PAID' ? 'Paid' : 'Pending'}
-                    </span>
-                  </td>
-                  <td style={{ color: c.muted }}>{b.reference ?? '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
   );
 }
 
@@ -361,7 +300,7 @@ function WeighForm({ order, setNotice }: { order: OrderView; setNotice: SetNotic
                     borderRadius: 8,
                     border: 'none',
                     background: c.brand,
-                    color: '#fff',
+                    color: c.onBrand,
                     fontWeight: 700,
                   }}
                 >
@@ -393,7 +332,7 @@ function WeighForm({ order, setNotice }: { order: OrderView; setNotice: SetNotic
                 borderRadius: 8,
                 border: 'none',
                 background: c.brand,
-                color: '#fff',
+                color: c.onBrand,
                 fontWeight: 700,
               }}
             >
@@ -439,7 +378,7 @@ function ActionButton({
         borderRadius: 8,
         border: 'none',
         background: c.brand,
-        color: '#fff',
+        color: c.onBrand,
         fontWeight: 700,
         opacity: blockedReason != null ? 0.5 : 1,
       }}
