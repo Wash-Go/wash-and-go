@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post } from '@nestjs/common';
+import { Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags, ApiOkResponse } from '@nestjs/swagger';
 import type { User } from '@prisma/client';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -26,6 +26,8 @@ export class ShopInvitesController {
   }
 
   @Post(':id/accept')
+  // 200 for the first accept and for a replay by the same member alike.
+  @HttpCode(200)
   @ApiParam({
     name: 'id',
     description: 'Invite id from GET /shop/invites/pending',
