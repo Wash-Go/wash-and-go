@@ -48,3 +48,9 @@
 .nudge { display: flex; gap: 12px; align-items: flex-start; }
 .nudge > svg { width: 24px; height: 24px; color: var(--navy); flex: none; margin-top: 2px; }
 .nudge b { display: block; margin-bottom: 10px; }
+
+/* Dark: a lightened navy block would glare; use the dark status-block
+   treatment from the preview (sky-tint ground, text colour, a rule). */
+@media (prefers-color-scheme: dark) {
+  .pending { background: var(--sky-tint); color: var(--text); border: 1px solid var(--line-strong); }
+}

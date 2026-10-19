@@ -28,15 +28,17 @@ export function HelpView() {
         <ol className="help-steps">
           {ORDER_STEPS.map((s) => (
             <li key={s.status}>
-              <OrderChip status={s.status} needsYou={s.shopActs} />
+              <OrderChip status={s.status} />
               <span>
+                {s.shopActs ? <b className="help-yours">Your step. </b> : null}
                 {s.text}
-                {s.shopActs ? <span className="sr-only"> (your step)</span> : null}
               </span>
             </li>
           ))}
         </ol>
-        <p className="small muted">&ldquo;Needs you&rdquo; marks the steps where your shop acts.</p>
+        <p className="small muted">
+          In the queue, your steps show as &ldquo;Needs you&rdquo; until you act on them.
+        </p>
       </section>
 
       <section className="card card-pad" aria-labelledby="help-weigh">

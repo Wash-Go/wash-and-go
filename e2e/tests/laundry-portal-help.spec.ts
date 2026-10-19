@@ -14,9 +14,11 @@ test.describe('help (phone)', () => {
     for (const h of ['How an order moves', 'Weigh-in rules', 'How payouts work', 'Contact ops', 'Your account']) {
       await expect(help.getByRole('heading', { level: 2, name: h })).toBeVisible();
     }
-    // One chip per status, the shop's own steps marked "Needs you".
+    // One phase chip per status (icon + word), the shop's own steps marked.
     await expect(help.locator('.help-steps li')).toHaveCount(9);
-    await expect(help.locator('.help-steps').getByText('Needs you')).toHaveCount(2);
+    await expect(help.locator('.help-steps .chip')).toHaveCount(9);
+    await expect(help.locator('.help-steps').getByText('At the shop', { exact: true })).toBeVisible();
+    await expect(help.locator('.help-steps').getByText('Your step.')).toHaveCount(2);
     await expect(help.getByText(/most one order can weigh is 50 kg/)).toBeVisible();
     await expect(help.getByText(/approval/i)).toHaveCount(0);
     // Ops contact is clearly a placeholder until the founders provide it.

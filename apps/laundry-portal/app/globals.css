@@ -369,6 +369,7 @@ img { max-width: 100%; }
 .help-contact li, .help-line { display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 0; }
 .help-contact svg, .help-line svg { width: 20px; height: 20px; color: var(--navy); flex: none; }
 .help-contact a { font-weight: 700; overflow-wrap: anywhere; }
+.help-yours { color: var(--peach-ink); }
 @media (max-width: 559px) { .help-steps li { grid-template-columns: 1fr; gap: 4px; } }
 
 /* ---------- Breakpoints ---------- */
