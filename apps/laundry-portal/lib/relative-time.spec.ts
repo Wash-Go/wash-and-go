@@ -1,4 +1,4 @@
-import { formatUpdatedAgo, manilaClock } from './relative-time';
+import { formatAgo, formatUpdatedAgo, manilaClock } from './relative-time';
 
 // 2026-10-19 15:12:00 in Manila (UTC+8) = 07:12:00Z.
 const NOW = new Date('2026-10-19T07:12:00Z').getTime();
@@ -52,5 +52,22 @@ describe('formatUpdatedAgo', () => {
 
   it('says never for no timestamp', () => {
     expect(formatUpdatedAgo(null, NOW)).toBe('not updated yet');
+  });
+});
+
+describe('formatAgo', () => {
+  it('reads relative, then the Manila clock', () => {
+    expect(formatAgo(ago(20_000), NOW)).toBe('just now');
+    expect(formatAgo(ago(2 * 60_000), NOW)).toBe('2 min ago');
+    expect(formatAgo(ago(38 * 60_000 + 59_000), NOW)).toBe('38 min ago');
+    expect(formatAgo(ago(3 * 3_600_000), NOW)).toBe('3 h ago');
+    // 15:12 Manila minus 7 h = 08:12 the same day.
+    expect(formatAgo(ago(7 * 3_600_000), NOW)).toBe('today 8:12am');
+    expect(formatAgo(ago(20 * 3_600_000), NOW)).toBe('yesterday 7:12pm');
+    expect(formatAgo(ago(3 * 86_400_000), NOW)).toBe('Oct 16, 3:12pm');
+  });
+
+  it('treats a clock slightly ahead as just now', () => {
+    expect(formatAgo(NOW + 3_000, NOW)).toBe('just now');
   });
 });

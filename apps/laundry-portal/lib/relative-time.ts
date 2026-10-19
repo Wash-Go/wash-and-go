@@ -46,3 +46,17 @@ export function formatUpdatedAgo(then: number | null | undefined, now: number): 
   if (day === manilaDay(now - DAY)) return `updated yesterday ${clock}`;
   return `updated ${dateFmt.format(new Date(then))}, ${clock}`;
 }
+
+// "2 min ago" / "today 8:12am" for event times on cards ("booked 2 min ago").
+// Minute granularity: a card does not need a seconds counter.
+export function formatAgo(then: number, now: number): string {
+  const diff = now - then;
+  if (diff < MIN) return 'just now';
+  if (diff < HOUR) return `${Math.floor(diff / MIN)} min ago`;
+  if (diff < 6 * HOUR) return `${Math.floor(diff / HOUR)} h ago`;
+  const day = manilaDay(then);
+  const clock = manilaClock(new Date(then));
+  if (day === manilaDay(now)) return `today ${clock}`;
+  if (day === manilaDay(now - DAY)) return `yesterday ${clock}`;
+  return `${dateFmt.format(new Date(then))}, ${clock}`;
+}
