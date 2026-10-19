@@ -47,11 +47,21 @@ export const BUCKET_STATUSES: Record<QueueBucket, OrderStatus[]> = {
 };
 for (const s of ORDER_STATUSES) BUCKET_STATUSES[bucketOf(s)].push(s);
 
-// The list API returns no totals and takes one status at a time, and the API
-// throttles each client to 60 requests a minute, so the queue polls ONE
-// unfiltered page (the API's max, newest first) and splits it client-side.
-// Older orders come in through "Load more" (the before cursor).
-export const QUEUE_PAGE = 100;
+// The queue reads two kinds of list (API limit: 60 requests a minute):
+// - every active order in one page (GET /orders?active=true, oldest first, up
+//   to ACTIVE_LIMIT), which feeds Incoming, Needs you, Washing and Ready, so
+//   their counts are exact and an old order can never fall off the queue;
+// - Done, one status at a time, newest first, DONE_PAGE per page with the
+//   before cursor for older ones.
+export const ACTIVE_LIMIT = 200;
+export const DONE_PAGE = 100;
+export const DONE_STATUSES: OrderStatus[] = ORDER_STATUSES.filter((s) => STATUS_META[s].terminal);
+
+// The active page is one page with no cursor: a full page means some active
+// orders were left out, and the queue must say so.
+export function activeTruncated(count: number): boolean {
+  return count >= ACTIVE_LIMIT;
+}
 
 export function countLabel(count: number, more: boolean): string {
   return more ? `${count}+` : String(count);

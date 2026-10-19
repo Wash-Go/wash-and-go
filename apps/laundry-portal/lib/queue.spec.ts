@@ -1,7 +1,10 @@
 import { ORDER_STATUSES, STATUS_META, type OrderView } from '@wash-and-go/domain';
 import {
   BUCKET_STATUSES,
-  QUEUE_PAGE,
+  ACTIVE_LIMIT,
+  DONE_PAGE,
+  DONE_STATUSES,
+  activeTruncated,
   QUEUE_TABS,
   badgeTitle,
   bucketOf,
@@ -63,7 +66,24 @@ describe('countLabel', () => {
   it('shows the count, or N+ when the page came back full', () => {
     expect(countLabel(0, false)).toBe('0');
     expect(countLabel(3, false)).toBe('3');
-    expect(countLabel(QUEUE_PAGE, true)).toBe(`${QUEUE_PAGE}+`);
+    expect(countLabel(DONE_PAGE, true)).toBe(`${DONE_PAGE}+`);
+  });
+});
+
+describe('active and done lists', () => {
+  it('reads Done as exactly the terminal statuses', () => {
+    expect(DONE_STATUSES).toEqual(BUCKET_STATUSES.done);
+  });
+
+  it('flags the active page as truncated only when it came back full', () => {
+    expect(activeTruncated(0)).toBe(false);
+    expect(activeTruncated(ACTIVE_LIMIT - 1)).toBe(false);
+    expect(activeTruncated(ACTIVE_LIMIT)).toBe(true);
+  });
+
+  it('never puts an active order in Done, however old', () => {
+    const old = o({ id: 'old', status: 'AT_SHOP', createdAt: '2025-01-01T00:00:00Z' });
+    expect(partitionQueue([old]).needs.map((x) => x.id)).toEqual(['old']);
   });
 });
 

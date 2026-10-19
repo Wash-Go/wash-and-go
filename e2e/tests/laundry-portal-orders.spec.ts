@@ -46,6 +46,41 @@ test.describe('orders queue (phone)', () => {
     await expect(card.getByText('Needs you')).toBeVisible();
   });
 
+  test('reads active orders in one page and Done by status', async ({ page }) => {
+    const lists: string[] = [];
+    page.on('request', (r) => {
+      const u = new URL(r.url());
+      if (u.pathname === '/orders' && r.method() === 'GET') lists.push(u.search);
+    });
+    await page.goto('/');
+    await expect(page.getByTestId(`order-${seeded[0].code}`)).toBeVisible();
+    expect(lists.some((s) => s.includes('active=true') && s.includes('limit=200'))).toBe(true);
+    // No unfiltered newest-N list: an old active order can't fall off it.
+    expect(lists.every((s) => s.includes('active=true') || s.includes('status='))).toBe(true);
+    await expect(page.getByTestId('active-truncated')).toHaveCount(0);
+
+    await page.getByRole('tab', { name: /^Done/ }).click();
+    await expect(page.getByTestId('count-done')).toHaveText(/^\d+\+?$/);
+    await expect(page.locator('article.oc').first()).toBeVisible();
+    await expect(page.locator('article.oc').first().getByText(/Delivered|Cancelled/)).toBeVisible();
+  });
+
+  test('says so when the active page comes back full', async ({ page }) => {
+    // Pad the real active page to the 200-order limit.
+    await page.route(/\/orders\?.*active=true/, async (route) => {
+      const res = await route.fetch();
+      const real = (await res.json()) as { id: string; code: string }[];
+      const padded = Array.from({ length: 200 }, (_, i) => ({
+        ...real[i % real.length],
+        id: `pad-${i}`,
+        code: `WG-2099-${String(i).padStart(6, '0')}`,
+      }));
+      await route.fulfill({ response: res, json: padded });
+    });
+    await page.goto('/');
+    await expect(page.getByTestId('active-truncated')).toContainText('Showing the oldest 200 active orders');
+  });
+
   test('search by order code narrows the list', async ({ page }) => {
     await page.goto('/');
     const [a, b] = seeded;

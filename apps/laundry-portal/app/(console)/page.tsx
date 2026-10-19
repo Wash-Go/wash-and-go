@@ -1,7 +1,7 @@
 'use client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { OrderView } from '@wash-and-go/domain';
-import { Bell, BellOff, ChevronDown, Inbox, RefreshCw, Search } from 'lucide-react';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { OrderStatus, OrderView } from '@wash-and-go/domain';
+import { Bell, BellOff, ChevronDown, Inbox, RefreshCw, Search, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { OrderCard } from '../../components/orders/OrderCard';
@@ -16,12 +16,15 @@ import { SkeletonCard } from '../../components/ui/Skeleton';
 import { StaleBanner } from '../../components/ui/StaleBanner';
 import { api } from '../../lib/api';
 import { useLastLive, useNow, useOnline } from '../../lib/live';
-import { ORDERS_KEY, orderListQuery } from '../../lib/order-queries';
+import { activeListQuery, doneListQuery, ORDERS_KEY } from '../../lib/order-queries';
 import {
+  ACTIVE_LIMIT,
+  activeTruncated,
   countLabel,
+  DONE_PAGE,
+  DONE_STATUSES,
   mergeOrders,
   partitionQueue,
-  QUEUE_PAGE,
   QUEUE_TABS,
   sortQueue,
   type QueueTab,
@@ -50,8 +53,9 @@ export default function OrdersPage() {
   const [tab, setTabState] = useState<QueueTab>('needs');
   const [search, setSearch] = useState('');
   const [q, setQ] = useState('');
-  const [extras, setExtras] = useState<OrderView[]>([]);
-  const [exhausted, setExhausted] = useState(false);
+  // Older Done pages per terminal status (before cursor).
+  const [extras, setExtras] = useState<Partial<Record<OrderStatus, OrderView[]>>>({});
+  const [exhausted, setExhausted] = useState<Partial<Record<OrderStatus, boolean>>>({});
   const [loadingMore, setLoadingMore] = useState(false);
   const [moreError, setMoreError] = useState(false);
   const [weighing, setWeighing] = useState<OrderView | null>(null);
@@ -75,40 +79,75 @@ export default function OrdersPage() {
     return () => clearTimeout(id);
   }, [search]);
   useEffect(() => {
-    setExtras([]);
-    setExhausted(false);
+    setExtras({});
+    setExhausted({});
     setMoreError(false);
   }, [q]);
 
-  const list = useQuery(orderListQuery(q));
+  const active = useQuery(activeListQuery(q));
+  const doneQs = useQueries({ queries: DONE_STATUSES.map((st) => doneListQuery(st, q, tab === 'done')) });
   const isNew = useCallback((id: string) => live.isNew(id, now), [live, now]);
 
-  // The polled first page plus any older pages loaded with the cursor.
-  const all = useMemo(() => mergeOrders(list.data ?? [], extras), [list.data, extras]);
-  const parts = useMemo(() => partitionQueue(all), [all]);
-  const lastPageFull = extras.length ? !exhausted : (list.data?.length ?? 0) >= QUEUE_PAGE;
-  const canMore = list.data !== undefined && lastPageFull;
-  const noData = list.data === undefined;
+  const parts = useMemo(() => partitionQueue(active.data ?? []), [active.data]);
+  const truncated = activeTruncated(active.data?.length ?? 0);
 
-  const view = sortQueue(parts[tab], isNew);
+  // Done: each terminal status's polled first page plus any older pages.
+  const doneByStatus = DONE_STATUSES.map((st, i) => {
+    const first = doneQs[i].data;
+    const more = extras[st] ?? [];
+    const orders = mergeOrders(first ?? [], more);
+    const canMore = first !== undefined && (more.length ? !exhausted[st] : first.length >= DONE_PAGE);
+    return { status: st, first, orders, canMore };
+  });
+  const done = doneByStatus.flatMap((d) => d.orders);
+  const doneCanMore = doneByStatus.some((d) => d.canMore);
+  const doneNoData = doneQs.some((r) => r.data === undefined);
+
+  const isDone = tab === 'done';
+  const view = isDone ? sortQueue(done, () => false) : sortQueue(parts[tab], isNew);
   const incoming = tab === 'needs' ? sortQueue(parts.incoming, isNew) : [];
-  // Active orders are recent, so they sit in the newest page; Done is the one
-  // list that keeps going past it.
+  const noData = isDone ? doneNoData : active.data === undefined;
+  const loading = noData && (isDone ? doneQs.some((r) => r.isLoading) : active.isLoading);
+  const failed = isDone ? doneQs.some((r) => r.isError) : active.isError;
+  // Active counts are exact (one page holds every active order); Done shows
+  // "N+" while older orders remain.
   const counts = Object.fromEntries(
-    QUEUE_TABS.map((t) => [t.key, noData ? '' : countLabel(parts[t.key].length, t.key === 'done' && canMore)]),
+    QUEUE_TABS.map((t) =>
+      t.key === 'done'
+        ? [t.key, doneNoData ? '' : countLabel(done.length, doneCanMore)]
+        : [t.key, active.data === undefined ? '' : String(parts[t.key].length)],
+    ),
   ) as Record<QueueTab, string>;
 
   const loadMore = async () => {
     setLoadingMore(true);
     setMoreError(false);
     try {
-      const last = all[all.length - 1];
-      const page = await api.listOrders(undefined, q || undefined, QUEUE_PAGE, last?.id);
+      const pages = await Promise.all(
+        doneByStatus
+          .filter((d) => d.canMore)
+          .map(async (d) => {
+            const last = d.orders[d.orders.length - 1];
+            const page = await api.listOrders(d.status, q || undefined, DONE_PAGE, last?.id);
+            return { d, page };
+          }),
+      );
       // Keep a snapshot of the first page too: as new orders arrive, its
       // oldest rows slide off the polled page and would otherwise fall into
       // the gap before the loaded pages (the polled copy still wins).
-      setExtras((prev) => [...(prev.length ? prev : (list.data ?? [])), ...page]);
-      setExhausted(page.length < QUEUE_PAGE);
+      setExtras((prev) => {
+        const next = { ...prev };
+        for (const { d, page } of pages) {
+          const had = prev[d.status];
+          next[d.status] = [...(had?.length ? had : (d.first ?? [])), ...page];
+        }
+        return next;
+      });
+      setExhausted((prev) => {
+        const next = { ...prev };
+        for (const { d, page } of pages) next[d.status] = page.length < DONE_PAGE;
+        return next;
+      });
     } catch {
       setMoreError(true);
     } finally {
@@ -116,7 +155,7 @@ export default function OrdersPage() {
     }
   };
 
-  const refreshing = list.isFetching;
+  const refreshing = active.isFetching || doneQs.some((r) => r.isFetching);
   const refresh = () => void qc.refetchQueries({ queryKey: ORDERS_KEY });
   const updated = now && lastLive ? formatUpdatedAgo(lastLive, now) : null;
 
@@ -193,7 +232,15 @@ export default function OrdersPage() {
         ))}
       </div>
 
-      {online && list.isError && !noData ? (
+      {!isDone && truncated ? (
+        <div className="stale" role="status" data-testid="active-truncated">
+          <TriangleAlert aria-hidden="true" />
+          <span>
+            Showing the oldest {ACTIVE_LIMIT} active orders. Search by order code to find a newer one.
+          </span>
+        </div>
+      ) : null}
+      {online && failed && !noData ? (
         <StaleBanner message={`Couldn't refresh. Showing what we last saw${updated ? `, ${updated}` : ''}.`} onRetry={refresh} />
       ) : null}
 
@@ -223,7 +270,7 @@ export default function OrdersPage() {
           </details>
         ) : null}
 
-        {noData && list.isLoading ? (
+        {loading ? (
           <>
             <SkeletonCard label="Loading orders" />
             <SkeletonCard label="Loading orders" />
@@ -271,7 +318,7 @@ export default function OrdersPage() {
           ))
         )}
 
-        {canMore && (tab === 'done' || q) ? (
+        {isDone && doneCanMore ? (
           <div className="qmore">
             <Button variant="secondary" onClick={() => void loadMore()} disabled={loadingMore} aria-busy={loadingMore || undefined}>
               {loadingMore ? 'Loading…' : 'Load more'}

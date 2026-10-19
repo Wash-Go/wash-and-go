@@ -5,14 +5,14 @@ import { usePathname } from 'next/navigation';
 import { readChimePref, shouldChime, writeChimePref } from '../../lib/chime';
 import { audioUnlocked, playChime, unlockAudio } from '../../lib/chime-audio';
 import { emptyNewOrders, isNewOrder, trackNewOrders, type NewOrdersState } from '../../lib/new-orders';
-import { orderListQuery } from '../../lib/order-queries';
+import { activeListQuery } from '../../lib/order-queries';
 import { badgeTitle, partitionQueue } from '../../lib/queue';
 
 // App-wide watch on the orders that need the shop: Needs you (AT_SHOP) and
 // Incoming (booked, assigned, picked up). Mounted in the shell so the tab bar
 // badge, the title count, the "New" ring and the chime work on every console
-// page. Uses the queue's own unfiltered list query, so React Query shares the
-// one request.
+// page. Reads only the active list (the queue's own query, so React Query
+// shares the one request): Done orders never ring.
 type Live = {
   needsCount: number;
   isNew: (id: string, now: number) => boolean;
@@ -39,7 +39,7 @@ function storage(): Storage | null {
 }
 
 export function OrdersLiveProvider({ children }: { children: ReactNode }) {
-  const list = useQuery(orderListQuery(''));
+  const list = useQuery(activeListQuery(''));
   const [rings, setRings] = useState<NewOrdersState>(emptyNewOrders);
   const ringsRef = useRef(rings);
   const [chimeOn, setChimeOn] = useState(false);
