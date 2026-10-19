@@ -6,6 +6,7 @@
     "test": "playwright test",
     "smoke": "playwright test",
     "smoke:portal": "playwright test laundry-portal",
+    "smoke:portal-pwa": "playwright test --config playwright.pwa.config.ts",
     "smoke:landing": "node scripts/landing-smoke.cjs"
   },
   "devDependencies": {
