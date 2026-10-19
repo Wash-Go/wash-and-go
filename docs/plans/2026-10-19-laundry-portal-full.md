@@ -132,10 +132,11 @@ Dark mode: tokens ladder; map tiles dark variant. Icons: one set (Lucide), no em
 | B3b | Onboarding wizard (6 steps, gated docs) + email verification notice | B3a | done |
 | B4a | Self-management API: `/shop/me`, `/shop/payout-account` (masked), `/shop/members`, `/shop/invites*` with explicit accept, `emailVerified` + `inviteEmailOnFile` on `/auth/me` | new, migration | done |
 | B4b | Shop profile / payout account / staff screens + invite card | B4a | done |
+| B4c | Standalone `/services` page (owner edit, staff read-only) | B3a | done |
 | B5a | `GET /shop/remittance/pending`, `GET /shop/remittance/batches/:id`, two-decimal totals | new | done |
 | B5b | Payouts page + batch detail + CSV | B5a | done |
 | B6a | API polish, real-Postgres integration suite, Swagger response types, dev-only `/dev/users` fixture route | — | done |
-| B6b | Help, deferred minors, smokes per screen, Lighthouse (PWA), a11y, CI | — | in progress |
+| B6b | Help, deferred minors, smokes per screen, Lighthouse (PWA), a11y, CI | — | done |
 | B7 | Customer approval for over-estimate weigh-ins (API status, customer prompt, notification, auto-accept timeout) | new | deferred; product rule: threshold + timeout |
 
 Order as built: B0 → B1 → B2 ∥ B3a → B3b ∥ B4a → B4b ∥ B5a → B5b → B6a ∥ B6b. API and portal

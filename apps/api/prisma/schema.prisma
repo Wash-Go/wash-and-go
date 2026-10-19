@@ -203,9 +203,10 @@ enum PayoutMethod {
   BANK
 }
 
-// Owner-sent staff invite (portal B4). Accepted on the invitee's next
-// POST /auth/session when their VERIFIED token email matches. One row per
-// (shop, email): a re-invite after revoke reopens the same row.
+// Owner-sent staff invite (portal B4). Accepted explicitly by the invitee via
+// POST /shop/invites/:id/accept once their sign-in email is verified; never
+// silently on sign-in. One row per (shop, email): a re-invite after revoke
+// reopens the same row.
 model ShopInvite {
   id              String    @id @default(cuid())
   shopId          String
