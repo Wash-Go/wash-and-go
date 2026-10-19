@@ -8,9 +8,14 @@ const VALID_FILL =
   /^(#[0-9A-F]{8}|color-mix\(in srgb, var\(--[a-z0-9-]+\) \d{1,3}%, transparent\))$/i;
 
 describe('tint', () => {
-  it('appends the alpha byte to a hex colour (same fill as before)', () => {
-    expect(tint(c.brand)).toBe('#208AEF1A');
-    expect(tint(c.success, '22')).toBe('#15A34A22');
+  it('appends the alpha byte to a hex colour', () => {
+    expect(tint('#0B3773')).toBe('#0B37731A');
+    expect(tint('#1F7A4D', '22')).toBe('#1F7A4D22');
+  });
+
+  it('uses DESIGN.md token variables for every theme colour', () => {
+    for (const v of Object.values(c)) expect(v).toMatch(/^var\(--[a-z-]+\)$/);
+    expect(c.brand).toBe('var(--navy)');
   });
 
   it('mixes a CSS variable with transparent rather than concatenating', () => {
@@ -22,6 +27,7 @@ describe('tint', () => {
     for (const s of Object.keys(STATUS_META) as OrderStatus[]) {
       expect(tint(statusColor(s))).toMatch(VALID_FILL);
     }
+    expect(statusColor('CANCELLED')).toBe(c.muted);
     expect(tint(statusColor('BOOKED'))).toBe(
       'color-mix(in srgb, var(--muted) 10%, transparent)',
     );

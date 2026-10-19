@@ -1,20 +1,21 @@
 import { STATUS_META, type OrderStatus } from '@wash-and-go/domain';
 
-// Chrome colors resolve to CSS variables (light/dark flip in globals.css).
-// Brand + semantic stay literal hex — constant across themes. For a translucent
-// fill use tint(), never `color + '1A'`: on a var() colour that concatenation is
-// invalid CSS and the fill silently disappears.
+// Every colour resolves to a DESIGN.md token CSS variable (app/brand.css), so
+// light/dark flips in one place and nothing hard-codes a hex here. For a
+// translucent fill use tint(), never `color + '1A'`: on a var() colour that
+// concatenation is invalid CSS and the fill silently disappears.
 export const c = {
-  brand: '#208AEF',
-  bg: 'var(--bg)',
+  brand: 'var(--navy)',
+  onBrand: 'var(--on-navy)',
+  bg: 'var(--ground)',
   surface: 'var(--surface)',
-  surface2: 'var(--surface-2)',
-  border: 'var(--border)',
+  surface2: 'var(--sunken)',
+  border: 'var(--line)',
   text: 'var(--text)',
   muted: 'var(--muted)',
-  success: '#15A34A',
-  danger: '#DC2626',
-  warning: '#B45309',
+  success: 'var(--success)',
+  danger: 'var(--danger)',
+  warning: 'var(--warn-ink)',
 };
 
 // Status color from the domain's semantic tone (one source for status color).
@@ -23,7 +24,7 @@ export function statusColor(s: OrderStatus): string {
     case 'success':
       return c.success;
     case 'cancelled':
-      return c.danger;
+      return c.muted; // DESIGN.md: never danger for a plain cancelled status
     case 'active':
       return c.brand;
     default:
