@@ -7,6 +7,8 @@
  * compound unique keys, `orderBy` arrays, `include` of shop/user/service, and
  * `$transaction(fn)`. Test-only; nothing in the app imports it.
  */
+import { Prisma } from '@prisma/client';
+
 type Row = Record<string, unknown> & { id: string };
 type Where = Record<string, unknown>;
 type OrderBy = Record<string, 'asc' | 'desc'> | Array<Record<string, 'asc' | 'desc'>>;
@@ -109,7 +111,10 @@ export function fakeShopPrisma(seed: Partial<FakeTables> = {}) {
     shopService: [['shopId', 'serviceId']],
   };
   const p2002 = () =>
-    Object.assign(new Error('Unique constraint failed'), { code: 'P2002' });
+    new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+      code: 'P2002',
+      clientVersion: 'fake',
+    });
 
   function model(name: keyof FakeTables) {
     const rows = () => t[name];
