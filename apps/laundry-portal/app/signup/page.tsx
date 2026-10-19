@@ -1,11 +1,12 @@
 'use client';
 import { useQueryClient } from '@tanstack/react-query';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { PasswordField } from '../../components/auth/PasswordField';
 import { TextField } from '../../components/auth/TextField';
+import { useToast } from '../../components/ui/Toast';
 import { api } from '../../lib/api';
 import {
   authErrorMessage,
@@ -24,6 +25,7 @@ import { sessionErrorMessage } from '../../lib/session';
 export default function SignupPage() {
   const router = useRouter();
   const qc = useQueryClient();
+  const toast = useToast();
   const [form, setForm] = useState({ name: '', email: '', password: '', phone: '' });
   const [errors, setErrors] = useState<SignupErrors>({});
   const [err, setErr] = useState<string | null>(null);
@@ -46,7 +48,16 @@ export default function SignupPage() {
       // Firebase stores emails lower-cased; compare the same way so a retry
       // reuses the account this form already created.
       if (!auth.currentUser || auth.currentUser.email?.toLowerCase() !== email.toLowerCase()) {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        // Staff invites need a verified email (B4a). Not blocking: signup goes
+        // on, and the console's notice offers "Resend email".
+        sendEmailVerification(cred.user).catch(() =>
+          toast.show({
+            tone: 'error',
+            title: 'We couldn’t send the verification email.',
+            body: 'You can resend it from the notice in your console.',
+          }),
+        );
       }
     } catch (ex) {
       setErr(authErrorMessage((ex as { code?: string })?.code, 'signup'));

@@ -1,63 +1,55 @@
 'use client';
-import { ClipboardList, Clock } from 'lucide-react';
+import { useState } from 'react';
 import { useConsole } from '../../../components/console/ConsoleContext';
+import { VerifyEmailBanner } from '../../../components/console/VerifyEmailBanner';
+import { Rejected } from '../../../components/onboarding/Rejected';
+import { UnderReview } from '../../../components/onboarding/UnderReview';
+import { SavedAgo, Wizard } from '../../../components/onboarding/Wizard';
 import { ShopChip } from '../../../components/ui/Chip';
-import { EmptyState } from '../../../components/ui/EmptyState';
-import { Stepper } from '../../../components/ui/Stepper';
-import { WIZARD_STEPS } from '../../../lib/onboarding';
+import { formatAgo } from '../../../lib/relative-time';
+import { useNow } from '../../../lib/live';
 
-// Placeholder until the B3 wizard: shows where the shop stands (draft, under
-// review, needs changes) without a shell, since the shop isn't live yet.
+// Onboarding without the console shell (the shop isn't live yet):
+// DRAFT → the six-step wizard (resumes at the first incomplete step),
+// SUBMITTED → "We're checking your shop", REJECTED → the reason + "Fix and
+// resubmit", which reopens the wizard at the step the reason names.
 export default function OnboardingPage() {
   const { shop, signOut } = useConsole();
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [fixAt, setFixAt] = useState<number | null>(null);
+  const now = useNow();
   const status = shop?.status ?? 'DRAFT';
+  const submitted = status === 'SUBMITTED';
 
   return (
     <div className="shell-main">
       <header className="hd">
         <img className="hd-mark" src="/brand/logo-mark.webp" alt="" width={34} height={18} style={{ display: 'block' }} />
-        <div className="hd-name">
-          <span>{shop?.name || 'Register your laundry'}</span>
+        <div className="hd-name wiz-head">
+          <span>{submitted && shop?.name ? shop.name : 'Register your laundry'}</span>
+          {submitted && shop?.submittedAt && now ? (
+            <small>submitted {formatAgo(Date.parse(shop.submittedAt), now)}</small>
+          ) : (
+            <SavedAgo at={savedAt} />
+          )}
         </div>
         {shop ? <ShopChip status={shop.status} /> : null}
       </header>
-      <main className="page stack" style={{ maxWidth: 560 }} data-testid="onboarding">
-        {status === 'SUBMITTED' ? (
-          <>
-            <h1 className="disp">We&rsquo;re checking your shop</h1>
-            <p>Thanks. Your details are with the Wash &amp; Go team.</p>
-            <EmptyState
-              icon={Clock}
-              title="What happens next"
-              body="We visit or call within a few working days to verify your laundry. When you're verified, signing in here opens your Orders."
-            />
-          </>
-        ) : status === 'REJECTED' ? (
-          <>
-            <h1 className="disp">Your application needs changes</h1>
-            {shop?.rejectionReason ? (
-              <div className="notice notice-warn" role="note">
-                <b>From our team:</b> {shop.rejectionReason}
-              </div>
-            ) : null}
-            <EmptyState
-              icon={ClipboardList}
-              title="Fix and resubmit is coming in B3."
-              body="The registration form reopens at the step that needs changes."
-            />
-          </>
+      <main className="page" style={{ maxWidth: 592 }} data-testid="onboarding">
+        <VerifyEmailBanner placement="onboarding" />
+        {submitted ? (
+          <UnderReview />
+        ) : status === 'REJECTED' && fixAt == null ? (
+          <Rejected onFix={setFixAt} />
         ) : (
-          <>
-            <h1 className="disp">Register your laundry</h1>
-            <Stepper steps={WIZARD_STEPS} current={0} />
-            <EmptyState
-              icon={ClipboardList}
-              title="Wizard coming in B3."
-              body="Six short steps: details, location, services and rates, hours, documents, review. Your account is saved, so you'll pick up right here."
-            />
-          </>
+          <Wizard startAt={fixAt ?? undefined} onSaved={setSavedAt} />
         )}
-        <button type="button" className="btn btn-secondary" style={{ alignSelf: 'flex-start' }} onClick={() => void signOut()}>
+        <button
+          type="button"
+          className="btn btn-text"
+          style={{ marginTop: 16 }}
+          onClick={() => void signOut()}
+        >
           Sign out
         </button>
       </main>
