@@ -7,9 +7,19 @@ import {
 import { Prisma, Shop, User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { assertOwnedKey } from '../uploads/object-key';
-import type { UpdateOnboardingDto } from './dto/shop-onboarding.dto';
+import { normalizePhMobile } from '../users/phone';
+import type { ShopHoursDayDto, UpdateOnboardingDto } from './dto/shop-onboarding.dto';
 
-// Owner-facing view — NO margin fields (commission/slots stay server-side).
+// Weekly opening grid as stored in Shop.hours and returned to the portal:
+// 7 entries sorted by day (0 = Sunday … 6 = Saturday); null open/close = closed.
+export interface ShopHoursDay {
+  day: number;
+  open: string | null;
+  close: string | null;
+}
+
+// Owner-facing view — NO margin fields (commission stays server-side).
+// expressSlotsPerDay is the owner's own capacity setting (wizard step 4).
 export interface OwnerShopView {
   id: string;
   name: string;
@@ -22,6 +32,31 @@ export interface OwnerShopView {
   photoKeys: string[];
   submittedAt: string | null;
   verifiedAt: string | null;
+  contactPhone: string | null;
+  description: string | null;
+  hours: ShopHoursDay[] | null;
+  expressSlotsPerDay: number;
+}
+
+// Cross-field checks the DTO can't express: one entry per weekday, open/close
+// both set or both null, open strictly before close. Returns the canonical
+// (day-sorted, extra-key-free) grid or throws 400.
+export function normalizeHours(hours: ShopHoursDayDto[]): ShopHoursDay[] {
+  const days = new Set(hours.map((h) => h.day));
+  if (hours.length !== 7 || days.size !== 7) {
+    throw new BadRequestException('Hours need exactly one entry for each day of the week');
+  }
+  for (const h of hours) {
+    if ((h.open === null) !== (h.close === null)) {
+      throw new BadRequestException('Set both opening and closing time, or mark the day closed');
+    }
+    if (h.open !== null && h.close !== null && h.open >= h.close) {
+      throw new BadRequestException('Opening time must be before closing time');
+    }
+  }
+  return [...hours]
+    .sort((a, b) => a.day - b.day)
+    .map((h) => ({ day: h.day, open: h.open, close: h.close }));
 }
 
 /*
@@ -76,6 +111,16 @@ export class ShopOnboardingService {
     if (dto.permitKey != null) assertOwnedKey(user.id, dto.permitKey);
     (dto.photoKeys ?? []).forEach((k) => assertOwnedKey(user.id, k));
 
+    let contactPhone: string | undefined;
+    if (dto.contactPhone != null) {
+      const phone = normalizePhMobile(dto.contactPhone);
+      if (!phone) {
+        throw new BadRequestException('Enter a PH mobile number, e.g. 0917 123 4567');
+      }
+      contactPhone = phone;
+    }
+    const hours = dto.hours != null ? normalizeHours(dto.hours) : undefined;
+
     const updated = await this.prisma.shop.update({
       where: { id: shop.id },
       data: {
@@ -85,6 +130,10 @@ export class ShopOnboardingService {
         ...(dto.lng != null ? { lng: new Prisma.Decimal(dto.lng) } : {}),
         ...(dto.permitKey != null ? { permitKey: dto.permitKey } : {}),
         ...(dto.photoKeys != null ? { photoKeys: dto.photoKeys } : {}),
+        ...(contactPhone != null ? { contactPhone } : {}),
+        ...(dto.description != null ? { description: dto.description.trim() || null } : {}),
+        ...(hours != null ? { hours: hours as unknown as Prisma.InputJsonValue } : {}),
+        ...(dto.expressSlotsPerDay != null ? { expressSlotsPerDay: dto.expressSlotsPerDay } : {}),
       },
     });
     return this.shape(updated);
@@ -135,6 +184,11 @@ export class ShopOnboardingService {
       photoKeys: s.photoKeys,
       submittedAt: s.submittedAt ? s.submittedAt.toISOString() : null,
       verifiedAt: s.verifiedAt ? s.verifiedAt.toISOString() : null,
+      contactPhone: s.contactPhone,
+      description: s.description,
+      // Written only through normalizeHours, so the stored JSON is the grid shape.
+      hours: (s.hours as unknown as ShopHoursDay[] | null) ?? null,
+      expressSlotsPerDay: s.expressSlotsPerDay,
     };
   }
 }
