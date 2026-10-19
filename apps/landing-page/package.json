@@ -11,6 +11,8 @@
   "scripts": {
     "dev": "vite dev --port 3000",
     "build": "vite build",
+    "postbuild": "node scripts/check-ssr.mjs",
+    "check:ssr": "node scripts/check-ssr.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "type-check": "tsc --noEmit",
