@@ -72,3 +72,6 @@ export function profileErrorMessage(error: unknown): { text: string; onboarding?
   if (st === 400) return { text: 'Check your answers, then try again.' };
   return { text: 'We couldn’t save. Check your connection, then try again.' };
 }
+
+// React Query key for GET /shop/me (per signed-in user).
+export const shopMeKey = (userId: string) => ['shop-me', userId] as const;
