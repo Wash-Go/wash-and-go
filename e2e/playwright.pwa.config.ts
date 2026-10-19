@@ -3,6 +3,8 @@ import { defineConfig, devices } from '@playwright/test';
 /*
  * PWA smoke config: runs tests/laundry-portal-pwa.spec.ts against a production
  * build of the laundry portal (PORTAL_PROD_URL, `next build && next start`).
+ * Build it with `pnpm --filter @wash-and-go/e2e build:portal-e2e` (dev stub +
+ * NEXT_PUBLIC_E2E=1, shared with the orders spec), then `next start -p 3012`.
  * No webServer block on purpose: the main config starts `next dev`, which
  * writes into the same .next directory and would clobber the production build
  * being served. API on :4000 (AUTH_DEV_BYPASS=1) must be up.

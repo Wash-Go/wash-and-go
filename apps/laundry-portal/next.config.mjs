@@ -45,4 +45,8 @@ export default withSerwist({
   reactStrictMode: true,
   // Workspace TS packages are compiled by Next (no prebuild step).
   transpilePackages: ['@wash-and-go/domain', '@wash-and-go/api-client'],
+  // Always defined, so Next inlines it and the minifier drops e2e-only
+  // branches (the Done ?donePage= hook) from normal builds. An unset
+  // NEXT_PUBLIC_* var is NOT inlined and would leave the branch in the bundle.
+  env: { NEXT_PUBLIC_E2E: process.env.NEXT_PUBLIC_E2E === '1' ? '1' : '0' },
 });

@@ -37,7 +37,9 @@ export default defineConfig({
     {
       command: 'pnpm --filter @wash-and-go/laundry-portal dev',
       url: PORTAL_URL,
-      env: { NEXT_PUBLIC_API_URL: API_URL },
+      // NEXT_PUBLIC_E2E=1 enables test-only hooks (the Done ?donePage= size).
+      // A production build for the smokes: `pnpm --filter @wash-and-go/e2e build:portal-e2e`.
+      env: { NEXT_PUBLIC_API_URL: API_URL, NEXT_PUBLIC_E2E: '1' },
       reuseExistingServer: true,
       timeout: 120_000,
       cwd: '..',

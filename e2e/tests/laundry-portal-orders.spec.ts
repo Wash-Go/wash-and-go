@@ -68,7 +68,8 @@ test.describe('orders queue (phone)', () => {
   });
 
   test('Load more on Done pages older orders with the before cursor', async ({ page }) => {
-    // ?donePage=3 shrinks the Done page (a test hook) so the design DB's
+    // ?donePage=3 shrinks the Done page (a test hook, only in builds made with
+    // NEXT_PUBLIC_E2E=1: `build:portal-e2e` or the dev webServer) so the design DB's
     // cancelled orders, including those this spec cancels, fill more than one
     // page without seeding 100+ delivered orders.
     const before: string[] = [];

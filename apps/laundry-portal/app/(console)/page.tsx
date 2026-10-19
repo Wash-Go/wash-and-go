@@ -29,7 +29,7 @@ import {
   sortQueue,
   type QueueTab,
 } from '../../lib/queue';
-import { applyDonePages, doneView, parseDonePage, type DoneFirsts, type DonePages } from '../../lib/done-pages';
+import { applyDonePages, donePageFor, doneView, type DoneFirsts, type DonePages } from '../../lib/done-pages';
 import { formatUpdatedAgo } from '../../lib/relative-time';
 import { DESKTOP, useMedia } from '../../lib/useMedia';
 
@@ -68,8 +68,12 @@ export default function OrdersPage() {
     const params = new URLSearchParams(window.location.search);
     const t = params.get('tab');
     if (isTab(t)) setTabState(t);
-    // Test hook: ?donePage=N shrinks the Done page so Load more is reachable.
-    setDonePage(parseDonePage(params.get('donePage')));
+    // e2e-only test hook: ?donePage=N shrinks the Done page so Load more is
+    // reachable. The literal env check is inlined at build time, so a
+    // production build drops this branch and never reads the parameter.
+    if (process.env.NEXT_PUBLIC_E2E === '1') {
+      setDonePage(donePageFor(process.env.NEXT_PUBLIC_E2E, params.get('donePage')));
+    }
   }, []);
   const setTab = (t: QueueTab) => {
     setTabState(t);

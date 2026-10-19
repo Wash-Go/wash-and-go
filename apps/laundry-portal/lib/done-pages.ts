@@ -58,8 +58,17 @@ export function applyDonePages(
 }
 
 // Page size for Done, overridable with ?donePage=N (1..100) so the browser
-// smoke can exercise Load more without seeding 100+ delivered orders.
+// smoke can exercise Load more without seeding 100+ delivered orders. Only
+// e2e builds (NEXT_PUBLIC_E2E=1) read it: see donePageFor.
 export function parseDonePage(param: string | null): number {
   const n = Number(param);
   return Number.isInteger(n) && n >= 1 && n <= DONE_PAGE ? n : DONE_PAGE;
+}
+
+// The test hook is honoured only in an e2e build; any other build ignores the
+// parameter entirely and uses DONE_PAGE. The page also guards the call with
+// the literal `process.env.NEXT_PUBLIC_E2E === '1'`, so Next inlines the flag
+// and drops the parameter read from production bundles.
+export function donePageFor(e2eFlag: string | undefined, param: string | null): number {
+  return e2eFlag === '1' ? parseDonePage(param) : DONE_PAGE;
 }

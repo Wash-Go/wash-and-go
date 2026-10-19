@@ -1,5 +1,5 @@
 import type { OrderView } from '@wash-and-go/domain';
-import { applyDonePages, doneView, parseDonePage, type DonePages } from './done-pages';
+import { applyDonePages, donePageFor, doneView, parseDonePage, type DonePages } from './done-pages';
 
 const o = (id: string, status: 'DELIVERED' | 'CANCELLED', createdAt: string, over: Partial<OrderView> = {}) =>
   ({ id, code: `WG-2026-${id}`, status, createdAt, ...over }) as OrderView;
@@ -84,5 +84,15 @@ describe('parseDonePage', () => {
     expect(parseDonePage('0')).toBe(100);
     expect(parseDonePage('500')).toBe(100);
     expect(parseDonePage('x')).toBe(100);
+  });
+});
+
+describe('donePageFor', () => {
+  it('ignores the parameter unless the build is an e2e build', () => {
+    expect(donePageFor(undefined, '3')).toBe(100);
+    expect(donePageFor('', '3')).toBe(100);
+    expect(donePageFor('0', '3')).toBe(100);
+    expect(donePageFor('1', '3')).toBe(3);
+    expect(donePageFor('1', null)).toBe(100);
   });
 });
