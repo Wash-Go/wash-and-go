@@ -400,4 +400,78 @@ describe('ApiClient', () => {
     expect(out.lines).toEqual([]);
     expect(fetchFn.mock.calls[0][0]).toBe('http://api.test/shop/remittance/batches/b%2F1');
   });
+
+  describe('shop self-management endpoints', () => {
+    const make = (status: number, body?: unknown) => {
+      const fetchFn = jest.fn().mockResolvedValue(res(status, body));
+      const client = new ApiClient({ baseUrl: 'http://api.test', tokens: tokensFrom(['t']), fetchFn });
+      return { client, fetchFn };
+    };
+    const call = (fetchFn: jest.Mock) => {
+      const [url, init] = fetchFn.mock.calls[0];
+      return { url, method: init.method, body: init.body ? JSON.parse(init.body) : undefined };
+    };
+
+    it('reads and patches the profile on /shop/me', async () => {
+      const a = make(200, { id: 's1', myRole: 'OWNER' });
+      await expect(a.client.shopMe()).resolves.toEqual({ id: 's1', myRole: 'OWNER' });
+      expect(call(a.fetchFn)).toEqual({ url: 'http://api.test/shop/me', method: 'GET', body: undefined });
+      const b = make(200, { id: 's1' });
+      await b.client.updateShopMe({ contactPhone: '09171234567', expressSlotsPerDay: 8 });
+      expect(call(b.fetchFn)).toEqual({
+        url: 'http://api.test/shop/me',
+        method: 'PATCH',
+        body: { contactPhone: '09171234567', expressSlotsPerDay: 8 },
+      });
+    });
+
+    it('puts and deletes the payout account', async () => {
+      const a = make(200, { method: 'GCASH', accountNumberMasked: '•••• 4567' });
+      await a.client.putPayoutAccount({ method: 'GCASH', accountName: 'R. Fernandez', accountNumber: '09171234567' });
+      expect(call(a.fetchFn)).toEqual({
+        url: 'http://api.test/shop/payout-account',
+        method: 'PUT',
+        body: { method: 'GCASH', accountName: 'R. Fernandez', accountNumber: '09171234567' },
+      });
+      const b = make(204);
+      await expect(b.client.deletePayoutAccount()).resolves.toBeUndefined();
+      expect(call(b.fetchFn)).toMatchObject({ url: 'http://api.test/shop/payout-account', method: 'DELETE' });
+    });
+
+    it('lists and removes members', async () => {
+      const a = make(200, []);
+      await a.client.shopMembers();
+      expect(call(a.fetchFn)).toMatchObject({ url: 'http://api.test/shop/members', method: 'GET' });
+      const b = make(204);
+      await b.client.removeStaffMember('m/1');
+      expect(call(b.fetchFn)).toMatchObject({ url: 'http://api.test/shop/members/m%2F1', method: 'DELETE' });
+    });
+
+    it('lists, creates and revokes invites', async () => {
+      const a = make(200, []);
+      await a.client.shopInvites();
+      expect(call(a.fetchFn)).toMatchObject({ url: 'http://api.test/shop/invites', method: 'GET' });
+      const b = make(201, { id: 'i1', email: 'ana@example.ph', createdAt: 'x' });
+      await b.client.createShopInvite('ana@example.ph');
+      expect(call(b.fetchFn)).toEqual({ url: 'http://api.test/shop/invites', method: 'POST', body: { email: 'ana@example.ph' } });
+      const c = make(204);
+      await c.client.revokeShopInvite('i1');
+      expect(call(c.fetchFn)).toMatchObject({ url: 'http://api.test/shop/invites/i1', method: 'DELETE' });
+    });
+
+    it('surfaces the invite 409 with its status', async () => {
+      const { client } = make(409, { message: 'That email already has an open invite' });
+      await expect(client.createShopInvite('ana@example.ph')).rejects.toMatchObject({ status: 409 });
+    });
+
+    it('reads pending invites and accepts one with no body', async () => {
+      const a = make(200, [{ id: 'i1', shopName: 'Hub', invitedByName: 'Lorna', createdAt: 'x' }]);
+      await a.client.pendingInvites();
+      expect(call(a.fetchFn)).toMatchObject({ url: 'http://api.test/shop/invites/pending', method: 'GET' });
+      const b = make(200, { id: 'm1', shopId: 's1', shopName: 'Hub', role: 'STAFF' });
+      await expect(b.client.acceptInvite('i1')).resolves.toMatchObject({ shopId: 's1' });
+      expect(call(b.fetchFn)).toEqual({ url: 'http://api.test/shop/invites/i1/accept', method: 'POST', body: undefined });
+      expect(b.fetchFn.mock.calls[0][1].headers['content-type']).toBeUndefined();
+    });
+  });
 });

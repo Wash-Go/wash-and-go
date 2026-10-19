@@ -308,6 +308,12 @@ export interface MeView {
   phone: string | null; // +639XXXXXXXXX, or null until they add one
   displayName: string; // '' until they add one
   roles: UserRole[];
+  // True only when the current token carries a trusted, verified email.
+  // Always false under the dev x-dev-uid stub. Optional: older APIs omit it.
+  emailVerified?: boolean;
+  // The account has a verified email stored, so GET /shop/invites/pending can
+  // match invites. The address itself is never returned. Optional, as above.
+  inviteEmailOnFile?: boolean;
 }
 
 // PATCH /auth/me. phone takes any PH mobile form (see normalizePhMobile); the
@@ -569,4 +575,88 @@ export interface ZoneView {
 export interface CreateZoneBody {
   name: string;
   polygon: ZoneVertex[];
+}
+
+// ---------- Shop self-management (portal, B4) ----------
+
+export type PayoutMethod = 'GCASH' | 'BANK';
+
+// GET /shop/me payout account. The full number is never returned.
+export interface PayoutAccountView {
+  method: PayoutMethod;
+  accountName: string;
+  accountNumberMasked: string; // "•••• 1234"
+  bankName: string | null;
+  updatedAt: string | null;
+}
+
+// PUT /shop/payout-account. GCASH: a PH mobile, no bankName. BANK: 6–20
+// digits (spaces/dashes ignored) and a bankName.
+export interface PutPayoutAccountBody {
+  method: PayoutMethod;
+  accountName: string;
+  accountNumber: string;
+  bankName?: string;
+}
+
+// GET /shop/me (OWNER or STAFF; payoutAccount is null for none).
+export interface ShopProfileView {
+  id: string;
+  name: string;
+  address: string;
+  lat: string;
+  lng: string;
+  contactPhone: string | null;
+  description: string | null;
+  hours: ShopHoursDay[] | null;
+  expressSlotsPerDay: number;
+  status: ShopStatus;
+  verifiedAt: string | null;
+  payoutAccount: PayoutAccountView | null;
+  myRole: 'OWNER' | 'STAFF';
+}
+
+// PATCH /shop/me (OWNER; VERIFIED or REJECTED shops — 409 while onboarding).
+export interface UpdateShopProfileBody {
+  name?: string;
+  address?: string;
+  lat?: number;
+  lng?: number;
+  contactPhone?: string;
+  description?: string;
+  hours?: ShopHoursDay[];
+  expressSlotsPerDay?: number;
+}
+
+// GET /shop/members. id is the ShopMember id; email is null until the user
+// signs in with a verified email. Never carries a phone number.
+export interface ShopMemberView {
+  id: string;
+  userId: string;
+  role: 'OWNER' | 'STAFF';
+  name: string;
+  email: string | null;
+  joinedAt: string;
+}
+
+// GET/POST /shop/invites (OWNER): open invites.
+export interface ShopInviteView {
+  id: string;
+  email: string;
+  createdAt: string;
+}
+
+// GET /shop/invites/pending: open invites for the caller's stored verified
+// email. The invitee's email is never echoed.
+export interface PendingInviteView {
+  id: string;
+  shopName: string;
+  invitedByName: string;
+  createdAt: string;
+}
+
+// POST /shop/invites/:id/accept (200, also on a repeat by the same member).
+export interface AcceptedMemberView extends ShopMemberView {
+  shopId: string;
+  shopName: string;
 }

@@ -11,7 +11,15 @@ import type {
   CloseRemittanceBody,
   CreateShopBody,
   OwnerShopView,
+  AcceptedMemberView,
+  PayoutAccountView,
+  PendingInviteView,
   PresignUploadResult,
+  PutPayoutAccountBody,
+  ShopInviteView,
+  ShopMemberView,
+  ShopProfileView,
+  UpdateShopProfileBody,
   PutShopServiceBody,
   ShopCatalogItem,
   ShopServiceRow,
@@ -524,6 +532,55 @@ export class ApiClient {
   // Whether document upload (R2) is configured; the wizard gates step 5 on it.
   uploadsStatus(): Promise<UploadsStatus> {
     return this.request('GET', '/uploads/status');
+  }
+
+  // --- Shop self-management (portal; the shop always comes from the caller) ---
+
+  shopMe(): Promise<ShopProfileView> {
+    return this.request('GET', '/shop/me');
+  }
+
+  updateShopMe(body: UpdateShopProfileBody): Promise<ShopProfileView> {
+    return this.request('PATCH', '/shop/me', body);
+  }
+
+  // Returns the masked view only; the full number is never echoed back.
+  putPayoutAccount(body: PutPayoutAccountBody): Promise<PayoutAccountView> {
+    return this.request('PUT', '/shop/payout-account', body);
+  }
+
+  deletePayoutAccount(): Promise<void> {
+    return this.request('DELETE', '/shop/payout-account');
+  }
+
+  shopMembers(): Promise<ShopMemberView[]> {
+    return this.request('GET', '/shop/members');
+  }
+
+  // Named apart from the admin removeShopMember(shopId, memberId).
+  removeStaffMember(memberId: string): Promise<void> {
+    return this.request('DELETE', `/shop/members/${encodeURIComponent(memberId)}`);
+  }
+
+  shopInvites(): Promise<ShopInviteView[]> {
+    return this.request('GET', '/shop/invites');
+  }
+
+  createShopInvite(email: string): Promise<ShopInviteView> {
+    return this.request('POST', '/shop/invites', { email });
+  }
+
+  revokeShopInvite(id: string): Promise<void> {
+    return this.request('DELETE', `/shop/invites/${encodeURIComponent(id)}`);
+  }
+
+  // Invites for the caller's stored verified email (any signed-in user).
+  pendingInvites(): Promise<PendingInviteView[]> {
+    return this.request('GET', '/shop/invites/pending');
+  }
+
+  acceptInvite(id: string): Promise<AcceptedMemberView> {
+    return this.request('POST', `/shop/invites/${encodeURIComponent(id)}/accept`);
   }
 
   // --- Shop services and rates (portal owner/staff; shop derived server-side) ---
