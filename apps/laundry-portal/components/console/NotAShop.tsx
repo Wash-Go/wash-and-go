@@ -2,8 +2,13 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api } from '../../lib/api';
+import { useAuth } from '../../lib/useAuth';
+import { notAShopMode } from '../../lib/invites';
+import { InviteCard } from '../invites/InviteCard';
+import { useDismissedInvites, usePendingInvites } from '../invites/usePendingInvites';
 import { Button } from '../ui/Button';
 import { useConsole } from './ConsoleContext';
+import { VerifyEmailBanner } from './VerifyEmailBanner';
 
 // B9: a customer (or rider) account signed in to the partner console. A clear
 // way out, mirroring the rider gate. "Register your laundry" turns this same
@@ -14,6 +19,10 @@ export function NotAShop() {
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const { devBypass } = useAuth();
+  const pending = usePendingInvites();
+  const [dismissed, dismiss] = useDismissedInvites();
+  const mode = notAShopMode({ emailVerified: me.emailVerified, invites: pending.data ?? [], dismissed });
 
   async function register() {
     setBusy(true);
@@ -38,6 +47,15 @@ export function NotAShop() {
           You&rsquo;re signed in as <b>{email ?? 'this account'}</b>, {kind}. To book laundry, use the
           Wash &amp; Go app.
         </p>
+        {mode.invite ? <InviteCard invite={mode.invite} onNotNow={() => dismiss(mode.invite!.id)} /> : null}
+        {mode.verifyFirst && !devBypass ? (
+          <>
+            <p className="small muted">
+              Joining a laundry&rsquo;s team? Verify your email first, then ask the owner to invite this address.
+            </p>
+            <VerifyEmailBanner />
+          </>
+        ) : null}
         <p className="small muted">
           Own a laundry in Zamboanga City? Register it and our team will verify it in person.
         </p>
@@ -46,7 +64,7 @@ export function NotAShop() {
             {err}
           </p>
         ) : null}
-        <Button full onClick={() => void register()} disabled={busy}>
+        <Button full variant={mode.primary === 'register' ? 'primary' : 'secondary'} onClick={() => void register()} disabled={busy}>
           {busy ? 'Starting…' : 'Register your laundry'}
         </Button>
         <Button full variant="secondary" onClick={() => void signOut()}>
