@@ -34,7 +34,7 @@ export function Built() {
       <SectionHeading
         id="built"
         eyebrow="What’s built"
-        title="Alpha v1.0: four apps and one backend."
+        title="Wash & Go: four apps and one backend."
         lead="A customer app (React Native / Expo), a rider app, a laundry portal and an admin console, on a NestJS + Fastify + Prisma + Postgres backend with Firebase auth and TomTom maps, search and routing. The admin console handles oversight, exceptions and business rules."
       />
 

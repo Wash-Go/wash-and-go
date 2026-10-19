@@ -9,7 +9,7 @@ export function Contact() {
           id="contact"
           eyebrow="Investors"
           title="Request the deck."
-          lead="For the pitch deck or a walkthrough of the alpha, email Gabrielle Tatel, CEO."
+          lead="For the pitch deck or a walkthrough of the product, email Gabrielle Tatel, CEO."
           inverse
         />
         <div>

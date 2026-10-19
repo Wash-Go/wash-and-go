@@ -10,9 +10,9 @@
 import { absoluteUrl, mailtoHref } from '../lib/links'
 
 export const SITE_NAME = 'Wash & Go'
-export const SITE_TITLE = 'Wash & Go — Laundry logistics for Zamboanga City'
+export const SITE_TITLE = 'Wash & Go · Laundry logistics for Zamboanga City'
 export const SITE_DESCRIPTION =
-  'A scheduling-first laundry marketplace for Zamboanga City: pickup, partner-shop washing, doorstep return and settlement. Alpha built, pre-launch.'
+  'A scheduling-first laundry marketplace for Zamboanga City: pickup, partner-shop washing, doorstep return and settlement. Product built, pre-launch.'
 
 /**
  * Production origin, no trailing slash. VITE_SITE_URL wins; otherwise Vercel's
@@ -32,10 +32,10 @@ export const OG_IMAGE_URL = absoluteUrl('/og.png', SITE_ORIGIN)
 export const CONTACT_EMAIL = 'tatelgabrielle19@gmail.com'
 export const DECK_MAILTO = mailtoHref(
   CONTACT_EMAIL,
-  'Wash & Go — investor deck request',
+  'Wash & Go investor deck request',
 )
 
-export const STAGE_LINE = 'Alpha built · pre-launch · Zamboanga City pilot'
+export const STAGE_LINE = 'Wash & Go · pre-launch · Zamboanga City pilot'
 export const INCUBATOR_LINE =
   'Incubated at AZUL Hub, Ateneo de Zamboanga University (ADZU-TBI)'
 
@@ -186,14 +186,14 @@ export const REVENUE_STREAMS: ReadonlyArray<TableRow> = [
     cells: [
       'Delivery fee',
       '₱40 scheduled (Piaggio) / ₱65–₱80 express (e-bike)',
-      'Customer — line item at checkout',
+      'Customer · line item at checkout',
     ],
   },
   {
     cells: [
       'Platform service fee',
       '₱13 flat per transaction',
-      'Customer — covers payment processing',
+      'Customer · covers payment processing',
     ],
   },
 ]
@@ -204,7 +204,7 @@ export const REVENUE_STREAMS: ReadonlyArray<TableRow> = [
  * screenshots on the same page show alpha test values.
  */
 export const REVENUE_STREAMS_NOTE =
-  'Business-plan rates. In the alpha, delivery is priced by TomTom driving distance and every fee is admin-editable; the app screenshots show alpha test values.'
+  'Business-plan rates. Today, delivery is priced by TomTom driving distance and every fee is admin-editable; the app screenshots show test values.'
 
 /**
  * Doc §2.2.1, Table 4, copied row for row.
@@ -237,14 +237,14 @@ export const UNIT_ECONOMICS: ReadonlyArray<TableRow> = [
     cells: [
       'Delivery fee (scheduled, Tier 1)',
       '40',
-      'Platform revenue — funds Piaggio operations',
+      'Platform revenue · funds Piaggio operations',
     ],
   },
   {
     cells: [
       'Platform service fee',
       '13',
-      'Platform revenue — covers payment processing',
+      'Platform revenue · covers payment processing',
     ],
   },
   {
@@ -288,7 +288,7 @@ export const MARKET_SIZING: ReadonlyArray<TableRow> = [
   },
   {
     cells: [
-      'TAM — total ZC laundry spend',
+      'TAM · total ZC laundry spend',
       '~₱60M–₱110M / yr',
       'Convergence of bottom-up and top-down',
     ],
@@ -296,23 +296,23 @@ export const MARKET_SIZING: ReadonlyArray<TableRow> = [
   },
   {
     cells: [
-      'SAM — digitally serviceable',
+      'SAM · digitally serviceable',
       '~₱24M–₱44M / yr',
       '~40% of TAM (urban-core, app-reachable)',
     ],
   },
   {
     cells: [
-      'SOM — Year 1 wash GMV',
+      'SOM · Year 1 wash GMV',
       '~₱2.83M',
-      '18,840 orders × ₱150 — ~3% of TAM',
+      '18,840 orders × ₱150, about 3% of TAM',
     ],
   },
   {
     cells: [
-      'SOM — Year 3 wash GMV',
+      'SOM · Year 3 wash GMV',
       '~₱3.82M',
-      '25,459 orders × ₱150 — ~4–5% of TAM',
+      '25,459 orders × ₱150, about 4 to 5% of TAM',
     ],
   },
 ]
@@ -356,18 +356,18 @@ export const COMPETITION = [
 /** Doc "Platform & Backend". */
 export const ENGINE = {
   money: [
-    'Pricing engine — Decimal math, commission by subtraction',
-    'Distance delivery fee — TomTom routing, haversine fallback',
-    'Express capacity — advisory lock + Manila-day window',
-    'Remittance batching — per-shop payout, mark-paid',
-    'Rider cash reconciliation — platform-intermediated COD',
+    'Pricing engine: Decimal math, commission by subtraction',
+    'Distance delivery fee: TomTom routing, haversine fallback',
+    'Express capacity: advisory lock and Manila-day window',
+    'Remittance batching: per-shop payout, mark-paid',
+    'Rider cash reconciliation: platform-intermediated COD',
   ],
   platform: [
     'Firebase auth, role matrix, secure-by-default guards',
-    'Admin-editable business rules — audited, no redeploy',
-    'Zones — coverage polygons + point-in-polygon resolve',
-    'MapsProvider boundary — TomTom now, swappable',
-    'Hardened — env schema, exception filter, throttler, helmet, CORS',
+    'Admin-editable business rules: audited, no redeploy',
+    'Zones: coverage polygons and point-in-polygon resolve',
+    'MapsProvider boundary: TomTom now, swappable',
+    'Hardened: env schema, exception filter, throttler, helmet, CORS',
   ],
 } as const
 
@@ -380,7 +380,7 @@ export const QUALITY_LINE =
 
 /** From the doc's Remaining Deliverables and logistics plan; no dates given. */
 export const NEXT_STEPS = [
-  'Internal alpha testing across all four apps',
+  'Internal testing across all four apps',
   'Scheduled / Tier-1 batch routing',
   'Business accounts',
   'Digital payments',
@@ -394,13 +394,13 @@ export const TEAM = [
     scope: 'Financial model and pitch',
   },
   {
-    name: 'Clyde',
+    name: 'Kenneth Clyde Que',
     area: 'UI/UX',
     scope: 'Design system and high-fidelity UI',
   },
   {
-    name: 'Van',
+    name: 'Vaniel John Cornelio',
     area: 'Engineering',
-    scope: 'Platform and alpha deployment',
+    scope: 'Platform and deployment',
   },
 ] as const

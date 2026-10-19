@@ -7,7 +7,7 @@ export function Team() {
       <SectionHeading
         id="team"
         eyebrow="Team"
-        title="The team behind the alpha."
+        title="The team behind Wash & Go."
       />
       <ul className="mt-12 border-b border-line">
         {TEAM.map((person) => (
