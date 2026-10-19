@@ -116,12 +116,35 @@ export class RemittanceRepository {
     }));
   }
 
-  // Shops the user is an OWNER/STAFF member of — scopes the shop-facing view.
-  async shopIdsForMember(userId: string): Promise<string[]> {
-    const rows = await this.prisma.shopMember.findMany({
-      where: { userId },
-      select: { shopId: true },
+  // Shop-facing "owed, not yet batched": sum/count/oldest over the shop's
+  // lines with no batch. Aggregated in Postgres (no row cap).
+  async pendingForShop(
+    shopId: string,
+  ): Promise<{ total: Prisma.Decimal; count: number; oldest: Date | null }> {
+    const r = await this.prisma.remittanceLine.aggregate({
+      where: { shopId, batchId: null },
+      _sum: { payoutPhp: true },
+      _count: { _all: true },
+      _min: { createdAt: true },
     });
-    return rows.map((r) => r.shopId);
+    return {
+      total: r._sum.payoutPhp ?? new Prisma.Decimal(0),
+      count: r._count._all,
+      oldest: r._min.createdAt ?? null,
+    };
+  }
+
+  // One batch with its lines (oldest first) and each line's order code +
+  // delivered time. Caller checks the batch's shop before returning it.
+  findBatchWithLines(id: string) {
+    return this.prisma.remittanceBatch.findUnique({
+      where: { id },
+      include: {
+        lines: {
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          include: { order: { select: { code: true, deliveredAt: true } } },
+        },
+      },
+    });
   }
 }

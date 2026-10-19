@@ -184,10 +184,12 @@ describe('route role matrix', () => {
   });
 
   it('shop-facing remittance is SHOP_OWNER/STAFF only', () => {
-    expect(rolesOf(ShopRemittanceController.prototype, 'batches')).toEqual([
-      'SHOP_OWNER',
-      'SHOP_STAFF',
-    ]);
+    for (const m of ['batches', 'pending', 'batch']) {
+      expect(rolesOf(ShopRemittanceController.prototype, m)).toEqual([
+        'SHOP_OWNER',
+        'SHOP_STAFF',
+      ]);
+    }
   });
 
   it('shop services: OWNER/STAFF read, OWNER-only rate changes', () => {

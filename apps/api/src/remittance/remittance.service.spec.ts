@@ -39,7 +39,6 @@ describe('RemittanceService', () => {
       findBatchById: jest.fn(),
       markBatchPaid: jest.fn(),
       listBatches: jest.fn(),
-      shopIdsForMember: jest.fn(),
       // Default: no shop rows found (shopName null). Tests that care override.
       shopNames: jest.fn().mockResolvedValue(new Map()),
       totalsByStatus: jest.fn(),
@@ -50,33 +49,6 @@ describe('RemittanceService', () => {
     } as unknown as PrismaService;
 
     service = new RemittanceService(prisma, repo);
-  });
-
-  describe('listBatchesForMember', () => {
-    it('returns nothing when the user is a member of no shop', async () => {
-      repo.shopIdsForMember.mockResolvedValue([]);
-      expect(await service.listBatchesForMember('u1')).toEqual([]);
-      expect(repo.listBatches).not.toHaveBeenCalled();
-    });
-
-    it("scopes the query to the member's shops", async () => {
-      repo.shopIdsForMember.mockResolvedValue(['shopA', 'shopB']);
-      repo.listBatches.mockResolvedValue([{ id: 'b1' }] as never);
-      const out = await service.listBatchesForMember('u1');
-      expect(repo.listBatches).toHaveBeenCalledWith({
-        shopId: { in: ['shopA', 'shopB'] },
-      });
-      // paidByUid is stripped for the shop-facing response.
-      expect(out).toEqual([{ id: 'b1', paidByUid: null, shopName: null }]);
-    });
-
-    it('names the shop on each batch', async () => {
-      repo.shopIdsForMember.mockResolvedValue(['shopA']);
-      repo.listBatches.mockResolvedValue([{ id: 'b1', shopId: 'shopA' }] as never);
-      repo.shopNames.mockResolvedValue(new Map([['shopA', 'Suds & Co']]));
-      const out = await service.listBatchesForMember('u1');
-      expect(out[0].shopName).toBe('Suds & Co');
-    });
   });
 
   describe('listBatches (admin)', () => {
