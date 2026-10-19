@@ -1,4 +1,4 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices, type PlaywrightTestConfig } from '@playwright/test';
 
 /*
  * Browser smoke tests for the web surfaces (admin-dashboard, laundry-portal).
@@ -17,23 +17,7 @@ export const CUSTOMER_URL = process.env.CUSTOMER_URL ?? 'http://localhost:3000';
 export const RIDER_URL = process.env.RIDER_URL ?? 'http://localhost:3003';
 export const API_URL = process.env.API_URL ?? 'http://localhost:4000';
 
-export default defineConfig({
-  testDir: './tests',
-  fullyParallel: false,
-  forbidOnly: !!process.env.CI,
-  retries: 0,
-  workers: 1,
-  reporter: [['list']],
-  timeout: 30_000,
-  expect: { timeout: 10_000 },
-  use: {
-    baseURL: PORTAL_URL,
-    trace: 'retain-on-failure',
-    screenshot: 'only-on-failure',
-    headless: true,
-  },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  webServer: [
+const WEB_SERVERS: PlaywrightTestConfig['webServer'] & unknown[] = [
     {
       command: 'pnpm --filter @wash-and-go/laundry-portal dev',
       url: PORTAL_URL,
@@ -69,5 +53,26 @@ export default defineConfig({
       timeout: 240_000,
       cwd: '..',
     },
-  ],
+  
+];
+
+export default defineConfig({
+  testDir: './tests',
+  fullyParallel: false,
+  forbidOnly: !!process.env.CI,
+  retries: 0,
+  workers: 1,
+  reporter: [['list']],
+  timeout: 30_000,
+  expect: { timeout: 10_000 },
+  use: {
+    baseURL: PORTAL_URL,
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
+    headless: true,
+  },
+  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  // E2E_ONLY=portal (the portal smoke script) starts or reuses only the
+  // portal; the other apps' dev servers take minutes and are not needed.
+  webServer: process.env.E2E_ONLY === 'portal' ? WEB_SERVERS.slice(0, 1) : WEB_SERVERS,
 });
