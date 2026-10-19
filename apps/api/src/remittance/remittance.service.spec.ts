@@ -54,9 +54,9 @@ describe('RemittanceService', () => {
   describe('listBatches (admin)', () => {
     it('names each batch by its shop, looking every shop up once', async () => {
       repo.listBatches.mockResolvedValue([
-        { id: 'b1', shopId: 'shopA' },
-        { id: 'b2', shopId: 'shopB' },
-        { id: 'b3', shopId: 'shopA' },
+        { id: 'b1', shopId: 'shopA', totalPhp: D('264') },
+        { id: 'b2', shopId: 'shopB', totalPhp: D('12.5') },
+        { id: 'b3', shopId: 'shopA', totalPhp: D('0') },
       ] as never);
       repo.shopNames.mockResolvedValue(
         new Map([
@@ -75,12 +75,14 @@ describe('RemittanceService', () => {
         'Bubble Wash',
         'Suds & Co',
       ]);
+      // Every batch view carries totalPhp as a 2dp string (list, detail, admin).
+      expect(out.map((b) => b.totalPhp)).toEqual(['264.00', '12.50', '0.00']);
     });
 
     it('leaves shopName null when the shop row is gone (shopId has no FK)', async () => {
-      repo.listBatches.mockResolvedValue([{ id: 'b1', shopId: 'ghost' }] as never);
+      repo.listBatches.mockResolvedValue([{ id: 'b1', shopId: 'ghost', totalPhp: D('88') }] as never);
       const out = await service.listBatches({});
-      expect(out[0]).toEqual({ id: 'b1', shopId: 'ghost', shopName: null });
+      expect(out[0]).toEqual({ id: 'b1', shopId: 'ghost', totalPhp: '88.00', shopName: null });
     });
 
     it('skips the shop lookup when there are no batches', async () => {
@@ -153,6 +155,7 @@ describe('RemittanceService', () => {
       const batch = await service.closeBatch('shop1', period);
 
       expect(batch?.shopName).toBe('Suds & Co');
+      expect(batch?.totalPhp).toBe('88.00');
     });
 
     it('throws (rolls back) when a concurrent close already claimed some lines', async () => {
@@ -210,6 +213,7 @@ describe('RemittanceService', () => {
       const shop2 = repo.createBatch.mock.calls.find((c) => c[1].shopId === 'shop2')![1];
       expect(new Prisma.Decimal(String(shop2.totalPhp)).toFixed(2)).toBe('100.00');
       expect(shop2.lineCount).toBe(2);
+      expect(batches.map((b) => b.totalPhp).sort()).toEqual(['100.00', '50.00']);
     });
 
     it('names the shop on every created batch', async () => {
@@ -233,6 +237,7 @@ describe('RemittanceService', () => {
         id: 'b1',
         shopId: 'shop1',
         status: 'PAID',
+        totalPhp: D('264'),
       } as never);
       repo.shopNames.mockResolvedValue(new Map([['shop1', 'Suds & Co']]));
 
@@ -244,15 +249,16 @@ describe('RemittanceService', () => {
       });
       expect(out.status).toBe('PAID');
       expect(out.shopName).toBe('Suds & Co');
+      expect(out.totalPhp).toBe('264.00');
     });
 
     it('is idempotent — an already-paid batch is returned without a second write', async () => {
-      const paid = { id: 'b1', status: 'PAID', reference: 'OLD' };
+      const paid = { id: 'b1', status: 'PAID', reference: 'OLD', totalPhp: D('264.5') };
       repo.findBatchById.mockResolvedValue(paid as never);
 
       const out = await service.markPaid('b1', 'NEW-REF', 'admin1');
 
-      expect(out).toEqual({ ...paid, shopName: null });
+      expect(out).toEqual({ ...paid, totalPhp: '264.50', shopName: null });
       expect(repo.markBatchPaid).not.toHaveBeenCalled();
     });
 

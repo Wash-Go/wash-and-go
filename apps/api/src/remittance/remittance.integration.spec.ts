@@ -94,7 +94,7 @@ describe('Remittance integration (Docker Postgres)', () => {
     batchIds.push(batch!.id);
 
     // 88.00 + 57.50 = 145.50
-    expect(batch!.totalPhp.toFixed(2)).toBe('145.50');
+    expect(batch!.totalPhp).toBe('145.50');
     expect(batch!.lineCount).toBe(2);
     expect(batch!.status).toBe('PENDING');
 

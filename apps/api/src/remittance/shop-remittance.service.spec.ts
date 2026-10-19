@@ -110,7 +110,7 @@ describe('ShopRemittanceService', () => {
         id: 'bA',
         shopId: 'sA',
         shopName: 'Suds A',
-        totalPhp: D('264.00'),
+        totalPhp: '264.00',
         lineCount: 2,
         status: 'PAID',
         reference: 'GC-123',
@@ -190,7 +190,9 @@ describe('ShopRemittanceService', () => {
       repo.listBatches.mockResolvedValue([batch('bA', 'sA')]);
       const out = await svc.listBatches('uS');
       expect(repo.listBatches).toHaveBeenCalledWith({ shopId: 'sA' });
-      expect(out).toEqual([expect.objectContaining({ id: 'bA', shopName: 'Suds A', paidByUid: null })]);
+      expect(out).toEqual([
+        expect.objectContaining({ id: 'bA', shopName: 'Suds A', paidByUid: null, totalPhp: '264.00' }),
+      ]);
       expect(JSON.stringify(out)).not.toContain('fb-admin-secret');
     });
 

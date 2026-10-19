@@ -14,8 +14,18 @@ export interface ClosePeriod {
 }
 
 // Every batch the API returns carries its shop's name (null if the shop row is
-// gone — shopId has no FK), so the consoles never show a raw id.
-export type NamedBatch = RemittanceBatch & { shopName: string | null };
+// gone — shopId has no FK), so the consoles never show a raw id, and its total
+// as a 2dp string ("264.00") — the same format as summary/line amounts, on
+// the admin list, mark-paid, close, the shop list and the shop detail alike.
+export type NamedBatch = Omit<RemittanceBatch, 'totalPhp'> & {
+  totalPhp: string;
+  shopName: string | null;
+};
+
+// The one place a batch row becomes a NamedBatch.
+export function shapeBatch(b: RemittanceBatch, shopName: string | null): NamedBatch {
+  return { ...b, totalPhp: b.totalPhp.toFixed(2), shopName };
+}
 
 export interface StatusTotal {
   count: number;
@@ -163,7 +173,7 @@ export class RemittanceService {
   private async withShopNames(batches: RemittanceBatch[]): Promise<NamedBatch[]> {
     if (batches.length === 0) return [];
     const names = await this.repo.shopNames([...new Set(batches.map((b) => b.shopId))]);
-    return batches.map((b) => ({ ...b, shopName: names.get(b.shopId) ?? null }));
+    return batches.map((b) => shapeBatch(b, names.get(b.shopId) ?? null));
   }
 
   private assertPeriod(period: ClosePeriod): void {

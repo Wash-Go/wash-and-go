@@ -1,11 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable } from "@nestjs/common";
 import {
   Prisma,
   RemittanceBatch,
   RemittanceLine,
   RemittanceStatus,
-} from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+} from "@prisma/client";
+import { PrismaService } from "../prisma/prisma.service";
 
 // Prisma tx client (what $transaction hands the callback).
 type Tx = Prisma.TransactionClient;
@@ -39,7 +39,7 @@ export class RemittanceRepository {
   ): Promise<string[]> {
     const rows = await tx.remittanceLine.findMany({
       where: { batchId: null, createdAt: { gte: start, lt: end } },
-      distinct: ['shopId'],
+      distinct: ["shopId"],
       select: { shopId: true },
     });
     return rows.map((r) => r.shopId);
@@ -54,7 +54,11 @@ export class RemittanceRepository {
 
   // Link exactly the given lines to the batch. Guarded to still-unbatched rows
   // so a concurrent close can't steal lines already claimed by another batch.
-  assignLinesToBatch(tx: Tx, lineIds: string[], batchId: string): Promise<Prisma.BatchPayload> {
+  assignLinesToBatch(
+    tx: Tx,
+    lineIds: string[],
+    batchId: string,
+  ): Promise<Prisma.BatchPayload> {
     return tx.remittanceLine.updateMany({
       where: { id: { in: lineIds }, batchId: null },
       data: { batchId },
@@ -72,7 +76,7 @@ export class RemittanceRepository {
     return this.prisma.remittanceBatch.update({
       where: { id },
       data: {
-        status: 'PAID',
+        status: "PAID",
         reference: data.reference,
         paidByUid: data.paidByUid,
         paidAt: new Date(),
@@ -80,10 +84,12 @@ export class RemittanceRepository {
     });
   }
 
-  listBatches(where: Prisma.RemittanceBatchWhereInput): Promise<RemittanceBatch[]> {
+  listBatches(
+    where: Prisma.RemittanceBatchWhereInput,
+  ): Promise<RemittanceBatch[]> {
     return this.prisma.remittanceBatch.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       take: 200,
     });
   }
@@ -105,7 +111,7 @@ export class RemittanceRepository {
     { status: RemittanceStatus; count: number; total: Prisma.Decimal }[]
   > {
     const rows = await this.prisma.remittanceBatch.groupBy({
-      by: ['status'],
+      by: ["status"],
       _count: { _all: true },
       _sum: { totalPhp: true },
     });
@@ -141,7 +147,7 @@ export class RemittanceRepository {
       where: { id },
       include: {
         lines: {
-          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
           include: { order: { select: { code: true, deliveredAt: true } } },
         },
       },
