@@ -13,6 +13,7 @@ import { MeCashController } from '../riders/me-cash.controller';
 import { ShopsController } from '../shops/shops.controller';
 import { AdminShopsController } from '../shops/admin-shops.controller';
 import { ShopOnboardingController } from '../shops/shop-onboarding.controller';
+import { ShopServicesController } from '../shops/shop-services.controller';
 import { RiderOnboardingController } from '../riders/rider-onboarding.controller';
 import { AdminRidersController } from '../riders/admin-riders.controller';
 import { ZonesController } from '../zones/zones.controller';
@@ -184,6 +185,13 @@ describe('route role matrix', () => {
       'SHOP_OWNER',
       'SHOP_STAFF',
     ]);
+  });
+
+  it('shop services: OWNER/STAFF read, OWNER-only rate changes', () => {
+    const c = ShopServicesController.prototype;
+    expect(rolesOf(c, 'catalog')).toEqual(['SHOP_OWNER', 'SHOP_STAFF']);
+    expect(rolesOf(c, 'list')).toEqual(['SHOP_OWNER', 'SHOP_STAFF']);
+    expect(rolesOf(c, 'upsert')).toEqual(['SHOP_OWNER']);
   });
 
   it('own profile routes are any-authenticated (the caller edits only themselves)', () => {
