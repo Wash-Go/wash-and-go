@@ -1,7 +1,7 @@
 'use client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { OrderView } from '@wash-and-go/domain';
-import { ChevronDown, Inbox, RefreshCw, Search } from 'lucide-react';
+import { Bell, BellOff, ChevronDown, Inbox, RefreshCw, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { OrderCard } from '../../components/orders/OrderCard';
@@ -142,8 +142,23 @@ export default function OrdersPage() {
           >
             Refresh
           </Button>
+          <Button
+            variant="text"
+            icon={live.chimeOn ? <Bell aria-hidden="true" /> : <BellOff aria-hidden="true" />}
+            aria-pressed={live.chimeOn}
+            data-testid="chime-toggle"
+            onClick={() => live.setChime(!live.chimeOn)}
+          >
+            Chime
+          </Button>
         </div>
       </div>
+      {live.chimeWaiting ? (
+        <p className="small muted" data-testid="chime-waiting">
+          Chime is on. Tap anywhere once so your browser lets it play.
+        </p>
+      ) : null}
+
       <label className="qsearch">
         <span className="sr-only">Search by order code</span>
         <Search aria-hidden="true" />
@@ -229,6 +244,13 @@ export default function OrdersPage() {
               icon={Inbox}
               title={EMPTY[tab].title}
               body={EMPTY[tab].body}
+              action={
+                tab === 'needs' && !live.chimeOn ? (
+                  <Button variant="secondary" icon={<Bell aria-hidden="true" />} onClick={() => live.setChime(true)}>
+                    Turn on the chime
+                  </Button>
+                ) : null
+              }
             />
           )
         ) : (
