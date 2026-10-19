@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { API_URL } from '../playwright.config';
@@ -9,10 +10,44 @@ import { API_URL } from '../playwright.config';
  * line through the admin close endpoint. Run against a production build made
  * with `pnpm --filter @wash-and-go/e2e build:portal-e2e`.
  *
- * Cleanup: the API has no way to delete a batch or un-deliver an order, so
- * each run leaves one delivered order and one pending batch (a few pesos) in
- * the design DB. The narrow period means no other shop line is batched.
+ * Cleanup: the API cannot delete a batch or un-deliver an order, so afterAll
+ * deletes exactly the rows this run created straight in the local DB
+ * (E2E_DATABASE_URL, default the design DB the local API runs on), the same
+ * psql pattern as laundry-portal-onboarding.spec.ts. The narrow period means
+ * no other shop line is ever batched.
  */
+const DB = process.env.E2E_DATABASE_URL ?? 'postgresql://ban@localhost:5432/wash_and_go_design';
+
+function sql(q: string): string {
+  return execFileSync('psql', [DB, '-v', 'ON_ERROR_STOP=1', '-Atc', q]).toString().trim();
+}
+
+// Ids come from our own API responses (cuid), but quote-guard them anyway.
+const lit = (id: string) => `'${id.replace(/'/g, "''")}'`;
+
+// FK order: RemittanceLine → RemittanceBatch → the order's dependents
+// (OrderEvent, Rating; Notification has a plain orderId) → Order.
+function deleteSeeded(orderIds: string[], batchIds: string[]) {
+  const orders = orderIds.map(lit).join(',');
+  const batches = batchIds.map(lit).join(',');
+  const stmts = [
+    ...(orders ? [`DELETE FROM "RemittanceLine" WHERE "orderId" IN (${orders})`] : []),
+    ...(batches ? [`DELETE FROM "RemittanceBatch" WHERE id IN (${batches})`] : []),
+    ...(orders
+      ? [
+          `DELETE FROM "OrderEvent" WHERE "orderId" IN (${orders})`,
+          `DELETE FROM "Rating" WHERE "orderId" IN (${orders})`,
+          `DELETE FROM "Notification" WHERE "orderId" IN (${orders})`,
+          `DELETE FROM "Order" WHERE id IN (${orders})`,
+        ]
+      : []),
+  ];
+  if (stmts.length) sql(`BEGIN; ${stmts.join('; ')}; COMMIT;`);
+}
+
+const seededOrders: string[] = [];
+const seededBatches: string[] = [];
+
 async function call<T>(method: string, path: string, uid: string, body?: unknown): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     method,
@@ -39,13 +74,9 @@ test.beforeAll(async () => {
     loadCategory: 'S',
   });
   code = order.code;
-  try {
-    await deliver(order.id);
-  } catch (e) {
-    // Do not leave a half-driven order in the shop's queue.
-    await call('POST', `/orders/${order.id}/status`, 'dev-admin', { status: 'CANCELLED' }).catch(() => undefined);
-    throw e;
-  }
+  seededOrders.push(order.id);
+  // If driving it fails part-way, afterAll still deletes the order.
+  await deliver(order.id);
   const from = new Date(Date.now() - 5_000);
   await call('POST', `/orders/${order.id}/status`, 'dev-admin', { status: 'DELIVERED' });
   const to = new Date(Date.now() + 5_000);
@@ -54,8 +85,13 @@ test.beforeAll(async () => {
     periodEnd: to.toISOString(),
     shopId: shop.id,
   });
+  seededBatches.push(...closed.map((b) => b.id));
   expect(closed).toHaveLength(1);
   batch = closed[0];
+});
+
+test.afterAll(() => {
+  deleteSeeded(seededOrders, seededBatches);
 });
 
 // BOOKED → … → OUT_FOR_RETURN, weighed at the shop on the way.

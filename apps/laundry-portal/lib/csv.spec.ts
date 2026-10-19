@@ -68,6 +68,12 @@ describe('payoutCsv', () => {
     );
   });
 
+  it('writes only the header row for a batch with no lines', () => {
+    expect(payoutCsv({ ...batch, lines: [] })).toBe(
+      'Order code,Delivered (Manila),Wash value (PHP),Commission (PHP),Payout (PHP)\r\n',
+    );
+  });
+
   it('never writes the peso sign or thousands separators', () => {
     const big = { ...batch, lines: [{ ...batch.lines[0], washValuePhp: '12345.5' }] };
     expect(payoutCsv(big)).toContain(',12345.50,');
