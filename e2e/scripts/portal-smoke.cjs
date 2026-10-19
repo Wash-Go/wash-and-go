@@ -10,9 +10,9 @@
 //    unless PORTAL_SMOKE_SKIP_BUILD=1, then serves it with `next start` on
 //    PORTAL_SMOKE_PORT (default 3012). A busy port aborts: the script never
 //    kills a server it did not start.
-// 3. Runs the main config's laundry-portal specs (E2E_ONLY=portal, so no other
-//    app's dev server starts), waits out the API's 60/min rate-limit window,
-//    then runs the PWA config, against that build.
+// 3. Runs the laundry-portal specs in groups (E2E_ONLY=portal, so no other
+//    app's dev server starts), waiting out the API's 60/min rate-limit window
+//    between groups, then the PWA config, against that build.
 // Every server it started is stopped by its own pid, also on Ctrl-C.
 const net = require('node:net')
 const path = require('node:path')
@@ -111,20 +111,45 @@ async function main() {
   start(process.execPath, [nextBin, 'start', '-p', String(PORT)], { cwd: PORTAL_DIR, env: process.env })
   await waitFor(`${PORTAL}/login`, 60_000, 'The portal')
 
-  // 3. Specs
+  // 3. Specs. The API throttles each client to 60 requests a minute and every
+  // request here comes from localhost (the browser and the API seeding alike),
+  // so the specs run in groups with the window reset in between; one long
+  // run gets 429s near the end (a polled list that 429s never renders).
   const env = { PORTAL_URL: PORTAL, API_URL, E2E_ONLY: 'portal', E2E_DATABASE_URL: DB }
-  const main = run('npx', ['playwright', 'test', 'laundry-portal'], { cwd: E2E, env })
-  // The API throttles each client to 60 requests a minute, and the main run
-  // spends that budget from localhost; the PWA spec waits on cached GETs, so
-  // let the window reset first (a 429 is never cached).
   const wait = Number(process.env.PORTAL_SMOKE_THROTTLE_WAIT_MS ?? 65_000)
-  console.log(`[smoke] waiting ${Math.round(wait / 1000)} s for the API rate-limit window`)
-  await new Promise((r) => setTimeout(r, wait))
+  const pause = async () => {
+    console.log(`[smoke] waiting ${Math.round(wait / 1000)} s for the API rate-limit window`)
+    await new Promise((r) => setTimeout(r, wait))
+  }
+  const groups = [
+    ['laundry-portal-shell', 'laundry-portal-help', 'laundry-portal-errors', 'laundry-portal-invite'],
+    ['laundry-portal-orders', 'laundry-portal-weigh'],
+    ['laundry-portal-a11y', 'laundry-portal-payouts'],
+    ['laundry-portal-onboarding', 'laundry-portal-shop'],
+  ]
+  // Any portal spec not listed above still runs, in a last group.
+  const listed = new Set(groups.flat())
+  const extra = fs
+    .readdirSync(path.join(E2E, 'tests'))
+    .filter((f) => /^laundry-portal-.*\.spec\.ts$/.test(f) && f !== 'laundry-portal-pwa.spec.ts')
+    .map((f) => f.replace(/\.spec\.ts$/, ''))
+    .filter((f) => !listed.has(f))
+  if (extra.length) groups.push(extra)
+  const results = []
+  for (let i = 0; i < groups.length; i++) {
+    if (i > 0) await pause()
+    console.log(`[smoke] group ${i + 1}/${groups.length}: ${groups[i].join(', ')}`)
+    results.push(run('npx', ['playwright', 'test', ...groups[i]], { cwd: E2E, env }))
+  }
+  await pause()
   const pwa = run('npx', ['playwright', 'test', '--config', 'playwright.pwa.config.ts'], {
     cwd: E2E,
     env: { ...env, PORTAL_PROD_URL: PORTAL },
   })
-  console.log(`[smoke] portal specs: ${main === 0 ? 'passed' : 'FAILED'}; PWA specs: ${pwa === 0 ? 'passed' : 'FAILED'}`)
+  const main = results.every((r) => r === 0) ? 0 : 1
+  console.log(
+    `[smoke] groups: ${results.map((r, i) => `${i + 1} ${r === 0 ? 'passed' : 'FAILED'}`).join('; ')}; PWA specs: ${pwa === 0 ? 'passed' : 'FAILED'}`,
+  )
   return main === 0 && pwa === 0 ? 0 : 1
 }
 
