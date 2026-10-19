@@ -5,7 +5,7 @@ import { EmptyState } from '../ui/EmptyState';
 import { MoneyInput } from '../ui/MoneyInput';
 import { MAX_TURNAROUND_HOURS, priceExample, unitLabel, unitSuffix, type ServiceDraft } from '../../lib/wizard-services';
 import { CheckRow, FieldError } from './fields';
-import type { StepProps } from './types';
+import type { StepErrors } from '../../lib/wizard';
 
 function TurnaroundField({ s, error, onValue }: { s: ServiceDraft; error?: string; onValue: (v: string) => void }) {
   const id = useId();
@@ -41,8 +41,22 @@ function TurnaroundField({ s, error, onValue }: { s: ServiceDraft; error?: strin
 }
 
 // Step 3 · Services & rates (preview B5): tick what the shop offers, set ₱,
-// unit and turnaround. Rows save through PUT /shop/services/:serviceId on Next.
-export function ServicesStep({ draft, set, errors }: StepProps) {
+// unit and turnaround. Shared with the Services page (/services); both save
+// rows through PUT /shop/services/:serviceId. Takes only the service rows.
+export type ServicesFieldProps = {
+  draft: { services: ServiceDraft[] };
+  set: (patch: { services: ServiceDraft[] }) => void;
+  errors: StepErrors;
+  // The line under the list; the wizard says rates show once verified.
+  note?: string;
+};
+
+export function ServicesStep({
+  draft,
+  set,
+  errors,
+  note = 'Customers see these rates once your shop is verified. You can change them later in Services.',
+}: ServicesFieldProps) {
   const update = (id: string, patch: Partial<ServiceDraft>) =>
     set({ services: draft.services.map((s) => (s.serviceId === id ? { ...s, ...patch } : s)) });
   const example = priceExample(draft.services);
@@ -95,7 +109,7 @@ export function ServicesStep({ draft, set, errors }: StepProps) {
       ) : (
         <p className="small muted">Turn on wash, dry &amp; fold with a rate to see what a 6 kg load costs a customer.</p>
       )}
-      <p className="small muted">Customers see these rates once your shop is verified. You can change them later in Services.</p>
+      <p className="small muted">{note}</p>
     </div>
   );
 }
