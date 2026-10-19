@@ -7,6 +7,8 @@ export type Console = {
   me: MeView;
   shop: OwnerShopView | null;
   gate: Gate;
+  // Rebuilt from the offline gate snapshot, not a live answer.
+  offline: boolean;
   email: string | null;
   refresh: () => Promise<unknown>;
   signOut: () => Promise<void>;

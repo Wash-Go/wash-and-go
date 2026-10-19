@@ -1,10 +1,11 @@
 // Which requests the service worker may answer from its API cache. Shared by
-// app/sw.ts and its test. Network-first GETs only: writes are never cached and
-// upload URLs (short-lived signed links) are excluded. GET /auth/me and
-// /shop/onboarding ARE cached, so the gate can open the last-seen queue
-// offline; the cache is cleared on sign-out (lib/sign-out.ts).
+// app/sw.ts and its test. Network-first GETs only: writes are never cached;
+// upload URLs (short-lived signed links) and identity (/auth/*,
+// /shop/onboarding) are excluded. Offline, the gate uses its own uid-checked
+// snapshot (lib/offline-gate.ts) instead. The cache is purged whenever the
+// signed-in uid changes (lib/cache-owner.ts) and on sign-out (lib/sign-out.ts).
 
-const NEVER_CACHE = [/^\/uploads(\/|$)/, /^\/auth\/session$/];
+const NEVER_CACHE = [/^\/uploads(\/|$)/, /^\/auth(\/|$)/, /^\/shop\/onboarding(\/|$)/];
 
 export function isCacheableApiGet(url: URL, method: string, selfOrigin: string, apiOrigin: string): boolean {
   if (method !== 'GET') return false;

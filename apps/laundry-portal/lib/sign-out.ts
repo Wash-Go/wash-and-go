@@ -1,18 +1,21 @@
 'use client';
 import type { QueryClient } from '@tanstack/react-query';
 import { signOut } from 'firebase/auth';
+import { deleteApiCache, forgetCacheOwner } from './cache-owner-effect';
 import { auth } from './firebase';
-import { API_CACHE } from './sw-routes';
 
-// Sign out and forget this shop: Firebase session, in-memory queries, and the
-// service worker's API cache, so the next person on a shared phone never sees
-// the last shop's queue offline.
+// Sign out and forget this shop: in-flight and polling queries, the Firebase
+// session, in-memory data, the service worker's API cache and the gate
+// snapshot, so the next person on a shared phone never sees the last shop's
+// queue offline. cancelQueries cannot abort a fetch already inside the
+// service worker, so the cache is deleted again after sign-out, and the
+// owner check on the next sign-in (claimApiCache) purges anything that still
+// lands late.
 export async function signOutEverywhere(qc: QueryClient): Promise<void> {
+  await qc.cancelQueries();
+  await deleteApiCache();
   await signOut(auth).catch(() => undefined);
   qc.clear();
-  try {
-    if (typeof caches !== 'undefined') await caches.delete(API_CACHE);
-  } catch {
-    // No Cache Storage (private mode): nothing cached to clear.
-  }
+  forgetCacheOwner();
+  await deleteApiCache();
 }

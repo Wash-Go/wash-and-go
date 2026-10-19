@@ -2,8 +2,13 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, type ReactNode } from 'react';
+import type { MeView, OwnerShopView } from '@wash-and-go/domain';
 import { api } from '../../lib/api';
-import { isShopAccount, resolveGate } from '../../lib/gate';
+import { claimApiCache } from '../../lib/cache-owner-effect';
+import { sessionUid } from '../../lib/cache-owner';
+import { DEV_UID } from '../../lib/firebase';
+import { isShopAccount, resolveGate, type Gate } from '../../lib/gate';
+import { readGateSnapshot, saveGateSnapshot, type GateSnapshot } from '../../lib/offline-gate';
 import { ensureSession } from '../../lib/session';
 import { signOutEverywhere } from '../../lib/sign-out';
 import { useAuth } from '../../lib/useAuth';
@@ -12,6 +17,52 @@ import { ErrorState } from '../ui/ErrorState';
 import { useToast } from '../ui/Toast';
 import { ConsoleCtx, type Console } from './ConsoleContext';
 import { NotAShop } from './NotAShop';
+
+function storage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+// No HTTP status = the request never got an answer (offline, DNS, timeout).
+const isNetworkError = (e: unknown) => typeof (e as { status?: unknown } | null)?.status !== 'number';
+
+type Boot = { me: MeView; shop: OwnerShopView | null; gate: Gate; offline: boolean };
+
+function snapshotOf(uid: string, me: MeView, shop: OwnerShopView | null, gate: Gate): GateSnapshot {
+  return {
+    uid,
+    kind: gate.kind,
+    shopName: shop?.name ?? null,
+    shopStatus: shop?.status ?? null,
+    owner: me.roles.includes('SHOP_OWNER'),
+  };
+}
+
+// Offline: rebuild just enough of the gate from the snapshot (same uid only)
+// for the shell and the onboarding screen. The view is marked offline.
+function fromSnapshot(snap: GateSnapshot): Boot {
+  const shop: OwnerShopView | null = snap.shopStatus
+    ? {
+        id: '',
+        name: snap.shopName ?? '',
+        address: '',
+        lat: '0',
+        lng: '0',
+        status: snap.shopStatus,
+        rejectionReason: null,
+        permitKey: null,
+        photoKeys: [],
+        submittedAt: null,
+        verifiedAt: null,
+      }
+    : null;
+  const me: MeView = { id: '', phone: null, displayName: '', roles: [snap.owner ? 'SHOP_OWNER' : 'SHOP_STAFF'] };
+  const gate: Gate = snap.kind === 'not-a-shop' ? { kind: 'not-a-shop' } : { kind: snap.kind, shop };
+  return { me, shop, gate, offline: true };
+}
 
 function Loading() {
   return (
@@ -33,32 +84,46 @@ export function ConsoleGate({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const toast = useToast();
   const signedIn = devBypass || !!user;
+  const uid = sessionUid(user, DEV_UID);
 
   useEffect(() => {
     if (!loading && !signedIn) router.replace(`/login?next=${encodeURIComponent(pathname)}`);
   }, [loading, signedIn, pathname, router]);
 
-  const boot = useQuery({
-    queryKey: ['boot', user?.uid ?? 'dev'],
-    enabled: !loading && signedIn,
-    staleTime: 30_000,
+  const boot = useQuery<Boot>({
+    queryKey: ['boot', uid],
+    enabled: !loading && signedIn && !!uid,
+    // An offline answer is refetched as soon as the connection is back.
+    staleTime: (q) => (q.state.data?.offline ? 0 : 30_000),
     refetchInterval: false,
-    retry: 1,
+    // Retry real server errors once; a network error goes straight to the
+    // offline snapshot or the error state (offlineFirst would pause it forever).
+    retry: (n, e) => n < 1 && !isNetworkError(e),
     queryFn: async () => {
-      // Idempotent upsert. Not fatal: offline, /auth/me may still come from the
-      // service worker cache, and any real auth problem fails /auth/me below.
-      const session = await ensureSession(user, api);
-      if (!session.ok) {
-        console.error('[auth] POST /auth/session failed', session.error);
-        if (typeof navigator === 'undefined' || navigator.onLine) toast.show({ tone: 'error', title: session.message });
+      const id = uid!;
+      // Before anything can be read from the service worker's API cache.
+      await claimApiCache(id);
+      try {
+        // Idempotent upsert. Not fatal: a real auth problem fails /auth/me below.
+        const session = await ensureSession(user, api);
+        if (!session.ok) {
+          console.error('[auth] POST /auth/session failed', session.error);
+          if (navigator.onLine) toast.show({ tone: 'error', title: session.message });
+        }
+        const me = await api.getMe();
+        const shop = isShopAccount(me.roles) ? await api.getMyShopOnboarding() : null;
+        const gate = resolveGate(me.roles, shop);
+        saveGateSnapshot(storage(), snapshotOf(id, me, shop, gate));
+        return { me, shop, gate, offline: false };
+      } catch (e) {
+        const snap = isNetworkError(e) ? readGateSnapshot(storage(), id) : null;
+        if (snap) return fromSnapshot(snap);
+        throw e;
       }
-      const me = await api.getMe();
-      const shop = isShopAccount(me.roles) ? await api.getMyShopOnboarding() : null;
-      return { me, shop };
     },
   });
 
-  const gate = boot.data ? resolveGate(boot.data.me.roles, boot.data.shop) : null;
+  const gate = boot.data?.gate ?? null;
 
   useEffect(() => {
     if (!gate) return;
@@ -78,6 +143,7 @@ export function ConsoleGate({ children }: { children: ReactNode }) {
             me: boot.data.me,
             shop: boot.data.shop,
             gate,
+            offline: boot.data.offline,
             email: user?.email ?? null,
             refresh: () => boot.refetch(),
             signOut,

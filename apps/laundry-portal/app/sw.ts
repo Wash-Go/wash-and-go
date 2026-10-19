@@ -12,8 +12,10 @@ import { API_CACHE, isCacheableApiGet } from '../lib/sw-routes';
 //   branded /~offline page.
 // - API GETs: network-first with a short life, so the last-seen queue renders
 //   offline behind the StaleBanner. Writes are never cached (runtime caching
-//   only matches GET), and other cross-origin requests (Firebase) go straight
-//   to the network.
+//   only matches GET); identity (/auth/*, /shop/onboarding), signed upload
+//   links and other cross-origin requests (Firebase) go straight to the
+//   network. The cache is purged when the signed-in uid changes
+//   (lib/cache-owner.ts) and on sign-out.
 // - Pages: Serwist's defaults (network-first); a page never opened online
 //   falls back to /~offline.
 
@@ -43,7 +45,11 @@ const serwist = new Serwist({
       handler: new NetworkFirst({
         cacheName: API_CACHE,
         networkTimeoutSeconds: 8,
-        plugins: [new ExpirationPlugin({ maxEntries: 64, maxAgeSeconds: 60 * 60 })],
+        plugins: [
+          // Store the URL only: the original Request carries the bearer token.
+          { cacheKeyWillBeUsed: async ({ request }) => new Request(request.url) },
+          new ExpirationPlugin({ maxEntries: 64, maxAgeSeconds: 60 * 60 }),
+        ],
       }),
     },
     // Anything else on the API origin (signed upload links) and every other
