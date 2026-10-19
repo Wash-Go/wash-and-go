@@ -7,6 +7,12 @@ Expanded display, Atkinson Hyperlegible body/mono). Base `main` (has the U0 fixe
 `.superpowers/scout-portal.md`. Audit findings: `personal-docs/ui-ux-plan-2026-09-28.md` §U3c.
 
 ## Decisions (Ban, 2026-10-19)
+- **PWA:** the portal is an installable Progressive Web App (manifest with the whale icons, service
+  worker, install prompt, app-shell cached, last-seen queue readable offline, works on phone/tablet/
+  desktop). Next.js + Serwist (or next-pwa if simpler) — chosen in B1.
+- **Weigh-in approval flow deferred:** the shop confirms the weight; price updates; customer is
+  notified. Wording is "Confirm ₱X" (not "send for approval"). Customer approval for over-estimate
+  weigh-ins becomes its own slice (B7) after the portal is complete.
 - R2 not yet: the document-upload step ships gated ("coming soon") until `R2_*` env exists.
 - Self-management, all four: services + rates, hours + capacity, profile + payout account, staff invites.
 - Workflow addition: new-order badge + sound only (no decline / flag / per-piece this round).
@@ -118,12 +124,13 @@ Dark mode: tokens ladder; map tiles dark variant. Icons: one set (Lucide), no em
 | # | Slice | Needs API | Blocked by |
 |---|---|---|---|
 | B0 | Design kit + preview page (A5/A6) | — | — |
-| B1 | Brand + shell + login/signup/not-a-shop | `POST /auth/session` (exists) | — |
+| B1 | Brand + shell + PWA (manifest, service worker, install prompt) + login/signup/not-a-shop | `POST /auth/session` (exists) | — |
 | B2 | Orders queue + detail + weigh sheet + new-order badge/sound | `GET /orders?status&before` (exists) | — |
 | B3 | Onboarding wizard (6 steps, gated docs) | `/shop/onboarding` (exists); **new** `/shop/services` for step 3 | R2 for step 5 (gated) |
 | B4 | Self-management API + screens: `/shop/me`, `/shop/services`, `/shop/capacity`, `/shop/members` + invites, `/shop/payout-account` | new, test-first, ShopMember-scoped, OWNER vs STAFF | payout-account field needs a migration (hand-written SQL) |
 | B5 | Payouts page + batch detail (`GET /shop/remittance/batches/:id` new) + CSV | new read endpoint | — |
-| B6 | Help, polish, Playwright smokes per screen, Lighthouse, a11y pass | — | ops contact details (founders) |
+| B6 | Help, polish, Playwright smokes per screen, Lighthouse (incl. PWA audit), a11y pass | — | ops contact details (founders) |
+| B7 | Customer approval for over-estimate weigh-ins (API status, customer prompt, notification, auto-accept timeout) | new | product rule: threshold + timeout |
 
 Order: B0 → B1 → B2 → B3 (wizard uses B4's services API — build `/shop/services` inside B3,
 rest of B4 after) → B4 → B5 → B6.

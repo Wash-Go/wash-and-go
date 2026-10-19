@@ -275,7 +275,7 @@ footer{padding:24px 0 48px;color:var(--muted);font-size:14px;border-top:1px soli
       <div class="row">
         <span data-s="BOOKED"></span><span data-s="ASSIGNED"></span><span data-s="PICKED_UP"></span><span data-s="AT_SHOP"></span><span data-s="PROCESSING"></span><span data-s="READY_FOR_RETURN"></span><span data-s="OUT_FOR_RETURN"></span><span data-s="DELIVERED"></span><span data-s="CANCELLED"></span>
       </div>
-      <div class="row" style="margin-top:10px"><span data-s="NEEDS"></span><span data-s="AWAIT"></span><span data-s="REVIEW"></span><span data-s="VERIFIED"></span><span data-s="PENDING_T"></span><span data-s="PAID"></span></div>
+      <div class="row" style="margin-top:10px"><span data-s="NEEDS"></span><span data-s="REVIEW"></span><span data-s="VERIFIED"></span><span data-s="PENDING_T"></span><span data-s="PAID"></span></div>
     </div>
     <div class="card">
       <span class="lbl">Buttons · 48px, one primary per card</span>
@@ -303,7 +303,7 @@ footer{padding:24px 0 48px;color:var(--muted);font-size:14px;border-top:1px soli
     </div>
     <div class="card">
       <span class="lbl">Toast · role=status</span>
-      <div class="toast" role="status"><svg class="i"><use href="#i-check"/></svg><div><b>Sent ₱149.50 for approval.</b><br><span class="small muted">Maria gets a text. You'll see it here when she approves.</span></div></div>
+      <div class="toast" role="status"><svg class="i"><use href="#i-check"/></svg><div><b>Confirmed ₱149.50.</b><br><span class="small muted">Maria gets a text with the new total.</span></div></div>
       <span class="lbl" style="margin:20px 0 10px;display:block">StaleBanner</span>
       <div class="stale" style="border-radius:var(--r-md)"><svg class="i"><use href="#i-wifioff"/></svg><span>Offline. Orders from 4 min ago.</span><button class="btn btn-text" type="button">Retry</button></div>
     </div>
@@ -363,7 +363,7 @@ footer{padding:24px 0 48px;color:var(--muted);font-size:14px;border-top:1px soli
             <div class="m">Jun · Scheduled · Large (~9 kg)</div><div class="t">arrived 38 min ago</div>
             <button class="btn btn-primary full" type="button"><svg class="i"><use href="#i-scale"/></svg>Weigh</button></div>
           <div class="card oc"><div class="h"><div class="code">0141<small>WG-2026-000141</small></div><span data-s="NEEDS"></span></div>
-            <div class="m">Rhea · Express · weighed <span class="mono">7.2 kg</span> · approved</div>
+            <div class="m">Rhea · Express · weighed <span class="mono">7.2 kg</span> · confirmed</div>
             <button class="btn btn-primary full" type="button"><svg class="i"><use href="#i-shirt"/></svg>Mark washing</button></div>
         </div>
         <nav class="tb" data-tb="orders"></nav>
@@ -386,8 +386,8 @@ footer{padding:24px 0 48px;color:var(--muted);font-size:14px;border-top:1px soli
             <div><span>Service fee</span><span>₱7.00</span></div>
             <div class="tot"><span>Customer pays</span><span>₱149.50</span></div>
           </div>
-          <div class="warnbox"><svg class="i"><use href="#i-alert"/></svg><div><b>1.1 kg over the 3 kg estimate</b>Maria booked at ₱122.00 and will be asked to approve ₱27.50 more.</div></div>
-          <div class="stack"><button class="btn btn-primary full" type="button">Send ₱149.50 for approval</button><button class="btn btn-text" type="button">Cancel</button></div>
+          <div class="warnbox"><svg class="i"><use href="#i-alert"/></svg><div><b>1.1 kg over the 3 kg estimate</b>Maria booked at ₱122.00; she'll be told the new total.</div></div>
+          <div class="stack"><button class="btn btn-primary full" type="button">Confirm ₱149.50</button><button class="btn btn-text" type="button">Cancel</button></div>
         </div>
       </div></div>
     </figure>
@@ -408,7 +408,7 @@ footer{padding:24px 0 48px;color:var(--muted);font-size:14px;border-top:1px soli
             <div><span>Service fee</span><span>₱7.00</span></div>
             <div class="tot"><span>Customer pays</span><span>₱537.00</span></div>
           </div>
-          <div class="stack"><button class="btn btn-primary full" type="button">Yes, send ₱537.00 for approval</button><button class="btn btn-secondary full" type="button">Change the weight</button></div>
+          <div class="stack"><button class="btn btn-primary full" type="button">Yes, confirm ₱537.00</button><button class="btn btn-secondary full" type="button">Change the weight</button></div>
         </div>
       </div></div>
     </figure>
@@ -436,7 +436,7 @@ footer{padding:24px 0 48px;color:var(--muted);font-size:14px;border-top:1px soli
               <div style="color:var(--success-ink);font-weight:700"><span>Your payout (88% of wash)</span><span>₱158.40</span></div>
             </div>
           </div>
-          <div class="small muted"><b style="color:var(--text)">Weighed</b> <span class="mono">7.2 kg</span> by Lorna <span class="mono">10:47am</span> · approved <span class="mono">10:52am</span></div>
+          <div class="small muted"><b style="color:var(--text)">Weighed</b> <span class="mono">7.2 kg</span> by Lorna <span class="mono">10:47am</span> · confirmed <span class="mono">10:52am</span></div>
         </div>
         <div class="sticky"><button class="btn btn-primary" type="button"><svg class="i"><use href="#i-shirt"/></svg>Mark washing</button></div>
         <nav class="tb" data-tb="orders"></nav>
@@ -546,15 +546,15 @@ footer{padding:24px 0 48px;color:var(--muted);font-size:14px;border-top:1px soli
         <div class="list">
           <div class="card oc new"><div class="h"><div class="code">0147<span class="newtag">New</span><small>WG-2026-000147</small></div><span data-s="NEEDS"></span></div><div class="m">Maria · Express · Small (~3 kg) · <span class="t">arrived 2 min ago</span></div><div class="small muted">Weighing now, in the panel on the right.</div></div>
           <div class="card oc"><div class="h"><div class="code">0145<small>WG-2026-000145</small></div><span data-s="NEEDS"></span></div><div class="m">Jun · Scheduled · Large (~9 kg) · <span class="t">arrived 38 min ago</span></div><button class="btn btn-secondary" type="button" style="align-self:flex-start"><svg class="i"><use href="#i-scale"/></svg>Weigh</button></div>
-          <div class="card oc"><div class="h"><div class="code">0141<small>WG-2026-000141</small></div><span data-s="NEEDS"></span></div><div class="m">Rhea · Express · weighed <span class="mono">7.2 kg</span> · approved <span class="t">10:52am</span></div><button class="btn btn-secondary" type="button" style="align-self:flex-start"><svg class="i"><use href="#i-shirt"/></svg>Mark washing</button></div>
+          <div class="card oc"><div class="h"><div class="code">0141<small>WG-2026-000141</small></div><span data-s="NEEDS"></span></div><div class="m">Rhea · Express · weighed <span class="mono">7.2 kg</span> · confirmed <span class="t">10:52am</span></div><button class="btn btn-secondary" type="button" style="align-self:flex-start"><svg class="i"><use href="#i-shirt"/></svg>Mark washing</button></div>
         </div>
         <aside class="side" aria-label="Weigh order 0147">
           <div class="lbl">Weigh · Express · Small (~3 kg)</div>
           <h3 style="margin:2px 0 14px;font:700 20px var(--body)">Order <span class="mono">0147</span> · Maria</h3>
           <label class="field" style="margin:0"><span>Weight on the scale</span><div class="money"><input inputmode="decimal" value="4.1" aria-label="Weight in kilograms"><em>kg</em></div></label>
           <div class="bd"><div><span>Wash · <span class="mono">4.1 kg × ₱25.00</span></span><span>₱102.50</span></div><div><span>Delivery</span><span>₱40.00</span></div><div><span>Service fee</span><span>₱7.00</span></div><div class="tot"><span>Customer pays</span><span>₱149.50</span></div></div>
-          <div class="warnbox"><svg class="i"><use href="#i-alert"/></svg><div><b>1.1 kg over the 3 kg estimate</b>Maria will be asked to approve ₱27.50 more.</div></div>
-          <div class="stack"><button class="btn btn-primary full" type="button">Send ₱149.50 for approval</button><button class="btn btn-text" type="button" style="align-self:flex-start">Cancel</button></div>
+          <div class="warnbox"><svg class="i"><use href="#i-alert"/></svg><div><b>1.1 kg over the 3 kg estimate</b>Maria will be told the new total.</div></div>
+          <div class="stack"><button class="btn btn-primary full" type="button">Confirm ₱149.50</button><button class="btn btn-text" type="button" style="align-self:flex-start">Cancel</button></div>
         </aside>
       </div>
     </div>
