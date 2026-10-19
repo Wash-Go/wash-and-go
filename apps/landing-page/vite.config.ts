@@ -25,13 +25,15 @@ const config = defineConfig({
           enabled: true,
           crawlLinks: true,
           autoSubfolderIndex: true,
+          // In-page anchors (/#problem, ...) are the same document as /.
+          filter: (page) => !page.path.includes('#'),
         },
+        // The old /services, /pricing, /book-order and /my-orders pages were
+        // folded into the single investor page; vercel.json redirects them.
+        // /404 is written as 404.html, which the host serves for unknown paths.
         pages: [
           { path: '/' },
-          { path: '/services' },
-          { path: '/pricing' },
-          { path: '/book-order' },
-          { path: '/my-orders' },
+          { path: '/404', prerender: { outputPath: '/404.html' } },
         ],
       }),
     viteReact(),

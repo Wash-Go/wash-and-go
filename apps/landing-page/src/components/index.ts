@@ -1,3 +1,3 @@
 export * from './layout'
-export * from './home'
-export * from './AppCta'
+export * from './sections'
+export * from './ui'

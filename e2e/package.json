@@ -5,7 +5,8 @@
   "scripts": {
     "test": "playwright test",
     "smoke": "playwright test",
-    "smoke:portal": "playwright test laundry-portal"
+    "smoke:portal": "playwright test laundry-portal",
+    "smoke:landing": "node scripts/landing-smoke.cjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.1",
