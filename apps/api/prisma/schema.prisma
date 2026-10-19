@@ -52,6 +52,9 @@ model User {
   roles       UserRole[]
   createdAt   DateTime  @default(now())
   disabledAt  DateTime?
+  // Lowercased email from the VERIFIED Firebase token (email_verified), set on
+  // POST /auth/session. Null for phone-only sign-ins. Matches ShopInvite.email.
+  email       String?   @db.VarChar(254)
 
   orders          Order[]      @relation("CustomerOrders")
   assignedOrders  Order[]      @relation("RiderOrders")
@@ -61,6 +64,10 @@ model User {
   cashDeposits    RiderCashDeposit[] @relation("RiderCashDeposits")
   notifications   Notification[]
   riderProfile    RiderProfile?
+  shopInvitesSent     ShopInvite[] @relation("ShopInvitesSent")
+  shopInvitesAccepted ShopInvite[] @relation("ShopInvitesAccepted")
+
+  @@index([email])
 }
 
 // Rider verification lifecycle (self-serve onboarding, mirror of ShopStatus). A
@@ -170,6 +177,14 @@ model Shop {
   contactPhone       String?  @db.VarChar(20)
   description        String?  @db.VarChar(500)
   hours              Json?
+  // Payout account (portal B4). Founder policy GCash vs bank is pending, so
+  // both are supported and none is mandatory yet. The number is stored in full
+  // and only ever returned masked (last 4).
+  payoutMethod        PayoutMethod?
+  payoutAccountName   String?   @db.VarChar(120)
+  payoutAccountNumber String?   @db.VarChar(40)
+  payoutBankName      String?   @db.VarChar(120) // BANK only
+  payoutUpdatedAt     DateTime?
   // PENDING founder rate card — 12% is the planning assumption
   commissionPct      Decimal  @default(12.00) @db.Decimal(5, 2)
   // Reserved express queue capacity (Logistics v1.1). Count check runs inside
@@ -180,6 +195,33 @@ model Shop {
   members  ShopMember[]
   services ShopService[]
   orders   Order[]
+  invites  ShopInvite[]
+}
+
+enum PayoutMethod {
+  GCASH
+  BANK
+}
+
+// Owner-sent staff invite (portal B4). Accepted on the invitee's next
+// POST /auth/session when their VERIFIED token email matches. One row per
+// (shop, email): a re-invite after revoke reopens the same row.
+model ShopInvite {
+  id              String    @id @default(cuid())
+  shopId          String
+  shop            Shop      @relation(fields: [shopId], references: [id])
+  email           String    @db.VarChar(254) // lowercased
+  role            String    @default("STAFF")
+  invitedByUserId String
+  invitedBy       User      @relation("ShopInvitesSent", fields: [invitedByUserId], references: [id])
+  createdAt       DateTime  @default(now())
+  acceptedAt      DateTime?
+  acceptedUserId  String?
+  acceptedUser    User?     @relation("ShopInvitesAccepted", fields: [acceptedUserId], references: [id])
+  revokedAt       DateTime?
+
+  @@unique([shopId, email])
+  @@index([email])
 }
 
 model ShopMember {
@@ -189,6 +231,9 @@ model ShopMember {
   role   String // "OWNER" | "STAFF"
   shop   Shop   @relation(fields: [shopId], references: [id])
   user   User   @relation(fields: [userId], references: [id])
+  // When the member joined (GET /shop/members joinedAt). Pre-existing rows
+  // were backfilled to the migration time.
+  createdAt DateTime @default(now())
 
   @@unique([shopId, userId])
 }
