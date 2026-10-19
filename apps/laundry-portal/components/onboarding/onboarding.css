@@ -54,7 +54,8 @@
 .wiz-hours { padding: 4px 16px; }
 .wiz-day { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center; padding: 10px 0; }
 .wiz-day + .wiz-day { border-top: 1px solid var(--line); }
-.wiz-day .wiz-times { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; }
+.wiz-day .wiz-times { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; align-items: center; }
+.wiz-day .wiz-times .input { min-width: 0; padding: 0 10px; }
 .wiz-day .wiz-times .input { font-family: var(--font-mono); }
 .wiz-day .field-error { grid-column: 1 / -1; margin: 0; }
 .wiz-day-name { font-weight: 700; }

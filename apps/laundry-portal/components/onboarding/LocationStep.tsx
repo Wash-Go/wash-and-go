@@ -8,7 +8,7 @@ import { api } from '../../lib/api';
 import { useMedia } from '../../lib/useMedia';
 import { MAX_ADDRESS } from '../../lib/wizard';
 import { FieldError } from './fields';
-import type { StepProps } from './types';
+import type { FieldProps } from './types';
 
 const LocationMap = dynamic(() => import('./LocationMap'), {
   ssr: false,
@@ -21,7 +21,7 @@ const DEBOUNCE_MS = 400;
 // Step 2 · Location: address search (/geocode/search) → address + pin; a
 // draggable pin on a CARTO map; moving the pin reverse-geocodes into the
 // address line, which the owner can then edit (add a landmark).
-export function LocationStep({ draft, set, errors }: StepProps) {
+export function LocationStep({ draft, set, errors }: FieldProps) {
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
   const [focusKey, setFocusKey] = useState(0);

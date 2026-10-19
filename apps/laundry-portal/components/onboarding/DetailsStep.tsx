@@ -2,10 +2,10 @@
 import { TextField } from '../auth/TextField';
 import { MAX_DESCRIPTION, MAX_NAME } from '../../lib/wizard';
 import { TextAreaField } from './fields';
-import type { StepProps } from './types';
+import type { FieldProps } from './types';
 
 // Step 1 · Laundry details: name, contact phone, short description.
-export function DetailsStep({ draft, set, errors }: StepProps) {
+export function DetailsStep({ draft, set, errors }: FieldProps) {
   return (
     <div className="wiz-section">
       <TextField

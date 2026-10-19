@@ -8,9 +8,12 @@ export type WizardData = {
   uploads: UploadsStatus;
 };
 
-export type StepProps = {
+// The details, location and hours fields are shared by the wizard and the
+// Shop page (/shop), so they take only the form, not the wizard's data.
+export type FieldProps = {
   draft: WizardDraft;
   set: (patch: Partial<WizardDraft>) => void;
   errors: StepErrors;
-  data: WizardData;
 };
+
+export type StepProps = FieldProps & { data: WizardData };

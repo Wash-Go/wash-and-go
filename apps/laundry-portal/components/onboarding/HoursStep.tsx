@@ -5,11 +5,11 @@ import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { copyMondayToWeekdays, DAY_NAMES, MAX_EXPRESS_SLOTS, type HoursRow } from '../../lib/wizard';
 import { FieldError } from './fields';
-import type { StepProps } from './types';
+import type { FieldProps } from './types';
 
 // Step 4 · Hours & capacity: Sun–Sat grid with an open toggle and times,
 // "Copy Monday to weekdays", and Express slots per day.
-export function HoursStep({ draft, set, errors }: StepProps) {
+export function HoursStep({ draft, set, errors }: FieldProps) {
   const slotsId = useId();
   const update = (day: number, patch: Partial<HoursRow>) =>
     set({ hours: draft.hours.map((h) => (h.day === day ? { ...h, ...patch } : h)) });

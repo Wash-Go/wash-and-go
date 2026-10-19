@@ -1,4 +1,4 @@
-import { formatAgo, formatUpdatedAgo, manilaClock } from './relative-time';
+import { formatAgo, formatUpdatedAgo, manilaClock, manilaDate } from './relative-time';
 
 // 2026-10-19 15:12:00 in Manila (UTC+8) = 07:12:00Z.
 const NOW = new Date('2026-10-19T07:12:00Z').getTime();
@@ -69,5 +69,12 @@ describe('formatAgo', () => {
 
   it('treats a clock slightly ahead as just now', () => {
     expect(formatAgo(NOW + 3_000, NOW)).toBe('just now');
+  });
+});
+
+describe('manilaDate', () => {
+  it('formats a date in Manila, crossing midnight UTC', () => {
+    expect(manilaDate('2026-10-02T17:30:00Z')).toBe('Oct 3, 2026');
+    expect(manilaDate('not a date')).toBe('');
   });
 });

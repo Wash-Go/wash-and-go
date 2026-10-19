@@ -60,3 +60,11 @@ export function formatAgo(then: number, now: number): string {
   if (day === manilaDay(now - DAY)) return `yesterday ${clock}`;
   return `${dateFmt.format(new Date(then))}, ${clock}`;
 }
+
+const longDateFmt = new Intl.DateTimeFormat('en-US', { timeZone: TZ, month: 'short', day: 'numeric', year: 'numeric' });
+
+// "Oct 3, 2026" in Manila, for "verified since" / "joined" / "sent" dates.
+export function manilaDate(iso: string): string {
+  const t = Date.parse(iso);
+  return Number.isFinite(t) ? longDateFmt.format(new Date(t)) : '';
+}
