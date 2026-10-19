@@ -15,6 +15,7 @@ import { AdminShopsController } from '../shops/admin-shops.controller';
 import { ShopOnboardingController } from '../shops/shop-onboarding.controller';
 import { ShopServicesController } from '../shops/shop-services.controller';
 import { ShopProfileController } from '../shops/shop-profile.controller';
+import { ShopPayoutController } from '../shops/shop-payout.controller';
 import { RiderOnboardingController } from '../riders/rider-onboarding.controller';
 import { AdminRidersController } from '../riders/admin-riders.controller';
 import { ZonesController } from '../zones/zones.controller';
