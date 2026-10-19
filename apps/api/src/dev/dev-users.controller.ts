@@ -15,6 +15,9 @@ import {
   ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
+import type { User } from '@prisma/client';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { DEV_PROTECTED_UIDS } from './dev-protected-uids';
 import { DEV_UID, UpsertDevUserDto } from './dev-users.dto';
 import { DevUsersService } from './dev-users.service';
 
@@ -40,10 +43,19 @@ export class DevUsersController {
   @Delete(':uid')
   @HttpCode(204)
   @ApiParam({ name: 'uid', description: 'The fixture user’s x-dev-uid' })
-  @ApiOperation({ summary: 'DEV ONLY: delete a fixture user and its solely-owned shops (cascade)' })
+  @ApiOperation({
+    summary:
+      'DEV ONLY: delete a fixture user and its solely-owned shops (cascade); 400 for the caller or a seeded uid',
+  })
   @ApiNoContentResponse({ description: 'Removed (or already absent)' })
-  async remove(@Param('uid') uid: string): Promise<void> {
+  async remove(@CurrentUser() caller: User, @Param('uid') uid: string): Promise<void> {
     if (!DEV_UID.test(uid)) throw new BadRequestException('uid must be 1–128 of A–Z a–z 0–9 _ -');
+    if (uid === caller.firebaseUid) {
+      throw new BadRequestException('Refusing to delete the calling user — act as another uid');
+    }
+    if (DEV_PROTECTED_UIDS.includes(uid)) {
+      throw new BadRequestException(`Refusing to delete seeded user ${uid}`);
+    }
     await this.users.remove(uid);
   }
 }

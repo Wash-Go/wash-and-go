@@ -46,8 +46,12 @@ describe('/dev/users over HTTP', () => {
   // is refused, so the routes are never anonymous.
   class FakeAuthGuard implements CanActivate {
     canActivate(ctx: ExecutionContext): boolean {
-      const req = ctx.switchToHttp().getRequest<{ headers: Record<string, string> }>();
-      return Boolean(req.headers['x-dev-uid']);
+      const req = ctx
+        .switchToHttp()
+        .getRequest<{ headers: Record<string, string>; authUser?: { firebaseUid: string } }>();
+      const uid = req.headers['x-dev-uid'];
+      if (uid) req.authUser = { firebaseUid: uid };
+      return Boolean(uid);
     }
   }
   const service = { upsert: jest.fn(), remove: jest.fn() };
@@ -139,6 +143,35 @@ describe('/dev/users over HTTP', () => {
     expect(service.upsert).not.toHaveBeenCalled();
     await app.close();
   });
+
+  it('dev → DELETE refuses to delete the caller itself (400)', async () => {
+    const app = await appFor({ AUTH_DEV_BYPASS: '1', NODE_ENV: 'development' });
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/dev/users/e2e-self',
+      headers: { 'x-dev-uid': 'e2e-self' },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().message).toMatch(/calling user/);
+    expect(service.remove).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it.each(['dev-admin', 'dev-shop-owner', 'dev-customer'])(
+    'dev → DELETE refuses seeded uid %s (400)',
+    async (uid) => {
+      const app = await appFor({ AUTH_DEV_BYPASS: '1', NODE_ENV: 'development' });
+      const res = await app.inject({
+        method: 'DELETE',
+        url: `/dev/users/${uid}`,
+        headers: { 'x-dev-uid': 'e2e-caller' },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().message).toMatch(/seeded/);
+      expect(service.remove).not.toHaveBeenCalled();
+      await app.close();
+    },
+  );
 
   it('dev → DELETE rejects a malformed uid (400)', async () => {
     const app = await appFor({ AUTH_DEV_BYPASS: '1', NODE_ENV: 'development' });
