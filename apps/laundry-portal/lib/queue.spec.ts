@@ -10,6 +10,8 @@ import {
   firstName,
   mergeOrders,
   primaryAction,
+  shortName,
+  sortQueue,
 } from './queue';
 
 const o = (over: Partial<OrderView>): OrderView =>
@@ -149,5 +151,23 @@ describe('badgeTitle', () => {
     expect(badgeTitle(3, 'Orders · Wash & Go')).toBe('(3) Orders · Wash & Go');
     expect(badgeTitle(0, '(3) Orders · Wash & Go')).toBe('Orders · Wash & Go');
     expect(badgeTitle(12, '(3) Help · Wash & Go Partner')).toBe('(12) Help · Wash & Go Partner');
+  });
+});
+
+describe('shortName', () => {
+  it('gives a first name and last initial', () => {
+    expect(shortName('Ana Reyes')).toBe('Ana R.');
+    expect(shortName('Rider One')).toBe('Rider O.');
+    expect(shortName('Jun')).toBe('Jun');
+    expect(shortName('  ')).toBe('');
+  });
+});
+
+describe('sortQueue', () => {
+  it('puts new orders first, then newest booking first', () => {
+    const a = o({ id: 'a', createdAt: '2026-10-19T01:00:00Z' });
+    const b = o({ id: 'b', createdAt: '2026-10-19T03:00:00Z' });
+    const c = o({ id: 'c', createdAt: '2026-10-19T02:00:00Z' });
+    expect(sortQueue([a, b, c], (id) => id === 'a').map((x) => x.id)).toEqual(['a', 'b', 'c']);
   });
 });

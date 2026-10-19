@@ -258,6 +258,58 @@ img { max-width: 100%; }
 .card th { font: 700 12px var(--font-body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); text-align: left; padding: 10px 14px; border-bottom: 2px solid var(--text); }
 .card td { padding: 10px 14px; border-bottom: 1px solid var(--line); }
 
+
+/* ---------- Orders queue (preview B2 / C1) ---------- */
+.queue { display: flex; flex-direction: column; gap: 12px; }
+.qhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.qtools { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.qtools .btn { padding: 0 10px; }
+.qsearch { position: relative; display: block; }
+.qsearch svg { position: absolute; left: 12px; top: 50%; width: 20px; height: 20px; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.qsearch .input { width: 100%; padding-left: 40px; }
+.qtabs { display: flex; border-bottom: 1px solid var(--line); margin: 0 -16px; padding: 0 8px; overflow-x: auto; scrollbar-width: none; }
+.qtabs button {
+  min-height: 44px; display: flex; align-items: center; gap: 6px; padding: 0 9px; background: none; border: 0;
+  border-bottom: 3px solid transparent; font: 700 14px var(--font-body); color: var(--muted); white-space: nowrap;
+}
+.qtabs button.on { color: var(--navy); border-bottom-color: var(--sky); }
+.qtabs em { font: 700 12px var(--font-mono); font-style: normal; background: var(--sunken); color: var(--text); border-radius: var(--r-sm); padding: 2px 6px; }
+.qtabs button.needs em { background: var(--peach); color: var(--peach-ink); }
+.qlist { display: flex; flex-direction: column; gap: 12px; }
+.qmore { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 4px 0 8px; }
+.oc { display: flex; flex-direction: column; gap: 6px; }
+.oc-new { box-shadow: 0 0 0 3px var(--sky); border-color: var(--sky); }
+.oc-h { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.oc-code { font: 700 28px/1 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text); text-decoration: none; min-height: 44px; }
+.oc-code:hover { text-decoration: underline; text-decoration-thickness: 2px; }
+.oc-code small { display: block; font: 500 12px var(--font-mono); color: var(--muted); margin-top: 4px; }
+.newtag {
+  font: 700 11px var(--font-body); letter-spacing: 0.08em; text-transform: uppercase; background: var(--navy);
+  color: var(--on-navy); border-radius: var(--r-sm); padding: 3px 6px; vertical-align: middle; margin-left: 6px;
+}
+.oc-m { font-size: 15px; }
+.oc-t { font: 500 13px var(--font-mono); color: var(--muted); }
+.oc .oc-action { margin-top: 6px; width: 100%; }
+.incoming { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--sky-tint); padding: 0 16px; }
+.incoming summary {
+  min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font: 700 15px var(--font-body); color: var(--navy); cursor: pointer; list-style: none;
+}
+.incoming summary::-webkit-details-marker { display: none; }
+.incoming summary svg { width: 20px; height: 20px; transition: transform 0.2s ease-in-out; }
+.incoming[open] summary svg { transform: rotate(180deg); }
+.incoming > p { margin-bottom: 12px; }
+.incoming > .qlist { padding-bottom: 16px; }
+.spin { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.nav-count {
+  font: 700 11px/1 var(--font-mono); background: var(--peach); color: var(--peach-ink); border-radius: 9999px;
+  padding: 3px 6px; min-width: 20px; text-align: center;
+}
+.tb-icon { position: relative; display: inline-flex; }
+.tb-icon .nav-count { position: absolute; top: -6px; left: 14px; }
+.rail .nav-count { margin-left: auto; }
+
 /* ---------- Breakpoints ---------- */
 @media (min-width: 1024px) {
   .shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); }
@@ -274,6 +326,8 @@ img { max-width: 100%; }
     padding: 20px; animation: sheet-side 0.3s ease-out;
   }
   .sheet-grab { display: none; }
+  .qtabs { margin: 0; padding: 0; }
+  .oc .oc-action { width: auto; align-self: flex-start; }
   .gate-wrap { align-items: center; background: var(--ground); }
   .gate { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); margin: 32px 0; padding: 32px; }
 }

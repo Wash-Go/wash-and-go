@@ -120,3 +120,20 @@ export function badgeTitle(count: number, title: string): string {
   const base = title.replace(/^\(\d+\+?\)\s*/, '');
   return count > 0 ? `(${count}) ${base}` : base;
 }
+
+// "Ana R." for the rider line.
+export function shortName(name: string | null | undefined): string {
+  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '';
+  return parts.length === 1 ? parts[0] : `${parts[0]} ${parts[parts.length - 1][0]}.`;
+}
+
+// A tab mixes statuses (Ready = ready + out with the rider), so merge them
+// back into one order: new first, then newest booking first (the API's order).
+export function sortQueue(orders: OrderView[], isNew: (id: string) => boolean): OrderView[] {
+  return [...orders].sort((a, b) => {
+    const n = Number(isNew(b.id)) - Number(isNew(a.id));
+    if (n) return n;
+    return b.createdAt < a.createdAt ? -1 : b.createdAt > a.createdAt ? 1 : 0;
+  });
+}

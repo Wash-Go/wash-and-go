@@ -5,9 +5,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { InstallCard } from '../InstallCard';
+import { OrdersLiveProvider, useOrdersLive } from '../orders/OrdersLive';
 import { useConsole } from '../console/ConsoleContext';
 import { useLastLive, useNow, useOnline } from '../../lib/live';
-import { activeTab, MORE_ITEMS, RAIL_ITEMS, TAB_ITEMS } from '../../lib/nav';
+import { activeTab, MORE_ITEMS, RAIL_ITEMS, TAB_ITEMS, type NavItem } from '../../lib/nav';
+import { countLabel } from '../../lib/queue';
 import { formatUpdatedAgo } from '../../lib/relative-time';
 import { ShopChip } from './Chip';
 import { NAV_ICONS } from './icons';
@@ -19,6 +21,26 @@ import { StaleBanner } from './StaleBanner';
 // (Orders · Services · Payouts · Shop · More); from 1024px a navy left rail
 // with Staff, Help and Sign out.
 export function AppShell({ children }: { children: ReactNode }) {
+  return (
+    <OrdersLiveProvider>
+      <Frame>{children}</Frame>
+    </OrdersLiveProvider>
+  );
+}
+
+// The Orders nav item carries the Needs-you count (plan A3 flow 3).
+function NavCount({ item }: { item: NavItem }) {
+  const { needsCount, needsFull } = useOrdersLive();
+  if (item.key !== 'orders' || needsCount === 0) return null;
+  return (
+    <span className="nav-count" data-testid="nav-needs-count">
+      {countLabel(needsCount, needsFull)}
+      <span className="sr-only"> need you</span>
+    </span>
+  );
+}
+
+function Frame({ children }: { children: ReactNode }) {
   const { shop, me, signOut } = useConsole();
   const pathname = usePathname();
   const active = activeTab(pathname);
@@ -50,6 +72,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Link key={item.key} href={item.href} className={on ? 'on' : undefined} aria-current={on ? 'page' : undefined}>
               <Icon aria-hidden="true" />
               {item.label}
+              <NavCount item={item} />
             </Link>
           );
         })}
@@ -105,7 +128,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           const on = active === item.key;
           return (
             <Link key={item.key} href={item.href} className={on ? 'on' : undefined} aria-current={on ? 'page' : undefined}>
-              <Icon aria-hidden="true" />
+              <span className="tb-icon">
+                <Icon aria-hidden="true" />
+                <NavCount item={item} />
+              </span>
               {item.label}
             </Link>
           );

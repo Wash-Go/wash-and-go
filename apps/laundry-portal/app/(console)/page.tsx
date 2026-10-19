@@ -1,389 +1,264 @@
 'use client';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
-import {
-  peso,
-  statusLabel,
-  type OrderStatus,
-  type OrderView,
-} from '@wash-and-go/domain';
-import { api } from '../../lib/api';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
+import type { OrderStatus, OrderView } from '@wash-and-go/domain';
+import { ChevronDown, Inbox, RefreshCw, Search } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { OrderCard } from '../../components/orders/OrderCard';
+import { useOrdersLive } from '../../components/orders/OrdersLive';
+import { Button } from '../../components/ui/Button';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
-import { c, statusColor, tint } from '../../lib/theme';
-import { canWeigh, parseWeight } from '../../lib/shop';
+import { SkeletonCard } from '../../components/ui/Skeleton';
+import { StaleBanner } from '../../components/ui/StaleBanner';
+import { api } from '../../lib/api';
+import { useLastLive, useNow, useOnline } from '../../lib/live';
+import { ORDERS_KEY, orderListQuery } from '../../lib/order-queries';
 import {
-  formatKg,
-  orderEstimateKg,
-  readyBlockedReason,
-  WEIGH_RANGE_HINT,
-  weighCheck,
-} from '../../lib/weigh';
-import { mutationErrorMessage, shouldRefreshQueue, type PortalAction } from '../../lib/mutation-errors';
+  BUCKET_STATUSES,
+  countLabel,
+  mergeOrders,
+  QUEUE_PAGE,
+  QUEUE_TABS,
+  sortQueue,
+  type QueueBucket,
+  type QueueTab,
+} from '../../lib/queue';
+import { formatUpdatedAgo } from '../../lib/relative-time';
+import { DESKTOP, useMedia } from '../../lib/useMedia';
 
-export default function ShopPage() {
-  const orders = useQuery({ queryKey: ['orders'], queryFn: () => api.listOrders() });
+type Extra = { items: OrderView[]; exhausted: boolean };
+const ALL_STATUSES = (Object.keys(BUCKET_STATUSES) as QueueBucket[]).flatMap((b) => BUCKET_STATUSES[b]);
+const isTab = (v: string | null): v is QueueTab => QUEUE_TABS.some((t) => t.key === v);
 
-  return (
-    <>
-      <div className="page-head">
-        <div className="page-eyebrow">Queue</div>
-        <h1>Orders</h1>
-        <p className="page-sub">
-          Weigh a picked-up load to set its final price, then drive it through the
-          shop steps.
-        </p>
-      </div>
+const EMPTY: Record<QueueTab, { title: string; body: string }> = {
+  needs: { title: 'Nothing needs you right now.', body: 'New orders show up here when a rider drops them off.' },
+  washing: { title: 'Nothing in the wash.', body: 'Orders move here when you mark them washing.' },
+  ready: { title: 'Nothing waiting for a rider.', body: 'Orders you mark ready for pickup wait here until the rider delivers them.' },
+  done: { title: 'No finished orders yet.', body: 'Delivered and cancelled orders are kept here.' },
+};
 
-      {orders.isLoading ? (
-        <p style={{ color: c.muted }}>Loading queue…</p>
-      ) : orders.isError && !orders.data ? (
-        <ErrorState
-          title="Your queue didn't load."
-          body="Check your connection, then try again."
-          onRetry={() => void orders.refetch()}
-        />
-      ) : (orders.data ?? []).length === 0 ? (
-        <p style={{ color: c.muted }}>No orders in your queue.</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {orders.data!.map((o) => (
-            <OrderCard key={o.id} order={o} />
-          ))}
-        </div>
-      )}
-
-    </>
-  );
-}
-
-// One feedback line per card: the last success, or the last failure (human
-// copy only) with a retry when retrying can help. Lives on the card, not the
-// button, so it survives the queue refetch that can unmount the button.
-type Notice = { tone: 'success' | 'error'; text: string; retry?: () => void };
-type SetNotice = (n: Notice | null) => void;
-
-// Shared failure handling for the card's mutations: a 404/409 means the order
-// changed under us, so refetch the queue (no retry — it would fail the same
-// way); anything else keeps the card as is and offers a retry.
-function useFailureNotice(setNotice: SetNotice) {
+// Orders queue (plan A4, preview B2 / C1).
+export default function OrdersPage() {
   const qc = useQueryClient();
-  return (action: PortalAction, error: unknown, retry: () => void) => {
-    const refresh = shouldRefreshQueue(error);
-    if (refresh) qc.invalidateQueries({ queryKey: ['orders'] });
-    setNotice({
-      tone: 'error',
-      text: mutationErrorMessage(action, error),
-      retry: refresh ? undefined : retry,
+  const live = useOrdersLive();
+  const now = useNow();
+  const online = useOnline();
+  const lastLive = useLastLive();
+  const desktop = useMedia(DESKTOP);
+
+  const [tab, setTabState] = useState<QueueTab>('needs');
+  const [search, setSearch] = useState('');
+  const [q, setQ] = useState('');
+  const [extras, setExtras] = useState<Partial<Record<OrderStatus, Extra>>>({});
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [moreError, setMoreError] = useState(false);
+  const [weighing, setWeighing] = useState<OrderView | null>(null);
+
+  // The tab lives in the URL (?tab=washing) so back from a detail returns to it.
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab');
+    if (isTab(t)) setTabState(t);
+  }, []);
+  const setTab = (t: QueueTab) => {
+    setTabState(t);
+    const url = t === 'needs' ? '/' : `/?tab=${t}`;
+    window.history.replaceState(null, '', url);
+  };
+
+  // Search by order code, debounced; a new search drops loaded-more pages.
+  useEffect(() => {
+    const id = setTimeout(() => setQ(search.trim()), 300);
+    return () => clearTimeout(id);
+  }, [search]);
+  useEffect(() => {
+    setExtras({});
+    setMoreError(false);
+  }, [q]);
+
+  const results = useQueries({ queries: ALL_STATUSES.map((s) => orderListQuery(s, q)) });
+  const byStatus = useMemo(() => {
+    const m = {} as Record<OrderStatus, (typeof results)[number]>;
+    ALL_STATUSES.forEach((s, i) => (m[s] = results[i]));
+    return m;
+  }, [results]);
+
+  const isNew = useCallback((id: string) => live.isNew(id, now), [live, now]);
+
+  const bucket = (b: QueueBucket) => {
+    const statuses = BUCKET_STATUSES[b];
+    const rs = statuses.map((s) => byStatus[s]);
+    const orders = statuses.flatMap((s) => mergeOrders(byStatus[s].data ?? [], extras[s]?.items ?? []));
+    // A status can page further when its last page came back full.
+    const canMore = statuses.filter((s) => {
+      const ex = extras[s];
+      if (ex) return !ex.exhausted;
+      return (byStatus[s].data?.length ?? 0) >= QUEUE_PAGE;
     });
+    return {
+      orders: sortQueue(orders, isNew),
+      canMore,
+      loading: rs.some((r) => r.data === undefined && r.isLoading),
+      failed: rs.some((r) => r.isError),
+      noData: rs.every((r) => r.data === undefined),
+    };
   };
-}
 
-function OrderCard({ order: o }: { order: OrderView }) {
-  const color = statusColor(o.status);
-  const actions = o.availableActions ?? [];
-  const [notice, setNotice] = useState<Notice | null>(null);
-  // "Mark ready" stays visible but disabled until weighed, with the reason.
-  const readyReason = actions.includes('READY_FOR_RETURN')
-    ? readyBlockedReason(o, 'READY_FOR_RETURN')
-    : null;
-  return (
-    <div className="card" data-testid={`order-${o.code}`} style={{ padding: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <strong>{o.code}</strong>
-        <span
-          style={{
-            color,
-            background: tint(color),
-            padding: '3px 10px',
-            borderRadius: 999,
-            fontSize: 12,
-            fontWeight: 600,
-          }}
-        >
-          {statusLabel(o.status)}
-        </span>
-      </div>
-      <div style={{ color: c.muted, fontSize: 13, marginTop: 4 }}>{o.pickupAddress}</div>
-      <div style={{ fontSize: 14, marginTop: 6 }}>
-        {o.weightKg != null ? `Weighed ${o.weightKg}kg` : `Est ~${o.weightEstimateKg}kg`} ·{' '}
-        <strong className="tnum">{peso(o.customerTotalPhp)}</strong>
-      </div>
+  const view = bucket(tab);
+  const incoming = tab === 'needs' ? bucket('incoming') : null;
+  const counts = Object.fromEntries(
+    QUEUE_TABS.map((t) => {
+      const b = bucket(t.key);
+      return [t.key, b.noData ? '' : countLabel(b.orders.length, b.canMore.length > 0)];
+    }),
+  ) as Record<QueueTab, string>;
 
-      {canWeigh(o) && o.shopServiceId ? <WeighForm order={o} setNotice={setNotice} /> : null}
-
-      {actions.length > 0 ? (
-        <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-          {actions.map((to) => (
-            <ActionButton
-              key={to}
-              order={o}
-              to={to}
-              blockedReason={readyBlockedReason(o, to)}
-              setNotice={setNotice}
-            />
-          ))}
-        </div>
-      ) : null}
-      {readyReason ? (
-        <div style={{ color: c.muted, fontSize: 13, marginTop: 6 }}>{readyReason}</div>
-      ) : null}
-
-      {notice ? (
-        <div
-          role={notice.tone === 'error' ? 'alert' : 'status'}
-          style={{
-            display: 'flex',
-            gap: 10,
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            marginTop: 10,
-            fontSize: 13,
-            color: notice.tone === 'error' ? c.danger : c.success,
-          }}
-        >
-          <span>{notice.text}</span>
-          {notice.retry ? (
-            <button
-              onClick={notice.retry}
-              style={{
-                padding: '4px 10px',
-                borderRadius: 8,
-                border: `1px solid ${c.brand}`,
-                background: c.surface,
-                color: c.brand,
-                fontWeight: 600,
-                fontSize: 13,
-              }}
-            >
-              Try again
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function WeighForm({ order, setNotice }: { order: OrderView; setNotice: SetNotice }) {
-  const qc = useQueryClient();
-  const onFailure = useFailureNotice(setNotice);
-  const [input, setInput] = useState('');
-  // Keyed by the kg they were made for, so an edit (or a preview that lands
-  // after an edit) can never pair a price or a confirm with another weight.
-  const [preview, setPreview] = useState<{ kg: number; total: string } | null>(null);
-  const [armedKg, setArmedKg] = useState<number | null>(null);
-  const v = parseWeight(input);
-  const check = v.ok ? weighCheck(v.kg, orderEstimateKg(order)) : null;
-  const newTotal = v.ok && preview?.kg === v.kg ? preview.total : null;
-  const armed = v.ok && armedKg === v.kg;
-
-  const previewM = useMutation({
-    // Same pickup point as the weigh-in, so the previewed total is the one
-    // the customer will actually be billed (distance delivery fee included).
-    mutationFn: (kg: number) =>
-      api.previewOrder({
-        shopServiceId: order.shopServiceId!,
-        weightKg: kg,
-        ...(order.pickupLat != null && order.pickupLng != null
-          ? { pickupLat: Number(order.pickupLat), pickupLng: Number(order.pickupLng) }
-          : {}),
-      }),
-    onMutate: () => setNotice(null),
-    onSuccess: (b, kg) => setPreview({ kg, total: b.customerTotalPhp }),
-    onError: (e, kg) => onFailure('preview', e, () => previewM.mutate(kg)),
-  });
-  const weighM = useMutation({
-    mutationFn: (kg: number) => api.weigh(order.id, kg),
-    onMutate: () => setNotice(null),
-    onSuccess: (saved, kg) => {
-      setInput('');
-      setPreview(null);
-      setArmedKg(null);
-      setNotice({
-        tone: 'success',
-        text: `Weight saved: ${formatKg(kg)} kg. New total ${peso(saved.customerTotalPhp)}.`,
+  const loadMore = async () => {
+    setLoadingMore(true);
+    setMoreError(false);
+    try {
+      const pages = await Promise.all(
+        view.canMore.map(async (s) => {
+          const have = mergeOrders(byStatus[s].data ?? [], extras[s]?.items ?? []);
+          const last = have[have.length - 1];
+          const page = await api.listOrders(s, q || undefined, QUEUE_PAGE, last?.id);
+          return [s, page] as const;
+        }),
+      );
+      setExtras((prev) => {
+        const next = { ...prev };
+        for (const [s, page] of pages) {
+          next[s] = { items: [...(prev[s]?.items ?? []), ...page], exhausted: page.length < QUEUE_PAGE };
+        }
+        return next;
       });
-      qc.invalidateQueries({ queryKey: ['orders'] });
-    },
-    onError: (e, kg) => onFailure('weigh', e, () => weighM.mutate(kg)),
-  });
-
-  const onConfirm = () => {
-    if (!v.ok) return;
-    // Far above the estimate → make the shop confirm the number a second time.
-    if (check?.needsSecondConfirm && !armed) setArmedKg(v.kg);
-    else weighM.mutate(v.kg);
+    } catch {
+      setMoreError(true);
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
-  return (
-    <div
-      style={{
-        marginTop: 12,
-        padding: 12,
-        background: c.surface2,
-        borderRadius: 10,
-        border: `1px solid ${c.border}`,
-      }}
-    >
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <input
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              // A new entry drops the last outcome, so "Try again" can never
-              // resend a weight that is no longer in the box.
-              setNotice(null);
-            }}
-            placeholder="Actual kg"
-            aria-label="Actual weight in kilograms"
-            type="text"
-            inputMode="decimal"
-            className="field-input"
-            style={{ width: 100, fontSize: 16 }}
-          />
-          <span style={{ fontSize: 16, color: c.muted }}>kg</span>
-        </span>
-        <button
-          disabled={!v.ok || previewM.isPending}
-          onClick={() => previewM.mutate(v.kg)}
-          style={{
-            padding: '7px 12px',
-            borderRadius: 8,
-            border: `1px solid ${c.brand}`,
-            background: c.surface,
-            color: c.brand,
-            fontWeight: 600,
-            opacity: !v.ok ? 0.5 : 1,
-          }}
-        >
-          {previewM.isPending ? 'Pricing…' : 'Preview price'}
-        </button>
-      </div>
-      {input.trim() !== '' && !v.ok ? (
-        <div style={{ color: c.danger, fontSize: 13, marginTop: 6 }}>{WEIGH_RANGE_HINT}</div>
-      ) : check?.deltaText ? (
-        <div
-          style={{
-            color: check.needsSecondConfirm ? c.warning : c.muted,
-            fontSize: 13,
-            marginTop: 6,
-            fontWeight: check.needsSecondConfirm ? 600 : 400,
-          }}
-        >
-          {check.deltaText}
-        </div>
-      ) : null}
-      {newTotal ? (
-        <div style={{ marginTop: 10 }}>
-          <div style={{ fontSize: 14 }}>
-            was{' '}
-            <s className="tnum" style={{ color: c.muted }}>
-              {peso(order.customerTotalPhp)}
-            </s>{' '}
-            → now{' '}
-            <strong className="tnum" style={{ color: c.brand }}>
-              {peso(newTotal)}
-            </strong>
-          </div>
-          {armed && check?.confirmPrompt ? (
-            <div role="alert" style={{ marginTop: 8 }}>
-              <div style={{ color: c.warning, fontSize: 14, fontWeight: 600 }}>
-                {check.confirmPrompt}
-              </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                <button
-                  disabled={weighM.isPending}
-                  onClick={onConfirm}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: 8,
-                    border: 'none',
-                    background: c.brand,
-                    color: c.onBrand,
-                    fontWeight: 700,
-                  }}
-                >
-                  {weighM.isPending ? 'Saving…' : `Confirm ${formatKg(v.kg)} kg`}
-                </button>
-                <button
-                  disabled={weighM.isPending}
-                  onClick={() => setArmedKg(null)}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: 8,
-                    border: `1px solid ${c.brand}`,
-                    background: c.surface,
-                    color: c.brand,
-                    fontWeight: 600,
-                  }}
-                >
-                  Change weight
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              disabled={weighM.isPending}
-              onClick={onConfirm}
-              style={{
-                marginTop: 8,
-                padding: '8px 16px',
-                borderRadius: 8,
-                border: 'none',
-                background: c.brand,
-                color: c.onBrand,
-                fontWeight: 700,
-              }}
-            >
-              {weighM.isPending ? 'Saving…' : 'Confirm weigh-in'}
-            </button>
-          )}
-        </div>
-      ) : null}
-    </div>
-  );
-}
+  const refreshing = results.some((r) => r.isFetching);
+  const refresh = () => void qc.refetchQueries({ queryKey: ORDERS_KEY });
+  const updated = now && lastLive ? formatUpdatedAgo(lastLive, now) : null;
 
-function ActionButton({
-  order,
-  to,
-  blockedReason,
-  setNotice,
-}: {
-  order: OrderView;
-  to: OrderStatus;
-  blockedReason: string | null;
-  setNotice: SetNotice;
-}) {
-  const qc = useQueryClient();
-  const onFailure = useFailureNotice(setNotice);
-  const m = useMutation({
-    mutationFn: () => api.transition(order.id, to),
-    onMutate: () => setNotice(null),
-    onSuccess: () => {
-      setNotice({ tone: 'success', text: `Marked ${statusLabel(to)}.` });
-      qc.invalidateQueries({ queryKey: ['orders'] });
-    },
-    onError: (e) => onFailure('status', e, () => m.mutate()),
-  });
-  const disabled = m.isPending || blockedReason != null;
+  const onOpen = undefined;
+
   return (
-    <button
-      disabled={disabled}
-      onClick={() => m.mutate()}
-      title={blockedReason ?? undefined}
-      style={{
-        padding: '8px 14px',
-        borderRadius: 8,
-        border: 'none',
-        background: c.brand,
-        color: c.onBrand,
-        fontWeight: 700,
-        opacity: blockedReason != null ? 0.5 : 1,
-      }}
-    >
-      {m.isPending ? 'Updating…' : `Mark ${statusLabel(to)}`}
-    </button>
+    <section data-testid="orders-queue" className="queue">
+      <div className="qhead">
+        <div>
+          <h1 className="disp">Orders</h1>
+        </div>
+        <div className="qtools">
+          <Button
+            variant="text"
+            icon={<RefreshCw aria-hidden="true" className={refreshing ? 'spin' : undefined} />}
+            onClick={refresh}
+            aria-busy={refreshing || undefined}
+          >
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      <label className="qsearch">
+        <span className="sr-only">Search by order code</span>
+        <Search aria-hidden="true" />
+        <input
+          className="input"
+          type="search"
+          inputMode="search"
+          placeholder="Search by order code"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </label>
+
+      <div className="qtabs" role="tablist" aria-label="Order status">
+        {QUEUE_TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            id={`tab-${t.key}`}
+            aria-selected={tab === t.key}
+            aria-controls="queue-panel"
+            className={[tab === t.key ? 'on' : '', t.key === 'needs' ? 'needs' : ''].filter(Boolean).join(' ')}
+            onClick={() => setTab(t.key)}
+          >
+            {t.label}
+            {counts[t.key] !== '' ? <em data-testid={`count-${t.key}`}>{counts[t.key]}</em> : null}
+          </button>
+        ))}
+      </div>
+
+      {online && view.failed && !view.noData ? (
+        <StaleBanner message={`Couldn't refresh. Showing what we last saw${updated ? `, ${updated}` : ''}.`} onRetry={refresh} />
+      ) : null}
+
+      <div id="queue-panel" role="tabpanel" aria-labelledby={`tab-${tab}`} className="qlist">
+        {incoming && incoming.orders.length > 0 ? (
+          <details className="incoming" data-testid="incoming">
+            <summary>
+              <span>Incoming ({countLabel(incoming.orders.length, incoming.canMore.length > 0)})</span>
+              <ChevronDown aria-hidden="true" />
+            </summary>
+            <p className="small muted">Booked for your shop and on the way. Nothing to do until the rider drops them off.</p>
+            <div className="qlist">
+              {incoming.orders.map((o) => (
+                <OrderCard key={o.id} order={o} bucket="incoming" isNew={isNew(o.id)} now={now} onWeigh={setWeighing} onOpen={onOpen} />
+              ))}
+            </div>
+          </details>
+        ) : null}
+
+        {view.loading ? (
+          <>
+            <SkeletonCard label="Loading orders" />
+            <SkeletonCard label="Loading orders" />
+          </>
+        ) : view.failed && view.noData ? (
+          <ErrorState title="Your queue didn't load." body="Check your connection, then try again." onRetry={refresh} />
+        ) : view.orders.length === 0 ? (
+          q ? (
+            <EmptyState
+              icon={Search}
+              title={`No ${QUEUE_TABS.find((t) => t.key === tab)!.label.toLowerCase()} order matches “${q}”.`}
+              body="Check the code on the bag tag, or look in the other tabs."
+              action={
+                <Button variant="secondary" onClick={() => setSearch('')}>
+                  Clear search
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState icon={Inbox} title={EMPTY[tab].title} body={EMPTY[tab].body} />
+          )
+        ) : (
+          view.orders.map((o) => (
+            <OrderCard
+              key={o.id}
+              order={o}
+              bucket={tab}
+              isNew={tab === 'needs' && isNew(o.id)}
+              now={now}
+              onWeigh={setWeighing}
+              onOpen={onOpen}
+              quiet={desktop && weighing != null}
+            />
+          ))
+        )}
+
+        {view.canMore.length > 0 && !view.loading ? (
+          <div className="qmore">
+            <Button variant="secondary" onClick={() => void loadMore()} disabled={loadingMore} aria-busy={loadingMore || undefined}>
+              {loadingMore ? 'Loading…' : 'Load more'}
+            </Button>
+            {moreError ? <div className="field-error" role="alert">Couldn&apos;t load more orders. Try again.</div> : null}
+          </div>
+        ) : null}
+      </div>
+    </section>
   );
 }
