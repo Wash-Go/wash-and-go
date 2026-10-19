@@ -59,7 +59,9 @@ Nav: phone = bottom tab bar (Orders · Services · Payouts · Shop · More[Staff
    turnaround hours → Save → audit row; rate shown with "customers see this" note.
 5. **Get paid:** Payouts → pending amount (unbatched delivered orders) → batches → detail →
    reference once marked paid. Payout account captured in Shop with masking.
-6. **Staff:** invite by email → pending invite (accepted on that email's first login) → remove.
+6. **Staff:** invite by email → pending invite → the invitee signs in with a verified email and
+   accepts from an "X invited you" card in the portal (explicit `POST /shop/invites/:id/accept`;
+   never silently on sign-in) → remove.
 
 ### A4. Screens and states (every screen has loading / empty / error / offline)
 - **Login:** lockup, email, password, show/hide, Forgot password (Firebase reset email),
