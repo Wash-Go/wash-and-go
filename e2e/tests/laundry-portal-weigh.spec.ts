@@ -4,8 +4,9 @@ import { cancelOrder, seedAtShopOrder } from '../lib/seed';
 /*
  * Browser smoke: the laundry-portal weigh flow — the launch-critical path where a
  * shop turns a picked-up order into a priced, processing one. Proves the real
- * buttons work: the order shows in the queue, Preview price recomputes, Confirm
- * weigh-in persists, and the status action advances the order.
+ * buttons work: the order shows in Needs you, the weigh sheet prices the entered
+ * weight live, "Confirm ₱…" persists it, and the status action advances the
+ * order into the Washing tab.
  */
 test.describe('laundry-portal weigh flow', () => {
   let orderId: string;
@@ -29,23 +30,28 @@ test.describe('laundry-portal weigh flow', () => {
     const card = page.getByTestId(`order-${code}`);
     await expect(card).toBeVisible();
 
-    // Enter the actual weight and preview the recomputed price.
-    await card.getByPlaceholder('Actual kg').fill('7');
-    await card.getByRole('button', { name: 'Preview price' }).click();
+    // Open the weigh sheet and enter the actual weight; the price is live.
+    await card.getByRole('button', { name: 'Weigh' }).click();
+    const sheet = page.getByRole('dialog', { name: new RegExp(`Order ${code.slice(-4)}`) });
+    await sheet.getByLabel('Weight on the scale').fill('7');
+    await expect(sheet.getByTestId('breakdown')).toContainText('Customer pays');
 
-    // Preview succeeded → the confirm button appears with the recomputed total.
-    const confirm = card.getByRole('button', { name: 'Confirm weigh-in' });
-    await expect(confirm).toBeVisible();
+    // The confirm button names the outcome with the recomputed total.
+    const confirm = sheet.getByRole('button', { name: /^Confirm ₱/ });
+    await expect(confirm).toBeEnabled();
 
     // Confirm the weigh-in — the card should now read as weighed.
     await confirm.click();
+    await expect(sheet).toBeHidden();
     await expect(card.getByText(/Weighed 7/i)).toBeVisible();
 
-    // A status action is now available (AT_SHOP → PROCESSING, labelled "Washing")
-    // and advances the order.
-    const toWashing = card.getByRole('button', { name: /Mark Washing/i });
+    // The next step is now the primary action (AT_SHOP → PROCESSING) and
+    // advances the order into the Washing tab.
+    const toWashing = card.getByRole('button', { name: /Mark washing/i });
     await expect(toWashing).toBeVisible();
     await toWashing.click();
+    await expect(card).toBeHidden();
+    await page.getByRole('tab', { name: /Washing/ }).click();
     await expect(card.getByText('Washing', { exact: true })).toBeVisible();
   });
 });

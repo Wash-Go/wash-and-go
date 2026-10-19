@@ -310,6 +310,27 @@ img { max-width: 100%; }
 .tb-icon .nav-count { position: absolute; top: -6px; left: 14px; }
 .rail .nav-count { margin-left: auto; }
 
+/* ---------- Weigh sheet + breakdown (preview B3 / B3b) ---------- */
+.weigh { display: flex; flex-direction: column; gap: 12px; }
+.weigh .field { margin: 0; }
+.weigh-actions { margin-top: 4px; }
+.weigh-actions .btn-text { align-self: flex-start; }
+.money-warn { border-color: var(--warn-ink); }
+.money-read { flex: 1; font: 700 26px var(--font-mono); font-variant-numeric: tabular-nums; }
+.bd { margin: 0; border-top: 1px solid var(--line); }
+.bd > div { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; font-size: 15px; }
+.bd dt { margin: 0; }
+.bd dd { margin: 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.bd .tot { border-top: 2px solid var(--text); margin-top: 4px; padding-top: 10px; font-weight: 700; }
+.bd .tot dd { font-size: 22px; font-weight: 700; }
+.bd .payout { color: var(--success-ink); font-weight: 700; }
+.warnbox {
+  display: flex; gap: 10px; background: var(--warn-tint); color: var(--warn-ink); border-radius: var(--r-md);
+  padding: 12px; font-size: 14px; line-height: 1.45;
+}
+.warnbox svg { width: 20px; height: 20px; flex: none; margin-top: 1px; }
+.warnbox b { display: block; font-size: 15px; }
+
 /* ---------- Breakpoints ---------- */
 @media (min-width: 1024px) {
   .shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); }

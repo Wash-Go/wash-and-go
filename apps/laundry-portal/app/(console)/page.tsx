@@ -5,6 +5,7 @@ import { ChevronDown, Inbox, RefreshCw, Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { OrderCard } from '../../components/orders/OrderCard';
 import { useOrdersLive } from '../../components/orders/OrdersLive';
+import { WeighSheet } from '../../components/orders/WeighSheet';
 import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
@@ -53,6 +54,7 @@ export default function OrdersPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [moreError, setMoreError] = useState(false);
   const [weighing, setWeighing] = useState<OrderView | null>(null);
+  const [incomingOpen, setIncomingOpen] = useState(false);
 
   // The tab lives in the URL (?tab=washing) so back from a detail returns to it.
   useEffect(() => {
@@ -199,17 +201,27 @@ export default function OrdersPage() {
 
       <div id="queue-panel" role="tabpanel" aria-labelledby={`tab-${tab}`} className="qlist">
         {incoming && incoming.orders.length > 0 ? (
-          <details className="incoming" data-testid="incoming">
+          <details
+            className="incoming"
+            data-testid="incoming"
+            open={incomingOpen}
+            onToggle={(e) => setIncomingOpen(e.currentTarget.open)}
+          >
             <summary>
               <span>Incoming ({countLabel(incoming.orders.length, incoming.canMore.length > 0)})</span>
               <ChevronDown aria-hidden="true" />
             </summary>
-            <p className="small muted">Booked for your shop and on the way. Nothing to do until the rider drops them off.</p>
-            <div className="qlist">
-              {incoming.orders.map((o) => (
-                <OrderCard key={o.id} order={o} bucket="incoming" isNew={isNew(o.id)} now={now} onWeigh={setWeighing} onOpen={onOpen} />
-              ))}
-            </div>
+            {/* Rendered only while open, so collapsed cards are not in the page. */}
+            {incomingOpen ? (
+              <>
+                <p className="small muted">Booked for your shop and on the way. Nothing to do until the rider drops them off.</p>
+                <div className="qlist">
+                  {incoming.orders.map((o) => (
+                    <OrderCard key={o.id} order={o} bucket="incoming" isNew={isNew(o.id)} now={now} onWeigh={setWeighing} onOpen={onOpen} />
+                  ))}
+                </div>
+              </>
+            ) : null}
           </details>
         ) : null}
 
@@ -259,6 +271,8 @@ export default function OrdersPage() {
           </div>
         ) : null}
       </div>
+
+      {weighing ? <WeighSheet key={weighing.id} order={weighing} onClose={() => setWeighing(null)} /> : null}
     </section>
   );
 }
