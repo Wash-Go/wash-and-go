@@ -2,10 +2,13 @@
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import type { OrderStatus, OrderView } from '@wash-and-go/domain';
 import { ChevronDown, Inbox, RefreshCw, Search } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { OrderCard } from '../../components/orders/OrderCard';
 import { useOrdersLive } from '../../components/orders/OrdersLive';
+import { OrderDetail } from '../../components/orders/OrderDetail';
 import { WeighSheet } from '../../components/orders/WeighSheet';
+import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
@@ -55,6 +58,7 @@ export default function OrdersPage() {
   const [moreError, setMoreError] = useState(false);
   const [weighing, setWeighing] = useState<OrderView | null>(null);
   const [incomingOpen, setIncomingOpen] = useState(false);
+  const [panel, setPanel] = useState<OrderView | null>(null);
 
   // The tab lives in the URL (?tab=washing) so back from a detail returns to it.
   useEffect(() => {
@@ -144,7 +148,15 @@ export default function OrdersPage() {
   const refresh = () => void qc.refetchQueries({ queryKey: ORDERS_KEY });
   const updated = now && lastLive ? formatUpdatedAgo(lastLive, now) : null;
 
-  const onOpen = undefined;
+  // From 1024 px the detail opens in the side panel beside the queue (C1);
+  // on a phone the card links to the /orders/[id] route.
+  const onOpen = desktop
+    ? (o: OrderView, e: MouseEvent<HTMLAnchorElement>) => {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+        e.preventDefault();
+        setPanel(o);
+      }
+    : undefined;
 
   return (
     <section data-testid="orders-queue" className="queue">
@@ -257,7 +269,7 @@ export default function OrdersPage() {
               now={now}
               onWeigh={setWeighing}
               onOpen={onOpen}
-              quiet={desktop && weighing != null}
+              quiet={desktop && (weighing != null || panel != null)}
             />
           ))
         )}
@@ -272,6 +284,21 @@ export default function OrdersPage() {
         ) : null}
       </div>
 
+      {panel ? (
+        <Sheet open onClose={() => setPanel(null)} title={`Order ${panel.code.slice(-4)}`}>
+          <OrderDetail
+            id={panel.id}
+            inPanel
+            onWeigh={(o) => {
+              setPanel(null);
+              setWeighing(o);
+            }}
+          />
+          <Link className="back" href={`/orders/${panel.id}`}>
+            Open the full page
+          </Link>
+        </Sheet>
+      ) : null}
       {weighing ? <WeighSheet key={weighing.id} order={weighing} onClose={() => setWeighing(null)} /> : null}
     </section>
   );
