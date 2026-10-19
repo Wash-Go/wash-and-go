@@ -311,13 +311,15 @@ export class OrdersRepository {
 
   findManyWithRelations(
     where: Prisma.OrderWhereInput,
-    opts: { take?: number; cursorId?: string } = {},
+    opts: { take?: number; cursorId?: string; order?: 'asc' | 'desc' } = {},
   ): Promise<OrderWithRelations[]> {
+    const dir = opts.order ?? 'desc';
     return this.prisma.order.findMany({
       where,
-      // Stable keyset order (createdAt desc, id as tiebreak) so cursor paging is
-      // correct even when two orders share a createdAt.
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      // Stable keyset order (createdAt, id as tiebreak) so cursor paging is
+      // correct even when two orders share a createdAt. Newest first by
+      // default; the active queue reads oldest first.
+      orderBy: [{ createdAt: dir }, { id: dir }],
       include: { shop: true, customer: true, assignedRider: true, rating: true },
       take: opts.take,
       ...(opts.cursorId ? { cursor: { id: opts.cursorId }, skip: 1 } : {}),

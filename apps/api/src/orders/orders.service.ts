@@ -60,6 +60,7 @@ import { ZonesService } from '../zones/zones.service';
 import { manilaDayWindow } from './manila-time';
 import { visiblePhone } from '../users/phone';
 import {
+  ACTIVE_ORDER_STATUSES,
   canRoleDrive,
   isLegalTransition,
   nextStatuses,
@@ -809,10 +810,20 @@ export class OrdersService {
       q?: string;
       limit?: number;
       before?: string;
+      // Shop queue: every non-terminal order in one oldest-first page (no
+      // cursor), so an old unweighed AT_SHOP order can't fall off page 1.
+      active?: boolean;
     } = {},
   ): Promise<OrderDetail[]> {
+    if (filter.active && filter.status) {
+      throw new BadRequestException('Use either active or status, not both');
+    }
+    if (filter.active && filter.before) {
+      throw new BadRequestException('active lists one page; it takes no cursor');
+    }
     const where: Prisma.OrderWhereInput = {};
     if (filter.status) where.status = filter.status;
+    if (filter.active) where.status = { in: [...ACTIVE_ORDER_STATUSES] };
     // Free-text search on the order code (WG-YYYY-NNNNNN).
     if (filter.q && filter.q.trim()) {
       where.code = { contains: filter.q.trim(), mode: 'insensitive' };
@@ -838,12 +849,15 @@ export class OrdersService {
 
     // Bound the result (was unbounded). Default 50, hard cap 100; `before` is an
     // order id cursor for the next page.
+    // active: default 200, cap 500.
+    const [def, max] = filter.active ? [200, 500] : [50, 100];
     const take = Number.isFinite(filter.limit)
-      ? Math.min(Math.max(filter.limit as number, 1), 100)
-      : 50;
+      ? Math.min(Math.max(filter.limit as number, 1), max)
+      : def;
     const orders = await this.repo.findManyWithRelations(where, {
       take,
       cursorId: filter.before,
+      ...(filter.active ? { order: 'asc' as const } : {}),
     });
     return Promise.all(orders.map((o) => this.toDetail(actor, o)));
   }
