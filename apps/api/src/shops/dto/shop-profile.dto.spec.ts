@@ -25,7 +25,11 @@ describe('UpdateShopProfileDto', () => {
         lng: 122.08,
         contactPhone: '09171234567',
         description: 'x',
-        hours: [0, 1, 2, 3, 4, 5, 6].map((day) => ({ day, open: null, close: null })),
+        hours: [0, 1, 2, 3, 4, 5, 6].map((day) => ({
+          day,
+          open: null,
+          close: null,
+        })),
         expressSlotsPerDay: 50,
       }),
     ).toEqual([]);

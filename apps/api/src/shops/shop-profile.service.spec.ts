@@ -180,7 +180,11 @@ describe('ShopProfileService', () => {
         BadRequestException,
       );
       await expect(
-        svc.update('uA', { hours: week({ 3: { day: 3, open: '19:00', close: '07:00' } }) as never }),
+        svc.update('uA', {
+          hours: week({
+            3: { day: 3, open: '19:00', close: '07:00' },
+          }) as never,
+        }),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
   });

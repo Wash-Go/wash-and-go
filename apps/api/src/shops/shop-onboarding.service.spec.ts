@@ -16,7 +16,9 @@ function make(overrides: Record<string, unknown> = {}, opts: { r2?: boolean } = 
     $transaction: (fn: (tx: unknown) => unknown) => fn(prisma),
     ...overrides,
   } as unknown as PrismaService;
-  const uploads = { configured: () => opts.r2 ?? true } as unknown as UploadsService;
+  const uploads = {
+    configured: () => opts.r2 ?? true,
+  } as unknown as UploadsService;
   return {
     svc: new ShopOnboardingService(prisma, uploads, new ShopAccessService(prisma)),
     prisma: prisma as never,
@@ -72,7 +74,9 @@ async function missingOf(p: Promise<unknown>): Promise<string> {
 
 describe('ShopOnboardingService', () => {
   it('mine returns null when the caller owns no shop', async () => {
-    const { svc } = make({ shopMember: { findFirst: jest.fn().mockResolvedValue(null) } });
+    const { svc } = make({
+      shopMember: { findFirst: jest.fn().mockResolvedValue(null) },
+    });
     expect(await svc.mine(user)).toBeNull();
   });
 
@@ -92,13 +96,18 @@ describe('ShopOnboardingService', () => {
     const memberCreate = jest.fn();
     const userUpdate = jest.fn();
     const { svc } = make({
-      shopMember: { findFirst: jest.fn().mockResolvedValue(null), create: memberCreate },
+      shopMember: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: memberCreate,
+      },
       shop: { create: shopCreate },
       user: { update: userUpdate },
     });
     const view = await svc.start(user);
     expect(view.status).toBe('DRAFT');
-    expect(memberCreate).toHaveBeenCalledWith({ data: { shopId: 's1', userId: 'u1', role: 'OWNER' } });
+    expect(memberCreate).toHaveBeenCalledWith({
+      data: { shopId: 's1', userId: 'u1', role: 'OWNER' },
+    });
     expect(userUpdate.mock.calls[0][0].data.roles).toEqual(
       expect.arrayContaining(['CUSTOMER', 'SHOP_OWNER']),
     );
@@ -107,7 +116,9 @@ describe('ShopOnboardingService', () => {
   it('start is idempotent — returns the existing owned shop', async () => {
     const create = jest.fn();
     const { svc } = make({
-      shopMember: { findFirst: jest.fn().mockResolvedValue({ shop: draftShop({ status: 'SUBMITTED' }) }) },
+      shopMember: {
+        findFirst: jest.fn().mockResolvedValue({ shop: draftShop({ status: 'SUBMITTED' }) }),
+      },
       shop: { create },
     });
     const view = await svc.start(user);
@@ -117,28 +128,40 @@ describe('ShopOnboardingService', () => {
 
   it('update is blocked once SUBMITTED', async () => {
     const { svc } = make({
-      shopMember: { findFirst: jest.fn().mockResolvedValue({ shop: draftShop({ status: 'SUBMITTED' }) }) },
+      shopMember: {
+        findFirst: jest.fn().mockResolvedValue({ shop: draftShop({ status: 'SUBMITTED' }) }),
+      },
     });
     await expect(svc.update(user, { name: 'X' })).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('update throws when the caller has no shop', async () => {
-    const { svc } = make({ shopMember: { findFirst: jest.fn().mockResolvedValue(null) } });
+    const { svc } = make({
+      shopMember: { findFirst: jest.fn().mockResolvedValue(null) },
+    });
     await expect(svc.update(user, { name: 'X' })).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('submit refuses an incomplete draft and lists what is missing', async () => {
     const { svc } = make({
-      shopMember: { findFirst: jest.fn().mockResolvedValue({ shop: draftShop() }) },
+      shopMember: {
+        findFirst: jest.fn().mockResolvedValue({ shop: draftShop() }),
+      },
     });
     await expect(svc.submit(user)).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('submit flips a complete draft to SUBMITTED', async () => {
     const complete = completeShop();
-    const update = jest.fn().mockResolvedValue({ ...complete, status: 'SUBMITTED', submittedAt: new Date() });
+    const update = jest.fn().mockResolvedValue({
+      ...complete,
+      status: 'SUBMITTED',
+      submittedAt: new Date(),
+    });
     const { svc } = make({
-      shopMember: { findFirst: jest.fn().mockResolvedValue({ shop: complete }) },
+      shopMember: {
+        findFirst: jest.fn().mockResolvedValue({ shop: complete }),
+      },
       shop: { update },
     });
     const view = await svc.submit(user);
@@ -148,7 +171,9 @@ describe('ShopOnboardingService', () => {
 
   describe('wizard fields (B3)', () => {
     function editable(shop = draftShop()) {
-      const update = jest.fn().mockImplementation(({ data }) => Promise.resolve({ ...shop, ...data }));
+      const update = jest
+        .fn()
+        .mockImplementation(({ data }) => Promise.resolve({ ...shop, ...data }));
       const ctx = make({
         shopMember: { findFirst: jest.fn().mockResolvedValue({ shop }) },
         shop: { update },
@@ -163,7 +188,9 @@ describe('ShopOnboardingService', () => {
         hours: week(),
         expressSlotsPerDay: 6,
       });
-      const { svc } = make({ shopMember: { findFirst: jest.fn().mockResolvedValue({ shop }) } });
+      const { svc } = make({
+        shopMember: { findFirst: jest.fn().mockResolvedValue({ shop }) },
+      });
       expect(await svc.mine(user)).toMatchObject({
         contactPhone: '+639171234567',
         description: 'Fresh folds',
@@ -191,7 +218,11 @@ describe('ShopOnboardingService', () => {
     it('update persists description, slots and hours (sorted by day, no extras)', async () => {
       const { svc, update } = editable();
       const shuffled = [...week({ 0: { day: 0, open: null, close: null } })].reverse();
-      await svc.update(user, { description: 'Fresh folds', expressSlotsPerDay: 12, hours: shuffled as never });
+      await svc.update(user, {
+        description: 'Fresh folds',
+        expressSlotsPerDay: 12,
+        hours: shuffled as never,
+      });
       const data = update.mock.calls[0][0].data;
       expect(data.description).toBe('Fresh folds');
       expect(data.expressSlotsPerDay).toBe(12);
@@ -233,8 +264,13 @@ describe('ShopOnboardingService', () => {
   });
 
   describe('submit rule (B3)', () => {
-    function submitting(shop: ReturnType<typeof draftShop>, opts: { r2?: boolean; services?: number } = {}) {
-      const update = jest.fn().mockImplementation(({ data }) => Promise.resolve({ ...shop, ...data }));
+    function submitting(
+      shop: ReturnType<typeof draftShop>,
+      opts: { r2?: boolean; services?: number } = {},
+    ) {
+      const update = jest
+        .fn()
+        .mockImplementation(({ data }) => Promise.resolve({ ...shop, ...data }));
       const count = jest.fn().mockResolvedValue(opts.services ?? 1);
       const ctx = make(
         {
@@ -262,20 +298,28 @@ describe('ShopOnboardingService', () => {
     it('requires at least one ACTIVE service', async () => {
       const { svc, count } = submitting(completeShop(), { services: 0 });
       expect(await missingOf(svc.submit(user))).toBe('Please add: services');
-      expect(count).toHaveBeenCalledWith({ where: { shopId: 's1', active: true } });
+      expect(count).toHaveBeenCalledWith({
+        where: { shopId: 's1', active: true },
+      });
     });
 
     it('requires the permit when R2 is configured', async () => {
-      const { svc } = submitting(completeShop({ permitKey: null }), { r2: true });
+      const { svc } = submitting(completeShop({ permitKey: null }), {
+        r2: true,
+      });
       expect(await missingOf(svc.submit(user))).toBe('Please add: business permit');
     });
 
     it('submits without a permit when R2 is not configured, flagging documentsPending', async () => {
-      const { svc, update } = submitting(completeShop({ permitKey: null }), { r2: false });
+      const { svc, update } = submitting(completeShop({ permitKey: null }), {
+        r2: false,
+      });
       const view = await svc.submit(user);
       expect(view.status).toBe('SUBMITTED');
       expect(view.documentsPending).toBe(true);
-      expect(update.mock.calls[0][0].data).toMatchObject({ status: 'SUBMITTED' });
+      expect(update.mock.calls[0][0].data).toMatchObject({
+        status: 'SUBMITTED',
+      });
     });
 
     it('a submission with a permit is not documentsPending', async () => {
@@ -293,7 +337,9 @@ describe('ShopOnboardingService', () => {
       ];
       for (const [status, permitKey, pending] of cases) {
         const { svc } = make({
-          shopMember: { findFirst: jest.fn().mockResolvedValue({ shop: draftShop({ status, permitKey }) }) },
+          shopMember: {
+            findFirst: jest.fn().mockResolvedValue({ shop: draftShop({ status, permitKey }) }),
+          },
         });
         expect((await svc.mine(user))?.documentsPending).toBe(pending);
       }

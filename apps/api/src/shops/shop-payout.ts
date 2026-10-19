@@ -16,7 +16,11 @@ export function maskAccountNumber(n: string): string {
 
 type PayoutColumns = Pick<
   Shop,
-  'payoutMethod' | 'payoutAccountName' | 'payoutAccountNumber' | 'payoutBankName' | 'payoutUpdatedAt'
+  | 'payoutMethod'
+  | 'payoutAccountName'
+  | 'payoutAccountNumber'
+  | 'payoutBankName'
+  | 'payoutUpdatedAt'
 >;
 
 export function payoutView(s: PayoutColumns): PayoutAccountView | null {

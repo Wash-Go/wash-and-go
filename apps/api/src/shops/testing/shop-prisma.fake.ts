@@ -98,7 +98,12 @@ export function fakeShopPrisma(seed: Partial<FakeTables> = {}) {
   const defaults: Record<keyof FakeTables, () => Record<string, unknown>> = {
     shop: () => ({}),
     shopMember: () => ({ createdAt: new Date() }),
-    user: () => ({ roles: [], email: null, disabledAt: null, createdAt: new Date() }),
+    user: () => ({
+      roles: [],
+      email: null,
+      disabledAt: null,
+      createdAt: new Date(),
+    }),
     shopInvite: () => ({
       role: 'STAFF',
       createdAt: new Date(),
@@ -125,11 +130,7 @@ export function fakeShopPrisma(seed: Partial<FakeTables> = {}) {
     const one = (where: Where) => rows().find((r) => matches(r, where)) ?? null;
     const assertUnique = (candidate: Row) => {
       for (const keys of uniques[name] ?? []) {
-        if (
-          rows().some(
-            (r) => r.id !== candidate.id && keys.every((k) => r[k] === candidate[k]),
-          )
-        )
+        if (rows().some((r) => r.id !== candidate.id && keys.every((k) => r[k] === candidate[k])))
           throw p2002();
       }
     };
@@ -138,22 +139,44 @@ export function fakeShopPrisma(seed: Partial<FakeTables> = {}) {
         const r = one(a.where);
         return r ? withIncludes(r, a.include) : null;
       },
-      findFirst: async (a: { where?: Where; orderBy?: OrderBy; include?: Record<string, unknown> }) => {
-        const r = sortRows(rows().filter((x) => matches(x, a.where)), a.orderBy)[0];
+      findFirst: async (a: {
+        where?: Where;
+        orderBy?: OrderBy;
+        include?: Record<string, unknown>;
+      }) => {
+        const r = sortRows(
+          rows().filter((x) => matches(x, a.where)),
+          a.orderBy,
+        )[0];
         return r ? withIncludes(r, a.include) : null;
       },
-      findMany: async (a: { where?: Where; orderBy?: OrderBy; include?: Record<string, unknown> } = {}) =>
-        sortRows(rows().filter((x) => matches(x, a.where)), a.orderBy).map((r) =>
-          withIncludes(r, a.include),
-        ),
+      findMany: async (
+        a: {
+          where?: Where;
+          orderBy?: OrderBy;
+          include?: Record<string, unknown>;
+        } = {},
+      ) =>
+        sortRows(
+          rows().filter((x) => matches(x, a.where)),
+          a.orderBy,
+        ).map((r) => withIncludes(r, a.include)),
       count: async (a: { where?: Where } = {}) => rows().filter((x) => matches(x, a.where)).length,
       create: async (a: { data: Record<string, unknown>; include?: Record<string, unknown> }) => {
-        const row = { ...defaults[name](), ...a.data, id: (a.data.id as string) ?? nextId(name) } as Row;
+        const row = {
+          ...defaults[name](),
+          ...a.data,
+          id: (a.data.id as string) ?? nextId(name),
+        } as Row;
         assertUnique(row);
         rows().push(row);
         return withIncludes(row, a.include);
       },
-      update: async (a: { where: Where; data: Record<string, unknown>; include?: Record<string, unknown> }) => {
+      update: async (a: {
+        where: Where;
+        data: Record<string, unknown>;
+        include?: Record<string, unknown>;
+      }) => {
         const r = one(a.where);
         if (!r) throw Object.assign(new Error('Record not found'), { code: 'P2025' });
         const next = { ...r, ...a.data } as Row;
@@ -177,7 +200,11 @@ export function fakeShopPrisma(seed: Partial<FakeTables> = {}) {
           Object.assign(r, a.update);
           return withIncludes(r, a.include);
         }
-        const row = { ...defaults[name](), ...a.create, id: nextId(name) } as Row;
+        const row = {
+          ...defaults[name](),
+          ...a.create,
+          id: nextId(name),
+        } as Row;
         rows().push(row);
         return withIncludes(row, a.include);
       },

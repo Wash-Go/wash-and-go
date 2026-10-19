@@ -1,8 +1,8 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import type { RemittanceBatch } from "@prisma/client";
-import { ShopAccessService } from "../shops/shop-access.service";
-import { RemittanceRepository } from "./remittance.repository";
-import { type NamedBatch, shapeBatch } from "./remittance.service";
+import { Injectable, NotFoundException } from '@nestjs/common';
+import type { RemittanceBatch } from '@prisma/client';
+import { ShopAccessService } from '../shops/shop-access.service';
+import { RemittanceRepository } from './remittance.repository';
+import { type NamedBatch, shapeBatch } from './remittance.service';
 
 // "Owed, not yet in a batch" for the caller's shop.
 export interface ShopPendingRemittanceView {
@@ -26,7 +26,7 @@ export type RemittanceBatchDetailView = NamedBatch & {
   lines: RemittanceLineView[];
 };
 
-const NOT_FOUND = "Batch not found";
+const NOT_FOUND = 'Batch not found';
 
 /*
  * Shop-facing payout reads (portal B5). The shop is ALWAYS the caller's
@@ -59,33 +59,23 @@ export class ShopRemittanceService {
     };
   }
 
-  async batchDetail(
-    userId: string,
-    batchId: string,
-  ): Promise<RemittanceBatchDetailView> {
+  async batchDetail(userId: string, batchId: string): Promise<RemittanceBatchDetailView> {
     const { shopId } = await this.access.membership(userId);
     const found = await this.repo.findBatchWithLines(batchId);
     // Another shop's batch is indistinguishable from a missing one.
-    if (!found || found.shopId !== shopId)
-      throw new NotFoundException(NOT_FOUND);
+    if (!found || found.shopId !== shopId) throw new NotFoundException(NOT_FOUND);
     const { lines, ...batch } = found;
     const [named] = await this.named([batch]);
     return {
       ...named,
       // The repo orders in SQL; sort again so the contract doesn't hinge on it.
       lines: [...lines]
-        .sort(
-          (a, b) =>
-            a.createdAt.getTime() - b.createdAt.getTime() ||
-            a.id.localeCompare(b.id),
-        )
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id))
         .map((l) => ({
           id: l.id,
           orderId: l.orderId,
           orderCode: l.order.code,
-          deliveredAt: l.order.deliveredAt
-            ? l.order.deliveredAt.toISOString()
-            : null,
+          deliveredAt: l.order.deliveredAt ? l.order.deliveredAt.toISOString() : null,
           washValuePhp: l.washValuePhp.toFixed(2),
           commissionPhp: l.commissionPhp.toFixed(2),
           payoutPhp: l.payoutPhp.toFixed(2),
@@ -106,9 +96,7 @@ export class ShopRemittanceService {
 
   private async named(batches: RemittanceBatch[]): Promise<NamedBatch[]> {
     if (batches.length === 0) return [];
-    const names = await this.repo.shopNames([
-      ...new Set(batches.map((b) => b.shopId)),
-    ]);
+    const names = await this.repo.shopNames([...new Set(batches.map((b) => b.shopId))]);
     return batches.map((b) => ({
       ...shapeBatch(b, names.get(b.shopId) ?? null),
       paidByUid: null,

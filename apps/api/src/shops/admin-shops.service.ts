@@ -104,7 +104,12 @@ export class AdminShopsService {
     const updated = await this.prisma.$transaction(async (tx) => {
       const s = await tx.shop.update({
         where: { id },
-        data: { status: 'VERIFIED', active: true, verifiedAt: new Date(), rejectionReason: null },
+        data: {
+          status: 'VERIFIED',
+          active: true,
+          verifiedAt: new Date(),
+          rejectionReason: null,
+        },
         include: { _count: { select: { services: true, members: true } } },
       });
       await this.notifyOwner(tx, id, {
@@ -145,7 +150,9 @@ export class AdminShopsService {
     shopId: string,
     data: { type: string; title: string; body: string },
   ): Promise<void> {
-    const owner = await tx.shopMember.findFirst({ where: { shopId, role: 'OWNER' } });
+    const owner = await tx.shopMember.findFirst({
+      where: { shopId, role: 'OWNER' },
+    });
     if (owner) await this.notifications.emit(tx, { userId: owner.userId, ...data });
   }
 
@@ -153,7 +160,10 @@ export class AdminShopsService {
     const shop = await this.prisma.shop.findUnique({
       where: { id },
       include: {
-        services: { include: { service: true }, orderBy: { service: { code: 'asc' } } },
+        services: {
+          include: { service: true },
+          orderBy: { service: { code: 'asc' } },
+        },
         members: { include: { user: true } },
       },
     });
@@ -192,9 +202,7 @@ export class AdminShopsService {
         ...(dto.commissionPct != null
           ? { commissionPct: new Prisma.Decimal(dto.commissionPct) }
           : {}),
-        ...(dto.expressSlotsPerDay != null
-          ? { expressSlotsPerDay: dto.expressSlotsPerDay }
-          : {}),
+        ...(dto.expressSlotsPerDay != null ? { expressSlotsPerDay: dto.expressSlotsPerDay } : {}),
       },
     });
     return this.shape(shop, 0, 0);
@@ -212,9 +220,7 @@ export class AdminShopsService {
         ...(dto.commissionPct != null
           ? { commissionPct: new Prisma.Decimal(dto.commissionPct) }
           : {}),
-        ...(dto.expressSlotsPerDay != null
-          ? { expressSlotsPerDay: dto.expressSlotsPerDay }
-          : {}),
+        ...(dto.expressSlotsPerDay != null ? { expressSlotsPerDay: dto.expressSlotsPerDay } : {}),
         ...(dto.active != null ? { active: dto.active } : {}),
       },
       include: { _count: { select: { services: true, members: true } } },
@@ -223,16 +229,14 @@ export class AdminShopsService {
   }
 
   listCatalog(): Promise<ServiceCatalogView[]> {
-    return this.prisma.serviceCatalogItem
-      .findMany({ orderBy: { code: 'asc' } })
-      .then((items) =>
-        items.map((i) => ({
-          id: i.id,
-          code: i.code,
-          name: i.name,
-          billingUnit: i.billingUnit,
-        })),
-      );
+    return this.prisma.serviceCatalogItem.findMany({ orderBy: { code: 'asc' } }).then((items) =>
+      items.map((i) => ({
+        id: i.id,
+        code: i.code,
+        name: i.name,
+        billingUnit: i.billingUnit,
+      })),
+    );
   }
 
   async addService(shopId: string, dto: AddShopServiceDto): Promise<AdminShopServiceView> {
@@ -305,7 +309,9 @@ export class AdminShopsService {
 
   async addMember(shopId: string, dto: AddShopMemberDto): Promise<AdminShopMemberView> {
     await this.mustExist(shopId);
-    const user = await this.prisma.user.findUnique({ where: { id: dto.userId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: dto.userId },
+    });
     if (!user) throw new BadRequestException('Unknown user');
     const existing = await this.prisma.shopMember.findUnique({
       where: { shopId_userId: { shopId, userId: dto.userId } },
@@ -329,7 +335,9 @@ export class AdminShopsService {
   }
 
   async removeMember(shopId: string, memberId: string): Promise<void> {
-    const member = await this.prisma.shopMember.findUnique({ where: { id: memberId } });
+    const member = await this.prisma.shopMember.findUnique({
+      where: { id: memberId },
+    });
     if (!member || member.shopId !== shopId) {
       throw new NotFoundException('Member not found on this shop');
     }
@@ -337,7 +345,10 @@ export class AdminShopsService {
   }
 
   private async mustExist(id: string): Promise<void> {
-    const shop = await this.prisma.shop.findUnique({ where: { id }, select: { id: true } });
+    const shop = await this.prisma.shop.findUnique({
+      where: { id },
+      select: { id: true },
+    });
     if (!shop) throw new NotFoundException('Shop not found');
   }
 

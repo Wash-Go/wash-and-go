@@ -26,7 +26,12 @@ const baseUser = (id: string, over: Partial<User> = {}): User =>
     ...over,
   }) as User;
 
-const openInvite = (id: string, shopId: string, email: string, over: Record<string, unknown> = {}) => ({
+const openInvite = (
+  id: string,
+  shopId: string,
+  email: string,
+  over: Record<string, unknown> = {},
+) => ({
   id,
   shopId,
   email,
@@ -49,14 +54,34 @@ function setup(opts: { users?: User[]; invites?: Seed; members?: Seed } = {}) {
       { id: 'sOwn', name: 'Own Shop' },
     ],
     user: [
-      baseUser('uOwner', { roles: ['CUSTOMER', 'SHOP_OWNER'], email: 'owner@example.com', displayName: 'Olga Owner' }),
-      baseUser('uOwnerB', { roles: ['CUSTOMER', 'SHOP_OWNER'], email: 'ownerb@example.com', displayName: 'Ben Owner' }),
+      baseUser('uOwner', {
+        roles: ['CUSTOMER', 'SHOP_OWNER'],
+        email: 'owner@example.com',
+        displayName: 'Olga Owner',
+      }),
+      baseUser('uOwnerB', {
+        roles: ['CUSTOMER', 'SHOP_OWNER'],
+        email: 'ownerb@example.com',
+        displayName: 'Ben Owner',
+      }),
       baseUser('uN', { email: 'new@example.com' }),
       ...(opts.users ?? []),
     ] as never,
     shopMember: [
-      { id: 'mOwner', shopId: 'sA', userId: 'uOwner', role: 'OWNER', createdAt: new Date() },
-      { id: 'mOwnerB', shopId: 'sB', userId: 'uOwnerB', role: 'OWNER', createdAt: new Date() },
+      {
+        id: 'mOwner',
+        shopId: 'sA',
+        userId: 'uOwner',
+        role: 'OWNER',
+        createdAt: new Date(),
+      },
+      {
+        id: 'mOwnerB',
+        shopId: 'sB',
+        userId: 'uOwnerB',
+        role: 'OWNER',
+        createdAt: new Date(),
+      },
       ...(opts.members ?? []),
     ],
     shopInvite: (opts.invites ?? [openInvite('iA', 'sA', 'new@example.com')]) as never,
@@ -82,12 +107,25 @@ describe('ShopInviteAcceptanceService', () => {
       const { svc, userRow } = setup({
         invites: [
           openInvite('iA', 'sA', 'new@example.com'),
-          openInvite('iB', 'sB', 'new@example.com', { invitedByUserId: 'uOwnerB', createdAt: new Date('2026-10-11T00:00:00Z') }),
+          openInvite('iB', 'sB', 'new@example.com', {
+            invitedByUserId: 'uOwnerB',
+            createdAt: new Date('2026-10-11T00:00:00Z'),
+          }),
         ],
       });
       await expect(svc.pending(userRow('uN'))).resolves.toEqual([
-        { id: 'iA', shopName: 'Suds A', invitedByName: 'Olga Owner', createdAt: '2026-10-10T00:00:00.000Z' },
-        { id: 'iB', shopName: 'Suds B', invitedByName: 'Ben Owner', createdAt: '2026-10-11T00:00:00.000Z' },
+        {
+          id: 'iA',
+          shopName: 'Suds A',
+          invitedByName: 'Olga Owner',
+          createdAt: '2026-10-10T00:00:00.000Z',
+        },
+        {
+          id: 'iB',
+          shopName: 'Suds B',
+          invitedByName: 'Ben Owner',
+          createdAt: '2026-10-11T00:00:00.000Z',
+        },
       ]);
     });
 
@@ -95,7 +133,10 @@ describe('ShopInviteAcceptanceService', () => {
       const { svc, userRow } = setup({
         invites: [
           openInvite('iR', 'sA', 'new@example.com', { revokedAt: new Date() }),
-          openInvite('iX', 'sB', 'new@example.com', { acceptedAt: new Date(), acceptedUserId: 'uZ' }),
+          openInvite('iX', 'sB', 'new@example.com', {
+            acceptedAt: new Date(),
+            acceptedUserId: 'uZ',
+          }),
           openInvite('iO', 'sOwn', 'other@example.com'),
         ],
       });
@@ -130,7 +171,10 @@ describe('ShopInviteAcceptanceService', () => {
         shopName: 'Suds A',
       });
       expect(userRow('uN').roles).toEqual(['CUSTOMER', 'SHOP_STAFF']);
-      expect(t.shopInvite[0]).toMatchObject({ acceptedUserId: 'uN', revokedAt: null });
+      expect(t.shopInvite[0]).toMatchObject({
+        acceptedUserId: 'uN',
+        revokedAt: null,
+      });
       expect(t.shopInvite[0].acceptedAt).toBeInstanceOf(Date);
       // Role grant is one conditional statement, after the user row lock.
       expect(raw.map((r) => r.sql)).toEqual([
@@ -154,17 +198,46 @@ describe('ShopInviteAcceptanceService', () => {
       expect(JSON.stringify(log.mock.calls)).not.toMatch(/@|Name uN/);
     });
 
-    it('repeat accept → 404 (invite no longer open); still exactly one member and one role', async () => {
+    it('repeat accept by the same user → 200 with the same member view; nothing changes', async () => {
       const { svc, t, userRow } = setup();
-      await svc.accept(userRow('uN'), 'iA');
-      await expect(svc.accept(userRow('uN'), 'iA')).rejects.toBeInstanceOf(NotFoundException);
+      const first = await svc.accept(userRow('uN'), 'iA');
+      const acceptedAt = t.shopInvite[0].acceptedAt;
+      log.mockClear();
+      const again = await svc.accept(userRow('uN'), 'iA');
+      expect(again).toEqual(first);
       expect(t.shopMember.filter((m) => m.userId === 'uN')).toHaveLength(1);
       expect(userRow('uN').roles).toEqual(['CUSTOMER', 'SHOP_STAFF']);
+      expect(t.shopInvite[0].acceptedAt).toBe(acceptedAt);
+      expect(log).not.toHaveBeenCalled();
+    });
+
+    it('repeat accept after the member was removed → 404 (no silent re-join)', async () => {
+      const { svc, t, userRow, staff } = setup();
+      const m = await svc.accept(userRow('uN'), 'iA');
+      await staff.removeMember('uOwner', m.id);
+      await expect(svc.accept(userRow('uN'), 'iA')).rejects.toBeInstanceOf(NotFoundException);
+      expect(t.shopMember.some((x) => x.userId === 'uN')).toBe(false);
+    });
+
+    it('an invite accepted by user X is still 404 for user Y with the same email', async () => {
+      const { svc, userRow } = setup({
+        users: [baseUser('uY', { email: 'new@example.com' })],
+      });
+      await svc.accept(userRow('uN'), 'iA');
+      await expect(svc.accept(userRow('uY'), 'iA')).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it.each([
       ['revoked', [openInvite('iA', 'sA', 'new@example.com', { revokedAt: new Date() })]],
-      ['accepted by someone else', [openInvite('iA', 'sA', 'new@example.com', { acceptedAt: new Date(), acceptedUserId: 'uZ' })]],
+      [
+        'accepted by someone else',
+        [
+          openInvite('iA', 'sA', 'new@example.com', {
+            acceptedAt: new Date(),
+            acceptedUserId: 'uZ',
+          }),
+        ],
+      ],
       ['for another email', [openInvite('iA', 'sA', 'someone@example.com')]],
       ['unknown', []],
     ])('%s invite → 404, nothing granted', async (_l, invites) => {
@@ -176,12 +249,19 @@ describe('ShopInviteAcceptanceService', () => {
 
     it('a caller without a verified email → 404 even for an invite to their (unverified) address', async () => {
       const { svc, t } = setup();
-      await expect(svc.accept(baseUser('uN', { email: null }), 'iA')).rejects.toBeInstanceOf(NotFoundException);
+      await expect(svc.accept(baseUser('uN', { email: null }), 'iA')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
       expect(t.shopInvite[0].acceptedAt).toBeNull();
     });
 
     it('404 messages do not distinguish why', async () => {
-      const { svc, userRow } = setup({ invites: [openInvite('iA', 'sA', 'new@example.com', { revokedAt: new Date() }), openInvite('iX', 'sB', 'x@example.com')] });
+      const { svc, userRow } = setup({
+        invites: [
+          openInvite('iA', 'sA', 'new@example.com', { revokedAt: new Date() }),
+          openInvite('iX', 'sB', 'x@example.com'),
+        ],
+      });
       const a = await svc.accept(userRow('uN'), 'iA').catch((e: Error) => e.message);
       const b = await svc.accept(userRow('uN'), 'iX').catch((e: Error) => e.message);
       const c = await svc.accept(userRow('uN'), 'nope').catch((e: Error) => e.message);
@@ -190,21 +270,50 @@ describe('ShopInviteAcceptanceService', () => {
 
     it('409 when the caller owns a shop; invite left open', async () => {
       const { svc, t, userRow } = setup({
-        users: [baseUser('uO2', { roles: ['CUSTOMER', 'SHOP_OWNER'], email: 'new@example.com' })],
-        members: [{ id: 'mO2', shopId: 'sOwn', userId: 'uO2', role: 'OWNER', createdAt: new Date() }],
+        users: [
+          baseUser('uO2', {
+            roles: ['CUSTOMER', 'SHOP_OWNER'],
+            email: 'new@example.com',
+          }),
+        ],
+        members: [
+          {
+            id: 'mO2',
+            shopId: 'sOwn',
+            userId: 'uO2',
+            role: 'OWNER',
+            createdAt: new Date(),
+          },
+        ],
       });
       const err = await svc.accept(userRow('uO2'), 'iA').catch((e: unknown) => e);
       expect(err).toBeInstanceOf(ConflictException);
       expect((err as Error).message).toMatch(/one shop per account/i);
       expect(t.shopMember.filter((m) => m.userId === 'uO2')).toHaveLength(1);
-      expect(t.shopInvite[0]).toMatchObject({ acceptedAt: null, acceptedUserId: null });
+      expect(t.shopInvite[0]).toMatchObject({
+        acceptedAt: null,
+        acceptedUserId: null,
+      });
       expect(userRow('uO2').roles).toEqual(['CUSTOMER', 'SHOP_OWNER']);
     });
 
     it('409 when the caller is already STAFF at another shop', async () => {
       const { svc, t, userRow } = setup({
-        users: [baseUser('uS', { roles: ['CUSTOMER', 'SHOP_STAFF'], email: 'new@example.com' })],
-        members: [{ id: 'mS', shopId: 'sB', userId: 'uS', role: 'STAFF', createdAt: new Date() }],
+        users: [
+          baseUser('uS', {
+            roles: ['CUSTOMER', 'SHOP_STAFF'],
+            email: 'new@example.com',
+          }),
+        ],
+        members: [
+          {
+            id: 'mS',
+            shopId: 'sB',
+            userId: 'uS',
+            role: 'STAFF',
+            createdAt: new Date(),
+          },
+        ],
       });
       await expect(svc.accept(userRow('uS'), 'iA')).rejects.toBeInstanceOf(ConflictException);
       expect(t.shopInvite[0].acceptedAt).toBeNull();
@@ -235,7 +344,8 @@ describe('ShopInviteAcceptanceService', () => {
 
     it('a lost claim race (count 0) → 404 and no member created', async () => {
       const { svc, t, userRow, prisma } = setup();
-      (prisma as unknown as { shopInvite: { updateMany: unknown } }).shopInvite.updateMany = async () => ({ count: 0 });
+      (prisma as unknown as { shopInvite: { updateMany: unknown } }).shopInvite.updateMany =
+        async () => ({ count: 0 });
       await expect(svc.accept(userRow('uN'), 'iA')).rejects.toBeInstanceOf(NotFoundException);
       expect(t.shopMember.some((m) => m.userId === 'uN')).toBe(false);
       expect(userRow('uN').roles).toEqual(['CUSTOMER']);
@@ -243,7 +353,15 @@ describe('ShopInviteAcceptanceService', () => {
 
     it('already STAFF at the inviting shop: claims the invite and reuses the membership', async () => {
       const { svc, t, userRow } = setup({
-        members: [{ id: 'mN', shopId: 'sA', userId: 'uN', role: 'STAFF', createdAt: new Date() }],
+        members: [
+          {
+            id: 'mN',
+            shopId: 'sA',
+            userId: 'uN',
+            role: 'STAFF',
+            createdAt: new Date(),
+          },
+        ],
       });
       const out = await svc.accept(userRow('uN'), 'iA');
       expect(out.id).toBe('mN');
@@ -256,7 +374,10 @@ describe('ShopInviteAcceptanceService', () => {
       expect((await staff.listMembers('uOwner')).map((m) => m.userId)).toEqual(['uOwner']);
       await svc.accept(userRow('uN'), 'iA');
       const members = await staff.listMembers('uOwner');
-      expect(members.find((m) => m.userId === 'uN')).toMatchObject({ name: 'Name uN', role: 'STAFF' });
+      expect(members.find((m) => m.userId === 'uN')).toMatchObject({
+        name: 'Name uN',
+        role: 'STAFF',
+      });
     });
   });
 
@@ -264,7 +385,9 @@ describe('ShopInviteAcceptanceService', () => {
     const { svc, t, userRow, staff } = setup({ invites: [] });
 
     const inv = await staff.createInvite('uOwner', 'New@Example.com');
-    await expect(staff.createInvite('uOwner', 'new@example.com')).rejects.toBeInstanceOf(ConflictException);
+    await expect(staff.createInvite('uOwner', 'new@example.com')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
     await staff.revokeInvite('uOwner', inv.id);
     expect(await svc.pending(userRow('uN'))).toEqual([]);
     await expect(svc.accept(userRow('uN'), inv.id)).rejects.toBeInstanceOf(NotFoundException);
@@ -273,7 +396,9 @@ describe('ShopInviteAcceptanceService', () => {
     expect((await svc.pending(userRow('uN'))).map((p) => p.id)).toEqual([again.id]);
     const joined = await svc.accept(userRow('uN'), again.id);
     expect(await staff.listInvites('uOwner')).toEqual([]);
-    await expect(staff.createInvite('uOwner', 'new@example.com')).rejects.toBeInstanceOf(ConflictException);
+    await expect(staff.createInvite('uOwner', 'new@example.com')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
 
     await staff.removeMember('uOwner', joined.id);
     expect(userRow('uN').roles).toEqual(['CUSTOMER']);

@@ -62,7 +62,12 @@ export class ShopPayoutService {
         payoutUpdatedAt: new Date(),
       },
     });
-    this.logger.log({ event: 'shop.payout_account.updated', shopId, userId, method: dto.method });
+    this.logger.log({
+      event: 'shop.payout_account.updated',
+      shopId,
+      userId,
+      method: dto.method,
+    });
     return payoutView(updated) as PayoutAccountView;
   }
 

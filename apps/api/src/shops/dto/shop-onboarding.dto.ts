@@ -9,7 +9,11 @@ export { HHMM, ShopHoursDayDto } from '../shop-hours';
 export class UpdateOnboardingDto extends ShopProfileFieldsDto {
   // R2 object keys returned by POST /uploads/presign.
   @IsOptional() @IsString() @MaxLength(300) permitKey?: string;
-  @IsOptional() @IsArray() @ArrayMaxSize(8) @IsString({ each: true }) photoKeys?: string[];
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(8)
+  @IsString({ each: true })
+  photoKeys?: string[];
 }
 
 export class RejectShopDto {

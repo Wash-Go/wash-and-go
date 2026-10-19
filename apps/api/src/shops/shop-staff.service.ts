@@ -70,7 +70,10 @@ export class ShopStaffService {
     const { shopId } = await this.access.ownerMembership(userId, 'invite staff');
     const email = normalizeInviteEmail(rawEmail);
 
-    const users = await this.prisma.user.findMany({ where: { email }, select: { id: true } });
+    const users = await this.prisma.user.findMany({
+      where: { email },
+      select: { id: true },
+    });
     if (users.length) {
       const member = await this.prisma.shopMember.findFirst({
         where: { shopId, userId: { in: users.map((u) => u.id) } },
@@ -84,7 +87,17 @@ export class ShopStaffService {
     if (existing && !existing.acceptedAt && !existing.revokedAt) {
       throw new ConflictException('That email already has an open invite');
     }
-    const open = await this.prisma.shopInvite.count({ where: { shopId, ...OPEN } });
+    // A member with no User.email on file (seeded, admin-added) is still
+    // named by the invite they accepted.
+    if (existing?.acceptedUserId) {
+      const accepted = await this.prisma.shopMember.findUnique({
+        where: { shopId_userId: { shopId, userId: existing.acceptedUserId } },
+      });
+      if (accepted) throw new ConflictException('That person is already on your team');
+    }
+    const open = await this.prisma.shopInvite.count({
+      where: { shopId, ...OPEN },
+    });
     if (open >= MAX_OPEN_INVITES) {
       throw new BadRequestException(
         `You can have at most ${MAX_OPEN_INVITES} open invites — revoke one first`,
@@ -104,12 +117,19 @@ export class ShopStaffService {
           },
         })
       : await this.prisma.shopInvite
-          .create({ data: { shopId, email, role: 'STAFF', invitedByUserId: userId } })
+          .create({
+            data: { shopId, email, role: 'STAFF', invitedByUserId: userId },
+          })
           .catch((e: unknown) => {
             if (isP2002(e)) throw new ConflictException('That email already has an open invite');
             throw e;
           });
-    this.logger.log({ event: 'shop.invite.created', shopId, actorUserId: userId, inviteId: invite.id });
+    this.logger.log({
+      event: 'shop.invite.created',
+      shopId,
+      actorUserId: userId,
+      inviteId: invite.id,
+    });
     return shapeInvite(invite);
   }
 
@@ -131,12 +151,19 @@ export class ShopStaffService {
       data: { revokedAt: new Date() },
     });
     if (count === 0) throw new NotFoundException('Open invite not found');
-    this.logger.log({ event: 'shop.invite.revoked', shopId, actorUserId: userId, inviteId });
+    this.logger.log({
+      event: 'shop.invite.revoked',
+      shopId,
+      actorUserId: userId,
+      inviteId,
+    });
   }
 
   async removeMember(userId: string, memberId: string): Promise<void> {
     const { shopId } = await this.access.ownerMembership(userId, 'remove staff');
-    const target = await this.prisma.shopMember.findUnique({ where: { id: memberId } });
+    const target = await this.prisma.shopMember.findUnique({
+      where: { id: memberId },
+    });
     if (!target || target.shopId !== shopId) throw new NotFoundException('Member not found');
     if (target.userId === userId) throw new BadRequestException('You can’t remove yourself');
     if (target.role !== 'STAFF') throw new BadRequestException('Only staff members can be removed');
@@ -154,7 +181,12 @@ export class ShopStaffService {
         await tx.$executeRaw`UPDATE "User" SET roles = array_remove(roles, 'SHOP_STAFF'::"UserRole") WHERE id = ${target.userId} AND 'SHOP_STAFF'::"UserRole" = ANY(roles)`;
       }
     });
-    this.logger.log({ event: 'shop.member.removed', shopId, actorUserId: userId, memberId: target.id });
+    this.logger.log({
+      event: 'shop.member.removed',
+      shopId,
+      actorUserId: userId,
+      memberId: target.id,
+    });
   }
 }
 

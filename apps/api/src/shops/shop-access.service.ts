@@ -25,9 +25,16 @@ export class ShopAccessService {
 
   // Any membership (OWNER or STAFF); 404 when the caller has no shop.
   async membership(userId: string): Promise<ShopMembership> {
-    const m = await this.prisma.shopMember.findFirst({ where: { userId }, orderBy: MEMBER_ORDER });
+    const m = await this.prisma.shopMember.findFirst({
+      where: { userId },
+      orderBy: MEMBER_ORDER,
+    });
     if (!m) throw new NotFoundException(NO_SHOP_MESSAGE);
-    return { memberId: m.id, shopId: m.shopId, role: m.role as ShopMembership['role'] };
+    return {
+      memberId: m.id,
+      shopId: m.shopId,
+      role: m.role as ShopMembership['role'],
+    };
   }
 
   // Money/settings routes: 404 with no shop, 403 for STAFF.

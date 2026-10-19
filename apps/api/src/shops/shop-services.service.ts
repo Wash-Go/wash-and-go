@@ -41,8 +41,15 @@ export class ShopServicesService {
 
   async catalog(userId: string): Promise<ShopCatalogItemView[]> {
     await this.access.membership(userId);
-    const items = await this.prisma.serviceCatalogItem.findMany({ orderBy: { code: 'asc' } });
-    return items.map((i) => ({ id: i.id, code: i.code, name: i.name, billingUnit: i.billingUnit }));
+    const items = await this.prisma.serviceCatalogItem.findMany({
+      orderBy: { code: 'asc' },
+    });
+    return items.map((i) => ({
+      id: i.id,
+      code: i.code,
+      name: i.name,
+      billingUnit: i.billingUnit,
+    }));
   }
 
   async list(userId: string): Promise<OwnerShopServiceView[]> {
@@ -61,7 +68,9 @@ export class ShopServicesService {
     dto: PutShopServiceDto,
   ): Promise<OwnerShopServiceView> {
     const { shopId } = await this.access.ownerMembership(userId, 'change rates');
-    const service = await this.prisma.serviceCatalogItem.findUnique({ where: { id: serviceId } });
+    const service = await this.prisma.serviceCatalogItem.findUnique({
+      where: { id: serviceId },
+    });
     if (!service) throw new NotFoundException('Unknown catalog service');
     const fields = {
       ratePhp: new Prisma.Decimal(dto.ratePhp),

@@ -65,7 +65,12 @@ export class ShopOnboardingService {
     const shop = await this.prisma.$transaction(async (tx) => {
       const created = await tx.shop.create({
         // Owner-set placeholders; the wizard fills real name/address/coords.
-        data: { name: 'My laundry', address: '', lat: new Prisma.Decimal(0), lng: new Prisma.Decimal(0) },
+        data: {
+          name: 'My laundry',
+          address: '',
+          lat: new Prisma.Decimal(0),
+          lng: new Prisma.Decimal(0),
+        },
       });
       await tx.shopMember.create({
         data: { shopId: created.id, userId: user.id, role: 'OWNER' },
@@ -128,7 +133,11 @@ export class ShopOnboardingService {
     }
     const updated = await this.prisma.shop.update({
       where: { id: shop.id },
-      data: { status: 'SUBMITTED', submittedAt: new Date(), rejectionReason: null },
+      data: {
+        status: 'SUBMITTED',
+        submittedAt: new Date(),
+        rejectionReason: null,
+      },
     });
     return this.shape(updated);
   }
@@ -161,8 +170,7 @@ export class ShopOnboardingService {
       // Written only through normalizeHours, so the stored JSON is the grid shape.
       hours: (s.hours as unknown as ShopHoursDay[] | null) ?? null,
       expressSlotsPerDay: s.expressSlotsPerDay,
-      documentsPending:
-        (s.status === 'SUBMITTED' || s.status === 'VERIFIED') && !s.permitKey,
+      documentsPending: (s.status === 'SUBMITTED' || s.status === 'VERIFIED') && !s.permitKey,
     };
   }
 }

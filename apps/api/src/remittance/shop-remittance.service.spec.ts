@@ -31,14 +31,20 @@ const line = (id: string, createdAt: string, over: Record<string, unknown> = {})
   payoutPhp: D('132.00'),
   batchId: 'bA',
   createdAt: new Date(createdAt),
-  order: { code: `WG-2026-${id}`, deliveredAt: new Date('2026-10-06T10:00:00Z') },
+  order: {
+    code: `WG-2026-${id}`,
+    deliveredAt: new Date('2026-10-06T10:00:00Z'),
+  },
   ...over,
 });
 
 function setup() {
   // Shop membership comes from the shared ShopAccessService over the fake.
   const fake = fakeShopPrisma({
-    shop: [{ id: 'sA', name: 'Suds A' }, { id: 'sB', name: 'Suds B' }],
+    shop: [
+      { id: 'sA', name: 'Suds A' },
+      { id: 'sB', name: 'Suds B' },
+    ],
     shopMember: [
       { id: 'mA', shopId: 'sA', userId: 'uA', role: 'OWNER' },
       { id: 'mS', shopId: 'sA', userId: 'uS', role: 'STAFF' },
@@ -79,14 +85,26 @@ describe('ShopRemittanceService', () => {
 
     it('nothing pending → zero total and null oldest', async () => {
       const { svc, repo } = setup();
-      repo.pendingForShop.mockResolvedValue({ total: D(0), count: 0, oldest: null });
-      expect(await svc.pending('uB')).toEqual({ totalPhp: '0.00', lineCount: 0, oldestLineAt: null });
+      repo.pendingForShop.mockResolvedValue({
+        total: D(0),
+        count: 0,
+        oldest: null,
+      });
+      expect(await svc.pending('uB')).toEqual({
+        totalPhp: '0.00',
+        lineCount: 0,
+        oldestLineAt: null,
+      });
       expect(repo.pendingForShop).toHaveBeenCalledWith('sB');
     });
 
     it('staff can read it (their shop)', async () => {
       const { svc, repo } = setup();
-      repo.pendingForShop.mockResolvedValue({ total: D(0), count: 0, oldest: null });
+      repo.pendingForShop.mockResolvedValue({
+        total: D(0),
+        count: 0,
+        oldest: null,
+      });
       await svc.pending('uS');
       expect(repo.pendingForShop).toHaveBeenCalledWith('sA');
     });
@@ -103,7 +121,12 @@ describe('ShopRemittanceService', () => {
       const { svc, repo } = setup();
       repo.findBatchWithLines.mockResolvedValue({
         ...batch('bA', 'sA'),
-        lines: [line('000002', '2026-10-07T00:00:00Z'), line('000001', '2026-10-06T12:00:00Z', { order: { code: 'WG-2026-000001', deliveredAt: null } })],
+        lines: [
+          line('000002', '2026-10-07T00:00:00Z'),
+          line('000001', '2026-10-06T12:00:00Z', {
+            order: { code: 'WG-2026-000001', deliveredAt: null },
+          }),
+        ],
       });
       const out = await svc.batchDetail('uA', 'bA');
       expect(out).toMatchObject({
@@ -144,7 +167,10 @@ describe('ShopRemittanceService', () => {
 
     it('the batch part serializes exactly like the shop list item', async () => {
       const { svc, repo } = setup();
-      repo.findBatchWithLines.mockResolvedValue({ ...batch('bA', 'sA'), lines: [] });
+      repo.findBatchWithLines.mockResolvedValue({
+        ...batch('bA', 'sA'),
+        lines: [],
+      });
       repo.listBatches.mockResolvedValue([batch('bA', 'sA')]);
       const { lines, ...detail } = await svc.batchDetail('uA', 'bA');
       const [listed] = await svc.listBatches('uA');
@@ -154,23 +180,36 @@ describe('ShopRemittanceService', () => {
 
     it('staff can open their shop’s batch', async () => {
       const { svc, repo } = setup();
-      repo.findBatchWithLines.mockResolvedValue({ ...batch('bA', 'sA'), lines: [] });
-      await expect(svc.batchDetail('uS', 'bA')).resolves.toMatchObject({ id: 'bA' });
+      repo.findBatchWithLines.mockResolvedValue({
+        ...batch('bA', 'sA'),
+        lines: [],
+      });
+      await expect(svc.batchDetail('uS', 'bA')).resolves.toMatchObject({
+        id: 'bA',
+      });
     });
 
     it('another shop’s batch → 404 (not 403), with nothing of it in the error', async () => {
       const { svc, repo } = setup();
-      repo.findBatchWithLines.mockResolvedValue({ ...batch('bB', 'sB'), lines: [line('x', '2026-10-06T00:00:00Z')] });
+      repo.findBatchWithLines.mockResolvedValue({
+        ...batch('bB', 'sB'),
+        lines: [line('x', '2026-10-06T00:00:00Z')],
+      });
       const err = await svc.batchDetail('uA', 'bB').catch((e: unknown) => e);
       expect(err).toBeInstanceOf(NotFoundException);
-      expect(JSON.stringify((err as NotFoundException).getResponse())).not.toMatch(/sB|Suds B|GC-123/);
+      expect(JSON.stringify((err as NotFoundException).getResponse())).not.toMatch(
+        /sB|Suds B|GC-123/,
+      );
     });
 
     it('an unknown batch id → the same 404', async () => {
       const { svc, repo } = setup();
       repo.findBatchWithLines.mockResolvedValue(null);
       const unknown = await svc.batchDetail('uA', 'nope').catch((e: unknown) => e);
-      repo.findBatchWithLines.mockResolvedValue({ ...batch('bB', 'sB'), lines: [] });
+      repo.findBatchWithLines.mockResolvedValue({
+        ...batch('bB', 'sB'),
+        lines: [],
+      });
       const foreign = await svc.batchDetail('uA', 'bB').catch((e: unknown) => e);
       expect((unknown as NotFoundException).getResponse()).toEqual(
         (foreign as NotFoundException).getResponse(),
@@ -191,7 +230,12 @@ describe('ShopRemittanceService', () => {
       const out = await svc.listBatches('uS');
       expect(repo.listBatches).toHaveBeenCalledWith({ shopId: 'sA' });
       expect(out).toEqual([
-        expect.objectContaining({ id: 'bA', shopName: 'Suds A', paidByUid: null, totalPhp: '264.00' }),
+        expect.objectContaining({
+          id: 'bA',
+          shopName: 'Suds A',
+          paidByUid: null,
+          totalPhp: '264.00',
+        }),
       ]);
       expect(JSON.stringify(out)).not.toContain('fb-admin-secret');
     });

@@ -46,7 +46,9 @@ export class ShopProfileService {
 
   async update(userId: string, dto: UpdateShopProfileDto): Promise<ShopProfileView> {
     const m = await this.access.ownerMembership(userId, 'edit the shop');
-    const shop = (await this.prisma.shop.findUnique({ where: { id: m.shopId } })) as Shop;
+    const shop = (await this.prisma.shop.findUnique({
+      where: { id: m.shopId },
+    })) as Shop;
     if (shop.status === 'DRAFT' || shop.status === 'SUBMITTED') {
       throw new ConflictException(
         'This shop is still in onboarding — edit it with PATCH /shop/onboarding',

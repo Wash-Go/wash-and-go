@@ -24,7 +24,16 @@ describe('toMe (GET /auth/me, POST /auth/session, PATCH /auth/me)', () => {
       displayName: 'Ana',
       roles: ['CUSTOMER'],
       emailVerified: false,
+      inviteEmailOnFile: false,
     });
+  });
+
+  // The portal gates the "you have an invite?" prompt on a stored (verified)
+  // email, which is what invite matching uses — not on this token's flag.
+  it('inviteEmailOnFile is true exactly when User.email is set', () => {
+    expect(toMe(makeUser({ email: 'ana@example.com' } as never), false).inviteEmailOnFile).toBe(true);
+    expect(toMe(makeUser({ email: null } as never), true).inviteEmailOnFile).toBe(false);
+    expect(JSON.stringify(toMe(makeUser({ email: 'ana@example.com' } as never), true))).not.toContain('ana@');
   });
 
   // The portal prompts for email verification before showing staff invites.

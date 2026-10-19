@@ -35,6 +35,13 @@ describe('PutShopServiceDto', () => {
     expect(await errors({ ratePhp: 25, active: true })).not.toEqual([]);
     expect(await errors({ ratePhp: 25, turnaroundHours: 24 })).not.toEqual([]);
     expect(await errors({ ratePhp: 25, turnaroundHours: 24, active: 'yes' })).not.toEqual([]);
-    expect(await errors({ ratePhp: 25, turnaroundHours: 24, active: true, shopId: 'sB' })).not.toEqual([]);
+    expect(
+      await errors({
+        ratePhp: 25,
+        turnaroundHours: 24,
+        active: true,
+        shopId: 'sB',
+      }),
+    ).not.toEqual([]);
   });
 });

@@ -16,10 +16,13 @@ describe('CreateShopInviteDto', () => {
     expect(await errors({ email: 'Staff@Example.com' })).toEqual([]);
   });
 
-  it.each([{}, { email: 'not-an-email' }, { email: `${'a'.repeat(250)}@x.co` }, { email: 'a@b.co', role: 'OWNER' }, { email: 'a@b.co', shopId: 's' }])(
-    'rejects %p',
-    async (body) => {
-      expect(await errors(body)).not.toEqual([]);
-    },
-  );
+  it.each([
+    {},
+    { email: 'not-an-email' },
+    { email: `${'a'.repeat(250)}@x.co` },
+    { email: 'a@b.co', role: 'OWNER' },
+    { email: 'a@b.co', shopId: 's' },
+  ])('rejects %p', async (body) => {
+    expect(await errors(body)).not.toEqual([]);
+  });
 });

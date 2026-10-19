@@ -35,7 +35,9 @@ describe('RemittanceService', () => {
       // Default happy path: every requested line is claimed (count === ids.length).
       assignLinesToBatch: jest
         .fn()
-        .mockImplementation((_tx: unknown, ids: string[]) => Promise.resolve({ count: ids.length })),
+        .mockImplementation((_tx: unknown, ids: string[]) =>
+          Promise.resolve({ count: ids.length }),
+        ),
       findBatchById: jest.fn(),
       markBatchPaid: jest.fn(),
       listBatches: jest.fn(),
@@ -70,19 +72,22 @@ describe('RemittanceService', () => {
       expect(repo.listBatches).toHaveBeenCalledWith({ status: 'PENDING' });
       expect(repo.shopNames).toHaveBeenCalledTimes(1);
       expect(repo.shopNames.mock.calls[0][0].sort()).toEqual(['shopA', 'shopB']);
-      expect(out.map((b) => b.shopName)).toEqual([
-        'Suds & Co',
-        'Bubble Wash',
-        'Suds & Co',
-      ]);
+      expect(out.map((b) => b.shopName)).toEqual(['Suds & Co', 'Bubble Wash', 'Suds & Co']);
       // Every batch view carries totalPhp as a 2dp string (list, detail, admin).
       expect(out.map((b) => b.totalPhp)).toEqual(['264.00', '12.50', '0.00']);
     });
 
     it('leaves shopName null when the shop row is gone (shopId has no FK)', async () => {
-      repo.listBatches.mockResolvedValue([{ id: 'b1', shopId: 'ghost', totalPhp: D('88') }] as never);
+      repo.listBatches.mockResolvedValue([
+        { id: 'b1', shopId: 'ghost', totalPhp: D('88') },
+      ] as never);
       const out = await service.listBatches({});
-      expect(out[0]).toEqual({ id: 'b1', shopId: 'ghost', totalPhp: '88.00', shopName: null });
+      expect(out[0]).toEqual({
+        id: 'b1',
+        shopId: 'ghost',
+        totalPhp: '88.00',
+        shopName: null,
+      });
     });
 
     it('skips the shop lookup when there are no batches', async () => {
@@ -159,18 +164,13 @@ describe('RemittanceService', () => {
     });
 
     it('throws (rolls back) when a concurrent close already claimed some lines', async () => {
-      repo.findUnbatchedLines.mockResolvedValue([
-        line('l1', '132'),
-        line('l2', '88'),
-      ] as never);
+      repo.findUnbatchedLines.mockResolvedValue([line('l1', '132'), line('l2', '88')] as never);
       repo.createBatch.mockImplementation((_tx, data) =>
         Promise.resolve({ id: 'b1', status: 'PENDING', ...data } as never),
       );
       // Only 1 of the 2 lines was still unbatched — the other lost the race.
       repo.assignLinesToBatch.mockResolvedValue({ count: 1 } as never);
-      await expect(service.closeBatch('shop1', period)).rejects.toBeInstanceOf(
-        ConflictException,
-      );
+      await expect(service.closeBatch('shop1', period)).rejects.toBeInstanceOf(ConflictException);
     });
 
     it('returns null and writes nothing when there are no unbatched lines', async () => {
@@ -232,7 +232,10 @@ describe('RemittanceService', () => {
 
   describe('markPaid', () => {
     it('sets PAID + reference on a pending batch', async () => {
-      repo.findBatchById.mockResolvedValue({ id: 'b1', status: 'PENDING' } as never);
+      repo.findBatchById.mockResolvedValue({
+        id: 'b1',
+        status: 'PENDING',
+      } as never);
       repo.markBatchPaid.mockResolvedValue({
         id: 'b1',
         shopId: 'shop1',
@@ -253,7 +256,12 @@ describe('RemittanceService', () => {
     });
 
     it('is idempotent — an already-paid batch is returned without a second write', async () => {
-      const paid = { id: 'b1', status: 'PAID', reference: 'OLD', totalPhp: D('264.5') };
+      const paid = {
+        id: 'b1',
+        status: 'PAID',
+        reference: 'OLD',
+        totalPhp: D('264.5'),
+      };
       repo.findBatchById.mockResolvedValue(paid as never);
 
       const out = await service.markPaid('b1', 'NEW-REF', 'admin1');
@@ -264,9 +272,9 @@ describe('RemittanceService', () => {
 
     it('404s a missing batch', async () => {
       repo.findBatchById.mockResolvedValue(null as never);
-      await expect(
-        service.markPaid('nope', 'ref', 'admin1'),
-      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.markPaid('nope', 'ref', 'admin1')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
 });

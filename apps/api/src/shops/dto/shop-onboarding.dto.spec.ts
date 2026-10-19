@@ -45,7 +45,9 @@ describe('UpdateOnboardingDto — wizard fields', () => {
 
   it('rejects hours that are not exactly 7 entries', async () => {
     expect(await errors({ hours: week().slice(0, 6) })).not.toEqual([]);
-    expect(await errors({ hours: [...week(), { day: 0, open: null, close: null }] })).not.toEqual([]);
+    expect(await errors({ hours: [...week(), { day: 0, open: null, close: null }] })).not.toEqual(
+      [],
+    );
   });
 
   it.each([

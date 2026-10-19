@@ -34,7 +34,12 @@ describe('Remittance integration (Docker Postgres)', () => {
   beforeAll(async () => {
     await prisma.$connect();
     const shop = await prisma.shop.create({
-      data: { name: SHOP_NAME, address: 'Test', lat: D('6.9'), lng: D('122.07') },
+      data: {
+        name: SHOP_NAME,
+        address: 'Test',
+        lat: D('6.9'),
+        lng: D('122.07'),
+      },
     });
     SHOP = shop.id;
     before = await service.summary();
@@ -80,7 +85,9 @@ describe('Remittance integration (Docker Postgres)', () => {
   afterAll(async () => {
     await prisma.remittanceLine.deleteMany({ where: { shopId: SHOP } });
     if (batchIds.length) {
-      await prisma.remittanceBatch.deleteMany({ where: { id: { in: batchIds } } });
+      await prisma.remittanceBatch.deleteMany({
+        where: { id: { in: batchIds } },
+      });
     }
     await prisma.order.deleteMany({ where: { id: { in: orderIds } } });
     await prisma.user.deleteMany({ where: { id: customerId } });
@@ -98,7 +105,9 @@ describe('Remittance integration (Docker Postgres)', () => {
     expect(batch!.lineCount).toBe(2);
     expect(batch!.status).toBe('PENDING');
 
-    const lines = await prisma.remittanceLine.findMany({ where: { shopId: SHOP } });
+    const lines = await prisma.remittanceLine.findMany({
+      where: { shopId: SHOP },
+    });
     expect(lines.every((l) => l.batchId === batch!.id)).toBe(true);
   });
 

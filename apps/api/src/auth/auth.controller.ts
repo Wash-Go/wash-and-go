@@ -44,6 +44,9 @@ type MeResponse = {
   // google.com, emailLink). False for the dev stub. The portal prompts for
   // verification when false, since staff invites match only verified emails.
   emailVerified: boolean;
+  // A verified email is stored on the account (User.email) — what staff
+  // invites match on. The address itself is never returned here.
+  inviteEmailOnFile: boolean;
 };
 
 export function toMe(user: User, emailVerified: boolean): MeResponse {
@@ -53,6 +56,7 @@ export function toMe(user: User, emailVerified: boolean): MeResponse {
     displayName: user.displayName,
     roles: user.roles,
     emailVerified,
+    inviteEmailOnFile: user.email != null,
   };
 }
 
@@ -69,7 +73,9 @@ export class AuthController {
   @Public()
   @Post('session')
   async session(@Body() dto: SessionDto): Promise<MeResponse> {
-    const { user, emailVerified } = await this.auth.startSession({ bearer: dto.idToken });
+    const { user, emailVerified } = await this.auth.startSession({
+      bearer: dto.idToken,
+    });
     return toMe(user, emailVerified);
   }
 

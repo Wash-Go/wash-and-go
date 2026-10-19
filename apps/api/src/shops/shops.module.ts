@@ -44,5 +44,7 @@ import { ShopInvitesController } from './shop-invite-acceptance.controller';
     ShopStaffService,
     ShopInviteAcceptanceService,
   ],
+  // The one caller → shop resolver; RemittanceModule's shop routes use it too.
+  exports: [ShopAccessService],
 })
 export class ShopsModule {}
