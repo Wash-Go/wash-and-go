@@ -176,7 +176,12 @@ export class ShopOnboardingService {
 
   private ownedShop(userId: string): Promise<Shop | null> {
     return this.prisma.shopMember
-      .findFirst({ where: { userId, role: 'OWNER' }, include: { shop: true } })
+      // Deterministic if a user ever owns two shops: lowest member id wins.
+      .findFirst({
+        where: { userId, role: 'OWNER' },
+        orderBy: [{ role: 'asc' }, { id: 'asc' }],
+        include: { shop: true },
+      })
       .then((m) => m?.shop ?? null);
   }
 

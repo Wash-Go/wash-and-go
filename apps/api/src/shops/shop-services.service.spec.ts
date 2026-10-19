@@ -10,7 +10,7 @@ const catalog = [
   { id: 'c-dry', code: 'DRY_CLEAN', name: 'Dry clean', billingUnit: 'PER_PIECE' },
 ];
 
-type Member = { userId: string; shopId: string; role: 'OWNER' | 'STAFF' };
+type Member = { id?: string; userId: string; shopId: string; role: 'OWNER' | 'STAFF' };
 type Row = {
   id: string;
   shopId: string;
@@ -42,13 +42,23 @@ function make(members: Member[], rows: Row[] = []) {
   );
   const prisma = {
     shopMember: {
-      // Mirrors the service's query: the caller's membership, OWNER first.
-      findFirst: jest.fn(({ where }: { where: { userId: string } }) =>
-        Promise.resolve(
-          [...members]
+      // Honors the service's where + orderBy (an array of { field: 'asc' }), so
+      // a missing tie-breaker shows up as insertion-order resolution.
+      findFirst: jest.fn(
+        ({ where, orderBy }: { where: { userId: string }; orderBy?: Array<Record<string, 'asc'>> }) => {
+          const keys = (orderBy ?? []).map((o) => Object.keys(o)[0] as keyof Member);
+          const rows = members
+            .map((m) => ({ ...m, id: m.id ?? `${m.shopId}-${m.userId}` }))
             .filter((m) => m.userId === where.userId)
-            .sort((a, b) => a.role.localeCompare(b.role))[0] ?? null,
-        ),
+            .sort((a, b) => {
+              for (const k of keys) {
+                const c = String(a[k]).localeCompare(String(b[k]));
+                if (c) return c;
+              }
+              return 0;
+            });
+          return Promise.resolve(rows[0] ?? null);
+        },
       ),
     },
     serviceCatalogItem: {
@@ -92,7 +102,7 @@ describe('ShopServicesService', () => {
     await expect(svc.catalog('nobody')).rejects.toBeInstanceOf(NotFoundException);
     await expect(svc.list('nobody')).rejects.toBeInstanceOf(NotFoundException);
     await expect(
-      svc.upsert('nobody', 'c-wdf', { ratePhp: 25, turnaroundHours: 24 }),
+      svc.upsert('nobody', 'c-wdf', { ratePhp: 25, turnaroundHours: 24, active: true }),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
@@ -118,9 +128,9 @@ describe('ShopServicesService', () => {
     expect(await svc.list('uS')).toHaveLength(1);
   });
 
-  it('upsert creates a row on the caller’s shop (active by default)', async () => {
+  it('upsert creates a row on the caller’s shop', async () => {
     const { svc, upsert } = make([ownerA]);
-    const view = await svc.upsert('uA', 'c-wdf', { ratePhp: 25, turnaroundHours: 24 });
+    const view = await svc.upsert('uA', 'c-wdf', { ratePhp: 25, turnaroundHours: 24, active: true });
     expect(upsert.mock.calls[0][0].where).toEqual({ shopId_serviceId: { shopId: 'sA', serviceId: 'c-wdf' } });
     expect(view).toEqual({
       id: 'ss-1',
@@ -145,7 +155,7 @@ describe('ShopServicesService', () => {
   it('upsert 404s an unknown catalog id', async () => {
     const { svc, upsert } = make([ownerA]);
     await expect(
-      svc.upsert('uA', 'c-nope', { ratePhp: 25, turnaroundHours: 24 }),
+      svc.upsert('uA', 'c-nope', { ratePhp: 25, turnaroundHours: 24, active: true }),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(upsert).not.toHaveBeenCalled();
   });
@@ -153,7 +163,7 @@ describe('ShopServicesService', () => {
   it('staff cannot set rates (403)', async () => {
     const { svc, upsert } = make([staffA]);
     await expect(
-      svc.upsert('uS', 'c-wdf', { ratePhp: 25, turnaroundHours: 24 }),
+      svc.upsert('uS', 'c-wdf', { ratePhp: 25, turnaroundHours: 24, active: true }),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(upsert).not.toHaveBeenCalled();
   });
@@ -162,10 +172,27 @@ describe('ShopServicesService', () => {
     const b = { ...rowB };
     const { svc, rows } = make([ownerA, ownerB], [b]);
     expect(await svc.list('uA')).toEqual([]);
-    await svc.upsert('uA', 'c-wdf', { ratePhp: 99, turnaroundHours: 6 });
+    await svc.upsert('uA', 'c-wdf', { ratePhp: 99, turnaroundHours: 6, active: true });
     // B's row is untouched; A got its own new row.
     expect(b).toMatchObject({ shopId: 'sB', ratePhp: D(30), turnaroundHours: 24 });
     expect(rows.filter((r) => r.shopId === 'sA')).toHaveLength(1);
     expect((await svc.list('uB'))[0].ratePhp).toBe('30.00');
+  });
+
+  it('a user with two same-role memberships always resolves the lower member id', async () => {
+    // Inserted higher-id first, so insertion order alone would pick sZ.
+    const { svc } = make(
+      [
+        { id: 'm2', userId: 'uS', shopId: 'sZ', role: 'STAFF' },
+        { id: 'm1', userId: 'uS', shopId: 'sY', role: 'STAFF' },
+      ],
+      [
+        { id: 'ss-y', shopId: 'sY', serviceId: 'c-wdf', ratePhp: D(20), turnaroundHours: 24, active: true },
+        { id: 'ss-z', shopId: 'sZ', serviceId: 'c-wdf', ratePhp: D(40), turnaroundHours: 24, active: true },
+      ],
+    );
+    for (let i = 0; i < 3; i++) {
+      expect((await svc.list('uS')).map((r) => r.id)).toEqual(['ss-y']);
+    }
   });
 });

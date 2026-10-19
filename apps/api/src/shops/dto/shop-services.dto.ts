@@ -1,10 +1,11 @@
-import { IsBoolean, IsInt, IsNumber, IsOptional, IsPositive, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsNumber, IsPositive, Max, Min } from 'class-validator';
 
 // PUT /shop/services/:serviceId — the owner's price for one catalog service.
-// Same bounds as the admin AddShopServiceDto / UpdateShopServiceDto. PUT is a
-// full replace: omitting `active` means active.
+// Admin DTO bounds plus caps: ratePhp at most ₱99,999 with centavos (fits
+// Decimal(10,2) with room), turnaround at most 720 h (30 days). PUT is a full
+// replace, so every field — including `active` — is required.
 export class PutShopServiceDto {
-  @IsNumber() @IsPositive() ratePhp!: number;
-  @IsInt() @Min(1) turnaroundHours!: number;
-  @IsOptional() @IsBoolean() active?: boolean;
+  @IsNumber({ maxDecimalPlaces: 2 }) @IsPositive() @Max(99999) ratePhp!: number;
+  @IsInt() @Min(1) @Max(720) turnaroundHours!: number;
+  @IsBoolean() active!: boolean;
 }

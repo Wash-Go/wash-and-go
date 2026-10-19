@@ -72,6 +72,17 @@ describe('ShopOnboardingService', () => {
     expect(await svc.mine(user)).toBeNull();
   });
 
+  it('ownedShop pins the lookup: OWNER rows only, lowest member id on a tie', async () => {
+    const findFirst = jest.fn().mockResolvedValue(null);
+    const { svc } = make({ shopMember: { findFirst } });
+    await svc.mine(user);
+    expect(findFirst).toHaveBeenCalledWith({
+      where: { userId: 'u1', role: 'OWNER' },
+      orderBy: [{ role: 'asc' }, { id: 'asc' }],
+      include: { shop: true },
+    });
+  });
+
   it('start creates a DRAFT shop + OWNER member + grants SHOP_OWNER', async () => {
     const shopCreate = jest.fn().mockResolvedValue(draftShop());
     const memberCreate = jest.fn();

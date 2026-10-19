@@ -68,7 +68,7 @@ export class ShopServicesService {
     const fields = {
       ratePhp: new Prisma.Decimal(dto.ratePhp),
       turnaroundHours: dto.turnaroundHours,
-      active: dto.active ?? true,
+      active: dto.active,
     };
     // Keyed on the (shopId, serviceId) unique, so a concurrent PUT can't
     // create a duplicate row.
@@ -81,11 +81,13 @@ export class ShopServicesService {
     return this.shape(row);
   }
 
-  // The caller's membership; OWNER wins if they somehow hold both.
+  // The caller's membership. OWNER wins over STAFF ('OWNER' < 'STAFF'); two
+  // memberships of the same role resolve to the lowest member id, so the
+  // caller always lands on the same shop.
   private async membership(userId: string): Promise<Membership> {
     const m = await this.prisma.shopMember.findFirst({
       where: { userId },
-      orderBy: { role: 'asc' }, // 'OWNER' < 'STAFF'
+      orderBy: [{ role: 'asc' }, { id: 'asc' }],
     });
     if (!m) throw new NotFoundException('You don’t have a shop yet — start onboarding first');
     return { shopId: m.shopId, role: m.role };
