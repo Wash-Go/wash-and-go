@@ -34,7 +34,7 @@ export class UpdateMeDto {
   phone?: string;
 }
 
-type MeResponse = {
+export type MeResponse = {
   id: string;
   // null until the user adds a mobile number (the placeholder is never shown).
   phone: string | null;
