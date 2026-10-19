@@ -9,7 +9,6 @@ import { OrdersLiveProvider, useOrdersLive } from '../orders/OrdersLive';
 import { useConsole } from '../console/ConsoleContext';
 import { useLastLive, useNow, useOnline } from '../../lib/live';
 import { activeTab, MORE_ITEMS, RAIL_ITEMS, TAB_ITEMS, type NavItem } from '../../lib/nav';
-import { countLabel } from '../../lib/queue';
 import { formatUpdatedAgo } from '../../lib/relative-time';
 import { ShopChip } from './Chip';
 import { NAV_ICONS } from './icons';
@@ -30,11 +29,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 // The Orders nav item carries the Needs-you count (plan A3 flow 3).
 function NavCount({ item }: { item: NavItem }) {
-  const { needsCount, needsFull } = useOrdersLive();
+  const { needsCount } = useOrdersLive();
   if (item.key !== 'orders' || needsCount === 0) return null;
   return (
     <span className="nav-count" data-testid="nav-needs-count">
-      {countLabel(needsCount, needsFull)}
+      {needsCount}
       <span className="sr-only"> need you</span>
     </span>
   );

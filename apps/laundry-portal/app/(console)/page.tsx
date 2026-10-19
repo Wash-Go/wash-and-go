@@ -1,6 +1,6 @@
 'use client';
-import { useQueries, useQueryClient } from '@tanstack/react-query';
-import type { OrderStatus, OrderView } from '@wash-and-go/domain';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { OrderView } from '@wash-and-go/domain';
 import { ChevronDown, Inbox, RefreshCw, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react';
@@ -18,20 +18,17 @@ import { api } from '../../lib/api';
 import { useLastLive, useNow, useOnline } from '../../lib/live';
 import { ORDERS_KEY, orderListQuery } from '../../lib/order-queries';
 import {
-  BUCKET_STATUSES,
   countLabel,
   mergeOrders,
+  partitionQueue,
   QUEUE_PAGE,
   QUEUE_TABS,
   sortQueue,
-  type QueueBucket,
   type QueueTab,
 } from '../../lib/queue';
 import { formatUpdatedAgo } from '../../lib/relative-time';
 import { DESKTOP, useMedia } from '../../lib/useMedia';
 
-type Extra = { items: OrderView[]; exhausted: boolean };
-const ALL_STATUSES = (Object.keys(BUCKET_STATUSES) as QueueBucket[]).flatMap((b) => BUCKET_STATUSES[b]);
 const isTab = (v: string | null): v is QueueTab => QUEUE_TABS.some((t) => t.key === v);
 
 const EMPTY: Record<QueueTab, { title: string; body: string }> = {
@@ -53,7 +50,8 @@ export default function OrdersPage() {
   const [tab, setTabState] = useState<QueueTab>('needs');
   const [search, setSearch] = useState('');
   const [q, setQ] = useState('');
-  const [extras, setExtras] = useState<Partial<Record<OrderStatus, Extra>>>({});
+  const [extras, setExtras] = useState<OrderView[]>([]);
+  const [exhausted, setExhausted] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [moreError, setMoreError] = useState(false);
   const [weighing, setWeighing] = useState<OrderView | null>(null);
@@ -77,66 +75,37 @@ export default function OrdersPage() {
     return () => clearTimeout(id);
   }, [search]);
   useEffect(() => {
-    setExtras({});
+    setExtras([]);
+    setExhausted(false);
     setMoreError(false);
   }, [q]);
 
-  const results = useQueries({ queries: ALL_STATUSES.map((s) => orderListQuery(s, q)) });
-  const byStatus = useMemo(() => {
-    const m = {} as Record<OrderStatus, (typeof results)[number]>;
-    ALL_STATUSES.forEach((s, i) => (m[s] = results[i]));
-    return m;
-  }, [results]);
-
+  const list = useQuery(orderListQuery(q));
   const isNew = useCallback((id: string) => live.isNew(id, now), [live, now]);
 
-  const bucket = (b: QueueBucket) => {
-    const statuses = BUCKET_STATUSES[b];
-    const rs = statuses.map((s) => byStatus[s]);
-    const orders = statuses.flatMap((s) => mergeOrders(byStatus[s].data ?? [], extras[s]?.items ?? []));
-    // A status can page further when its last page came back full.
-    const canMore = statuses.filter((s) => {
-      const ex = extras[s];
-      if (ex) return !ex.exhausted;
-      return (byStatus[s].data?.length ?? 0) >= QUEUE_PAGE;
-    });
-    return {
-      orders: sortQueue(orders, isNew),
-      canMore,
-      loading: rs.some((r) => r.data === undefined && r.isLoading),
-      failed: rs.some((r) => r.isError),
-      noData: rs.every((r) => r.data === undefined),
-    };
-  };
+  // The polled first page plus any older pages loaded with the cursor.
+  const all = useMemo(() => mergeOrders(list.data ?? [], extras), [list.data, extras]);
+  const parts = useMemo(() => partitionQueue(all), [all]);
+  const lastPageFull = extras.length ? !exhausted : (list.data?.length ?? 0) >= QUEUE_PAGE;
+  const canMore = list.data !== undefined && lastPageFull;
+  const noData = list.data === undefined;
 
-  const view = bucket(tab);
-  const incoming = tab === 'needs' ? bucket('incoming') : null;
+  const view = sortQueue(parts[tab], isNew);
+  const incoming = tab === 'needs' ? sortQueue(parts.incoming, isNew) : [];
+  // Active orders are recent, so they sit in the newest page; Done is the one
+  // list that keeps going past it.
   const counts = Object.fromEntries(
-    QUEUE_TABS.map((t) => {
-      const b = bucket(t.key);
-      return [t.key, b.noData ? '' : countLabel(b.orders.length, b.canMore.length > 0)];
-    }),
+    QUEUE_TABS.map((t) => [t.key, noData ? '' : countLabel(parts[t.key].length, t.key === 'done' && canMore)]),
   ) as Record<QueueTab, string>;
 
   const loadMore = async () => {
     setLoadingMore(true);
     setMoreError(false);
     try {
-      const pages = await Promise.all(
-        view.canMore.map(async (s) => {
-          const have = mergeOrders(byStatus[s].data ?? [], extras[s]?.items ?? []);
-          const last = have[have.length - 1];
-          const page = await api.listOrders(s, q || undefined, QUEUE_PAGE, last?.id);
-          return [s, page] as const;
-        }),
-      );
-      setExtras((prev) => {
-        const next = { ...prev };
-        for (const [s, page] of pages) {
-          next[s] = { items: [...(prev[s]?.items ?? []), ...page], exhausted: page.length < QUEUE_PAGE };
-        }
-        return next;
-      });
+      const last = all[all.length - 1];
+      const page = await api.listOrders(undefined, q || undefined, QUEUE_PAGE, last?.id);
+      setExtras((prev) => [...prev, ...page]);
+      setExhausted(page.length < QUEUE_PAGE);
     } catch {
       setMoreError(true);
     } finally {
@@ -144,7 +113,7 @@ export default function OrdersPage() {
     }
   };
 
-  const refreshing = results.some((r) => r.isFetching);
+  const refreshing = list.isFetching;
   const refresh = () => void qc.refetchQueries({ queryKey: ORDERS_KEY });
   const updated = now && lastLive ? formatUpdatedAgo(lastLive, now) : null;
 
@@ -175,7 +144,6 @@ export default function OrdersPage() {
           </Button>
         </div>
       </div>
-
       <label className="qsearch">
         <span className="sr-only">Search by order code</span>
         <Search aria-hidden="true" />
@@ -207,12 +175,12 @@ export default function OrdersPage() {
         ))}
       </div>
 
-      {online && view.failed && !view.noData ? (
+      {online && list.isError && !noData ? (
         <StaleBanner message={`Couldn't refresh. Showing what we last saw${updated ? `, ${updated}` : ''}.`} onRetry={refresh} />
       ) : null}
 
       <div id="queue-panel" role="tabpanel" aria-labelledby={`tab-${tab}`} className="qlist">
-        {incoming && incoming.orders.length > 0 ? (
+        {incoming.length > 0 ? (
           <details
             className="incoming"
             data-testid="incoming"
@@ -220,7 +188,7 @@ export default function OrdersPage() {
             onToggle={(e) => setIncomingOpen(e.currentTarget.open)}
           >
             <summary>
-              <span>Incoming ({countLabel(incoming.orders.length, incoming.canMore.length > 0)})</span>
+              <span>Incoming ({incoming.length})</span>
               <ChevronDown aria-hidden="true" />
             </summary>
             {/* Rendered only while open, so collapsed cards are not in the page. */}
@@ -228,7 +196,7 @@ export default function OrdersPage() {
               <>
                 <p className="small muted">Booked for your shop and on the way. Nothing to do until the rider drops them off.</p>
                 <div className="qlist">
-                  {incoming.orders.map((o) => (
+                  {incoming.map((o) => (
                     <OrderCard key={o.id} order={o} bucket="incoming" isNew={isNew(o.id)} now={now} onWeigh={setWeighing} onOpen={onOpen} />
                   ))}
                 </div>
@@ -237,14 +205,14 @@ export default function OrdersPage() {
           </details>
         ) : null}
 
-        {view.loading ? (
+        {noData && list.isLoading ? (
           <>
             <SkeletonCard label="Loading orders" />
             <SkeletonCard label="Loading orders" />
           </>
-        ) : view.failed && view.noData ? (
+        ) : noData ? (
           <ErrorState title="Your queue didn't load." body="Check your connection, then try again." onRetry={refresh} />
-        ) : view.orders.length === 0 ? (
+        ) : view.length === 0 ? (
           q ? (
             <EmptyState
               icon={Search}
@@ -257,10 +225,14 @@ export default function OrdersPage() {
               }
             />
           ) : (
-            <EmptyState icon={Inbox} title={EMPTY[tab].title} body={EMPTY[tab].body} />
+            <EmptyState
+              icon={Inbox}
+              title={EMPTY[tab].title}
+              body={EMPTY[tab].body}
+            />
           )
         ) : (
-          view.orders.map((o) => (
+          view.map((o) => (
             <OrderCard
               key={o.id}
               order={o}
@@ -274,7 +246,7 @@ export default function OrdersPage() {
           ))
         )}
 
-        {view.canMore.length > 0 && !view.loading ? (
+        {canMore && (tab === 'done' || q) ? (
           <div className="qmore">
             <Button variant="secondary" onClick={() => void loadMore()} disabled={loadingMore} aria-busy={loadingMore || undefined}>
               {loadingMore ? 'Loading…' : 'Load more'}

@@ -47,12 +47,20 @@ export const BUCKET_STATUSES: Record<QueueBucket, OrderStatus[]> = {
 };
 for (const s of ORDER_STATUSES) BUCKET_STATUSES[bucketOf(s)].push(s);
 
-// The list API returns no totals: each status is fetched one page at a time
-// (limit 50) and counted client-side. A full page means "at least this many".
-export const QUEUE_PAGE = 50;
+// The list API returns no totals and takes one status at a time, and the API
+// throttles each client to 60 requests a minute, so the queue polls ONE
+// unfiltered page (the API's max, newest first) and splits it client-side.
+// Older orders come in through "Load more" (the before cursor).
+export const QUEUE_PAGE = 100;
 
-export function countLabel(count: number, pageFull: boolean): string {
-  return pageFull ? `${count}+` : String(count);
+export function countLabel(count: number, more: boolean): string {
+  return more ? `${count}+` : String(count);
+}
+
+export function partitionQueue(orders: OrderView[]): Record<QueueBucket, OrderView[]> {
+  const out: Record<QueueBucket, OrderView[]> = { incoming: [], needs: [], washing: [], ready: [], done: [] };
+  for (const o of orders) out[bucketOf(o.status)].push(o);
+  return out;
 }
 
 export type ActionIcon = 'scale' | 'shirt' | 'package';

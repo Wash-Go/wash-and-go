@@ -9,6 +9,7 @@ import {
   countLabel,
   firstName,
   mergeOrders,
+  partitionQueue,
   primaryAction,
   shortName,
   sortQueue,
@@ -169,5 +170,23 @@ describe('sortQueue', () => {
     const b = o({ id: 'b', createdAt: '2026-10-19T03:00:00Z' });
     const c = o({ id: 'c', createdAt: '2026-10-19T02:00:00Z' });
     expect(sortQueue([a, b, c], (id) => id === 'a').map((x) => x.id)).toEqual(['a', 'b', 'c']);
+  });
+});
+
+describe('partitionQueue', () => {
+  it('splits one list into the buckets, keeping order', () => {
+    const list = [
+      o({ id: '1', status: 'AT_SHOP' }),
+      o({ id: '2', status: 'BOOKED' }),
+      o({ id: '3', status: 'OUT_FOR_RETURN' }),
+      o({ id: '4', status: 'AT_SHOP' }),
+      o({ id: '5', status: 'CANCELLED' }),
+    ];
+    const p = partitionQueue(list);
+    expect(p.needs.map((x) => x.id)).toEqual(['1', '4']);
+    expect(p.incoming.map((x) => x.id)).toEqual(['2']);
+    expect(p.ready.map((x) => x.id)).toEqual(['3']);
+    expect(p.washing).toEqual([]);
+    expect(p.done.map((x) => x.id)).toEqual(['5']);
   });
 });
