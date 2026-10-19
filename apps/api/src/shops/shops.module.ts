@@ -9,6 +9,9 @@ import { ShopOnboardingController } from './shop-onboarding.controller';
 import { ShopOnboardingService } from './shop-onboarding.service';
 import { ShopServicesController } from './shop-services.controller';
 import { ShopServicesService } from './shop-services.service';
+import { ShopAccessService } from './shop-access.service';
+import { ShopProfileController } from './shop-profile.controller';
+import { ShopProfileService } from './shop-profile.service';
 
 @Module({
   // AdminShopsService notifies owners on verify/reject; onboarding submit reads
@@ -19,7 +22,15 @@ import { ShopServicesService } from './shop-services.service';
     AdminShopsController,
     ShopOnboardingController,
     ShopServicesController,
+    ShopProfileController,
   ],
-  providers: [ShopsService, AdminShopsService, ShopOnboardingService, ShopServicesService],
+  providers: [
+    ShopsService,
+    AdminShopsService,
+    ShopAccessService,
+    ShopOnboardingService,
+    ShopServicesService,
+    ShopProfileService,
+  ],
 })
 export class ShopsModule {}

@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ShopOnboardingService } from './shop-onboarding.service';
+import { ShopAccessService } from './shop-access.service';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { UploadsService } from '../uploads/uploads.service';
 
@@ -16,7 +17,10 @@ function make(overrides: Record<string, unknown> = {}, opts: { r2?: boolean } = 
     ...overrides,
   } as unknown as PrismaService;
   const uploads = { configured: () => opts.r2 ?? true } as unknown as UploadsService;
-  return { svc: new ShopOnboardingService(prisma, uploads), prisma: prisma as never };
+  return {
+    svc: new ShopOnboardingService(prisma, uploads, new ShopAccessService(prisma)),
+    prisma: prisma as never,
+  };
 }
 
 const user = { id: 'u1', roles: ['CUSTOMER'] } as never;

@@ -1,7 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { BillingUnit, Prisma, ServiceCatalogItem, ShopService } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { PutShopServiceDto } from './dto/shop-services.dto';
+import { ShopAccessService } from './shop-access.service';
 
 export interface ShopCatalogItemView {
   id: string;
@@ -23,11 +24,6 @@ export interface OwnerShopServiceView {
   active: boolean;
 }
 
-interface Membership {
-  shopId: string;
-  role: string;
-}
-
 /*
  * Owner self-service pricing (portal B3 wizard step 3, reused by B4). Every
  * call resolves the shop from the CALLER's ShopMember row — a client never
@@ -38,16 +34,19 @@ interface Membership {
  */
 @Injectable()
 export class ShopServicesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly access: ShopAccessService,
+  ) {}
 
   async catalog(userId: string): Promise<ShopCatalogItemView[]> {
-    await this.membership(userId);
+    await this.access.membership(userId);
     const items = await this.prisma.serviceCatalogItem.findMany({ orderBy: { code: 'asc' } });
     return items.map((i) => ({ id: i.id, code: i.code, name: i.name, billingUnit: i.billingUnit }));
   }
 
   async list(userId: string): Promise<OwnerShopServiceView[]> {
-    const { shopId } = await this.membership(userId);
+    const { shopId } = await this.access.membership(userId);
     const rows = await this.prisma.shopService.findMany({
       where: { shopId },
       include: { service: true },
@@ -61,8 +60,7 @@ export class ShopServicesService {
     serviceId: string,
     dto: PutShopServiceDto,
   ): Promise<OwnerShopServiceView> {
-    const { shopId, role } = await this.membership(userId);
-    if (role !== 'OWNER') throw new ForbiddenException('Only the shop owner can change rates');
+    const { shopId } = await this.access.ownerMembership(userId, 'change rates');
     const service = await this.prisma.serviceCatalogItem.findUnique({ where: { id: serviceId } });
     if (!service) throw new NotFoundException('Unknown catalog service');
     const fields = {
@@ -79,18 +77,6 @@ export class ShopServicesService {
       include: { service: true },
     });
     return this.shape(row);
-  }
-
-  // The caller's membership. OWNER wins over STAFF ('OWNER' < 'STAFF'); two
-  // memberships of the same role resolve to the lowest member id, so the
-  // caller always lands on the same shop.
-  private async membership(userId: string): Promise<Membership> {
-    const m = await this.prisma.shopMember.findFirst({
-      where: { userId },
-      orderBy: [{ role: 'asc' }, { id: 'asc' }],
-    });
-    if (!m) throw new NotFoundException('You don’t have a shop yet — start onboarding first');
-    return { shopId: m.shopId, role: m.role };
   }
 
   private shape(r: ShopService & { service: ServiceCatalogItem }): OwnerShopServiceView {

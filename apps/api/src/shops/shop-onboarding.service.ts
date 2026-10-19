@@ -8,16 +8,10 @@ import { Prisma, Shop, User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { assertOwnedKey } from '../uploads/object-key';
 import { UploadsService } from '../uploads/uploads.service';
-import { normalizePhMobile } from '../users/phone';
-import type { ShopHoursDayDto, UpdateOnboardingDto } from './dto/shop-onboarding.dto';
-
-// Weekly opening grid as stored in Shop.hours and returned to the portal:
-// 7 entries sorted by day (0 = Sunday … 6 = Saturday); null open/close = closed.
-export interface ShopHoursDay {
-  day: number;
-  open: string | null;
-  close: string | null;
-}
+import type { UpdateOnboardingDto } from './dto/shop-onboarding.dto';
+import { NO_SHOP_MESSAGE, ShopAccessService } from './shop-access.service';
+import type { ShopHoursDay } from './shop-hours';
+import { profileFieldsData } from './shop-profile-fields';
 
 // Owner-facing view — NO margin fields (commission stays server-side).
 // expressSlotsPerDay is the owner's own capacity setting (wizard step 4).
@@ -42,27 +36,6 @@ export interface OwnerShopView {
   documentsPending: boolean;
 }
 
-// Cross-field checks the DTO can't express: one entry per weekday, open/close
-// both set or both null, open strictly before close. Returns the canonical
-// (day-sorted, extra-key-free) grid or throws 400.
-export function normalizeHours(hours: ShopHoursDayDto[]): ShopHoursDay[] {
-  const days = new Set(hours.map((h) => h.day));
-  if (hours.length !== 7 || days.size !== 7) {
-    throw new BadRequestException('Hours need exactly one entry for each day of the week');
-  }
-  for (const h of hours) {
-    if ((h.open === null) !== (h.close === null)) {
-      throw new BadRequestException('Set both opening and closing time, or mark the day closed');
-    }
-    if (h.open !== null && h.close !== null && h.open >= h.close) {
-      throw new BadRequestException('Opening time must be before closing time');
-    }
-  }
-  return [...hours]
-    .sort((a, b) => a.day - b.day)
-    .map((h) => ({ day: h.day, open: h.open, close: h.close }));
-}
-
 /*
  * Self-serve shop onboarding (checkpoint B2). A signed-in user starts a DRAFT
  * shop (and is granted SHOP_OWNER), fills the wizard, then submits for admin
@@ -74,6 +47,7 @@ export class ShopOnboardingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly uploads: UploadsService,
+    private readonly access: ShopAccessService,
   ) {}
 
   // The caller's owned shop, or null (portal decides: show wizard vs "start").
@@ -109,7 +83,7 @@ export class ShopOnboardingService {
       throw new ConflictException(
         shop.status === 'SUBMITTED'
           ? 'Your application is under review and can’t be edited'
-          : 'A verified shop is edited from the admin console',
+          : 'A verified shop is edited from shop settings (PATCH /shop/me)',
       );
     }
     // Proof keys must live under the caller's own upload prefix — otherwise a
@@ -118,29 +92,14 @@ export class ShopOnboardingService {
     if (dto.permitKey != null) assertOwnedKey(user.id, dto.permitKey);
     (dto.photoKeys ?? []).forEach((k) => assertOwnedKey(user.id, k));
 
-    let contactPhone: string | undefined;
-    if (dto.contactPhone != null) {
-      const phone = normalizePhMobile(dto.contactPhone);
-      if (!phone) {
-        throw new BadRequestException('Enter a PH mobile number, e.g. 0917 123 4567');
-      }
-      contactPhone = phone;
-    }
-    const hours = dto.hours != null ? normalizeHours(dto.hours) : undefined;
+    const fields = profileFieldsData(dto);
 
     const updated = await this.prisma.shop.update({
       where: { id: shop.id },
       data: {
-        ...(dto.name != null ? { name: dto.name } : {}),
-        ...(dto.address != null ? { address: dto.address } : {}),
-        ...(dto.lat != null ? { lat: new Prisma.Decimal(dto.lat) } : {}),
-        ...(dto.lng != null ? { lng: new Prisma.Decimal(dto.lng) } : {}),
+        ...fields,
         ...(dto.permitKey != null ? { permitKey: dto.permitKey } : {}),
         ...(dto.photoKeys != null ? { photoKeys: dto.photoKeys } : {}),
-        ...(contactPhone != null ? { contactPhone } : {}),
-        ...(dto.description != null ? { description: dto.description.trim() || null } : {}),
-        ...(hours != null ? { hours: hours as unknown as Prisma.InputJsonValue } : {}),
-        ...(dto.expressSlotsPerDay != null ? { expressSlotsPerDay: dto.expressSlotsPerDay } : {}),
       },
     });
     return this.shape(updated);
@@ -175,19 +134,12 @@ export class ShopOnboardingService {
   }
 
   private ownedShop(userId: string): Promise<Shop | null> {
-    return this.prisma.shopMember
-      // Deterministic if a user ever owns two shops: lowest member id wins.
-      .findFirst({
-        where: { userId, role: 'OWNER' },
-        orderBy: [{ role: 'asc' }, { id: 'asc' }],
-        include: { shop: true },
-      })
-      .then((m) => m?.shop ?? null);
+    return this.access.ownedShop(userId);
   }
 
   private async mustOwn(userId: string): Promise<Shop> {
     const shop = await this.ownedShop(userId);
-    if (!shop) throw new NotFoundException('You don’t have a shop yet — start onboarding first');
+    if (!shop) throw new NotFoundException(NO_SHOP_MESSAGE);
     return shop;
   }
 

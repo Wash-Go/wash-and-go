@@ -1,6 +1,7 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ShopServicesService } from './shop-services.service';
+import { ShopAccessService } from './shop-access.service';
 import type { PrismaService } from '../prisma/prisma.service';
 
 const D = (n: number) => new Prisma.Decimal(n);
@@ -72,7 +73,7 @@ function make(members: Member[], rows: Row[] = []) {
       upsert,
     },
   } as unknown as PrismaService;
-  return { svc: new ShopServicesService(prisma), rows, upsert };
+  return { svc: new ShopServicesService(prisma, new ShopAccessService(prisma)), rows, upsert };
 }
 
 const ownerA: Member = { userId: 'uA', shopId: 'sA', role: 'OWNER' };
