@@ -1,84 +1,133 @@
-import { Link } from '@tanstack/react-router'
-import brandingLogo from '../../assets/images/logos/branding.svg'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useRouterState } from '@tanstack/react-router'
+import lockup from '../../assets/brand/logo-lockup-320.webp'
+import { DECK_MAILTO, NAV_SECTIONS } from '../../content/site'
+import { ButtonLink } from '../ui'
 
-const NAV_LINKS = [
-  { to: '/', label: 'Home' },
-  { to: '/services', label: 'Services' },
-  { to: '/book-order', label: 'How It Works' },
-  { to: '/my-orders', label: 'Tracking' },
-  { to: '/pricing', label: 'Pricing' },
-] as const
+/** Root-relative so the anchors also work from the 404 page. */
+const NAV_LINKS = NAV_SECTIONS.map((section) => ({
+  href: `/#${section.id}`,
+  label: section.label,
+}))
+
+const LINK_CLASS =
+  'rounded-md px-3 py-2 text-[0.95rem] font-bold text-ink transition-colors duration-150 hover:bg-brand-sky-tint hover:text-brand-navy'
+
+const MOBILE_MENU_ID = 'mobile-menu'
 
 export function Navbar() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const [menuOpen, setMenuOpen] = useState(false)
+  const toggleRef = useRef<HTMLButtonElement>(null)
+  const closeMenu = () => setMenuOpen(false)
+
+  // Close on any route change (back/forward, a link to another page).
+  // Resetting during render, not in an effect, means the new page is never
+  // painted with the menu still open.
+  const [menuPathname, setMenuPathname] = useState(pathname)
+  if (menuPathname !== pathname) {
+    setMenuPathname(pathname)
+    setMenuOpen(false)
+  }
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setMenuOpen(false)
+      toggleRef.current?.focus()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [menuOpen])
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-gray-100 bg-white">
-      <nav className="w-full px-4 py-4 sm:px-6 lg:px-8">
-        <div className="grid w-full grid-cols-[auto_1fr_auto] items-center">
-          {/* LEFT - Logo */}
+    <header className="sticky top-0 z-50 w-full border-b border-line bg-white">
+      <nav
+        aria-label="Main"
+        className="mx-auto w-full max-w-[1180px] px-4 py-2 sm:px-6 lg:px-8"
+      >
+        <div className="flex items-center justify-between gap-6">
           <Link
             to="/"
-            className="flex items-center space-x-2 justify-self-start transition-opacity hover:opacity-80"
+            className="shrink-0 rounded-md transition-opacity hover:opacity-80"
           >
             <img
-              src={brandingLogo}
-              alt="Wash & Go Logo"
-              className="h-10 w-auto"
+              src={lockup}
+              width={320}
+              height={192}
+              alt="Wash & Go home"
+              className="h-12 w-auto sm:h-14"
             />
-            <span className="font-['Unbounded'] text-2xl font-bold text-gray-900">
-              Wash & Go
-            </span>
           </Link>
 
-          {/* CENTER - Navigation */}
-          <div className="hidden items-center justify-center gap-1 justify-self-center rounded-4xl bg-[#EEEEEE] p-1.5 md:flex">
+          <div className="hidden items-center gap-1 md:flex">
             {NAV_LINKS.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                className="font-['Montserrat'] text-sm font-medium rounded-full transition-colors"
-                activeProps={{
-                  className:
-                    "font-['Montserrat'] text-sm font-medium px-5 py-2.5 rounded-full transition-colors bg-[#D07A29] text-white",
-                }}
-                inactiveProps={{
-                  className:
-                    "font-['Montserrat'] text-sm font-medium px-5 py-2.5 rounded-full transition-colors text-gray-700 hover:bg-gray-100",
-                }}
-              >
+              <a key={link.href} href={link.href} className={LINK_CLASS}>
                 {link.label}
-              </Link>
+              </a>
             ))}
           </div>
 
-          {/* RIGHT - App CTA (public site is onboarding-only; no auth here) */}
-          <div className="hidden items-center justify-self-end md:flex">
-            <a
-              href="#get-the-app"
-              className="rounded-full bg-[#3D5975] px-6 py-2.5 font-['Montserrat'] text-sm font-semibold text-white transition-colors hover:bg-[#334c63]"
-            >
-              Get the App
-            </a>
+          <div className="hidden md:block">
+            <ButtonLink href={DECK_MAILTO} variant="secondary" className="px-4">
+              Request the deck
+            </ButtonLink>
           </div>
 
-          {/* MOBILE MENU */}
           <button
-            className="justify-self-end p-2 text-gray-700 hover:text-blue-600 md:hidden"
-            aria-label="Open menu"
+            ref={toggleRef}
+            type="button"
+            className="inline-flex h-12 w-12 items-center justify-center rounded-md text-ink hover:bg-brand-sky-tint md:hidden"
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={menuOpen}
+            aria-controls={MOBILE_MENU_ID}
+            onClick={() => setMenuOpen((open) => !open)}
           >
             <svg
               className="h-6 w-6"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
+                d={
+                  menuOpen ? 'M6 18L18 6M6 6l12 12' : 'M4 6h16M4 12h16M4 18h16'
+                }
               />
             </svg>
           </button>
+        </div>
+
+        <div
+          id={MOBILE_MENU_ID}
+          hidden={!menuOpen}
+          className="border-t border-line pt-2 pb-4 md:hidden"
+        >
+          <div className="flex flex-col">
+            {NAV_LINKS.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                className={`${LINK_CLASS} py-3`}
+                onClick={closeMenu}
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
+          <ButtonLink
+            href={DECK_MAILTO}
+            variant="secondary"
+            className="mt-3 w-full"
+            onClick={closeMenu}
+          >
+            Request the deck
+          </ButtonLink>
         </div>
       </nav>
     </header>

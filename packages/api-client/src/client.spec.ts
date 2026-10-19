@@ -136,6 +136,54 @@ describe('ApiClient', () => {
     expect(JSON.parse(init.body)).toEqual({ idToken: 'fb-id-token' });
   });
 
+  it('gets the signed-in user from /auth/me', async () => {
+    const me = { id: 'u1', phone: null, displayName: '', roles: ['CUSTOMER'] };
+    const fetchFn = jest.fn().mockResolvedValue(res(200, me));
+    const client = new ApiClient({
+      baseUrl: 'http://api.test',
+      tokens: tokensFrom(['tok']),
+      fetchFn,
+    });
+    await expect(client.getMe()).resolves.toEqual(me);
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe('http://api.test/auth/me');
+    expect(init.method).toBe('GET');
+  });
+
+  it('patches the own name / mobile number on /auth/me', async () => {
+    const fetchFn = jest
+      .fn()
+      .mockResolvedValue(
+        res(200, { id: 'u1', phone: '+639171234567', displayName: 'Ana', roles: ['CUSTOMER'] }),
+      );
+    const client = new ApiClient({
+      baseUrl: 'http://api.test',
+      tokens: tokensFrom(['tok']),
+      fetchFn,
+    });
+    const me = await client.updateMe({ name: 'Ana', phone: '0917 123 4567' });
+    expect(me.phone).toBe('+639171234567');
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe('http://api.test/auth/me');
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(init.body)).toEqual({ name: 'Ana', phone: '0917 123 4567' });
+  });
+
+  it('surfaces a duplicate-number 409 as an ApiError with the status', async () => {
+    const fetchFn = jest.fn().mockResolvedValue(
+      res(409, { message: 'That mobile number is already used by another account.' }),
+    );
+    const client = new ApiClient({
+      baseUrl: 'http://api.test',
+      tokens: tokensFrom(['tok']),
+      fetchFn,
+    });
+    await expect(client.updateMe({ phone: '09171234567' })).rejects.toMatchObject({
+      status: 409,
+      message: 'That mobile number is already used by another account.',
+    });
+  });
+
   it('gets riders', async () => {
     const fetchFn = jest.fn().mockResolvedValue(res(200, []));
     const client = new ApiClient({
@@ -224,5 +272,52 @@ describe('ApiClient', () => {
     expect(fetchFn.mock.calls[0][0]).toBe(
       'http://api.test/orders?status=OUT_FOR_RETURN',
     );
+  });
+
+  it('reads the customer booking rules from GET /config/booking', async () => {
+    const fetchFn = jest
+      .fn()
+      .mockResolvedValue(res(200, { expressWeightThresholdKg: 8 }));
+    const client = new ApiClient({
+      baseUrl: 'http://api.test',
+      tokens: tokensFrom(['t']),
+      fetchFn,
+    });
+    await expect(client.getBookingConfig()).resolves.toEqual({
+      expressWeightThresholdKg: 8,
+    });
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe('http://api.test/config/booking');
+    expect(init.method).toBe('GET');
+  });
+
+  it('pages listOrders by status with a limit and a before cursor', async () => {
+    const fetchFn = jest.fn().mockResolvedValue(res(200, []));
+    const client = new ApiClient({
+      baseUrl: 'http://api.test',
+      tokens: tokensFrom(['t']),
+      fetchFn,
+    });
+    await client.listOrders('BOOKED', undefined, 50, 'ord-50');
+    expect(fetchFn.mock.calls[0][0]).toBe(
+      'http://api.test/orders?status=BOOKED&limit=50&before=ord-50',
+    );
+  });
+
+  it('reads the payout totals from GET /admin/remittance/summary', async () => {
+    const summary = {
+      pending: { count: 2, totalPhp: '145.50' },
+      paid: { count: 5, totalPhp: '900.00' },
+    };
+    const fetchFn = jest.fn().mockResolvedValue(res(200, summary));
+    const client = new ApiClient({
+      baseUrl: 'http://api.test',
+      tokens: tokensFrom(['t']),
+      fetchFn,
+    });
+    await expect(client.getRemittanceSummary()).resolves.toEqual(summary);
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe('http://api.test/admin/remittance/summary');
+    expect(init.method).toBe('GET');
   });
 });

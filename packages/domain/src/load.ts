@@ -28,6 +28,12 @@ export const LOAD_CATEGORIES: LoadCategory[] = [
 // default so the UI can gate ineligible sizes without a round-trip.
 export const DEFAULT_EXPRESS_THRESHOLD_KG = 6;
 
+// The most a single order may weigh in at (kg). The weigh-in sets the
+// customer's final bill, so anything above this is treated as a typo, not a
+// load — the laundry portal blocks it and the API refuses it. The API mirrors
+// this value (apps/api/src/orders/load.ts); a parity spec pins the two.
+export const MAX_WEIGH_KG = 50;
+
 export function loadCategory(key: string): LoadCategory | undefined {
   return LOAD_CATEGORIES.find((c) => c.key === key);
 }

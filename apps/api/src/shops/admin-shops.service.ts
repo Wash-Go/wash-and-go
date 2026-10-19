@@ -7,6 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { visiblePhone } from '../users/phone';
 import type {
   AddShopMemberDto,
   AddShopServiceDto,
@@ -53,7 +54,7 @@ export interface AdminShopMemberView {
   id: string;
   userId: string;
   displayName: string;
-  phone: string;
+  phone: string | null; // null = still the pending:<uid> placeholder
   role: string;
 }
 
@@ -172,7 +173,7 @@ export class AdminShopsService {
         id: m.id,
         userId: m.userId,
         displayName: m.user.displayName,
-        phone: m.user.phone,
+        phone: visiblePhone(m.user.phone),
         role: m.role,
       })),
     };
@@ -322,7 +323,7 @@ export class AdminShopsService {
       id: member.id,
       userId: user.id,
       displayName: user.displayName,
-      phone: user.phone,
+      phone: visiblePhone(user.phone),
       role: member.role,
     };
   }

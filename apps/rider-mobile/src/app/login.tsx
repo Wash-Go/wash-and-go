@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import {
@@ -14,6 +14,7 @@ import {
 } from '@wash-and-go/ui';
 import { auth } from '../lib/firebase';
 import { api } from '../lib/api';
+import { sessionAfterSignIn } from '../lib/session';
 
 function friendly(code?: string): string {
   switch (code) {
@@ -47,13 +48,18 @@ export default function LoginScreen() {
     setBusy(true);
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
-      await api.postSession();
-      router.replace('/');
     } catch (e) {
       toast.error(friendly((e as { code?: string })?.code));
-    } finally {
       setBusy(false);
+      return;
     }
+    // Create/refresh the DB user before entering the app. On failure we're
+    // signed back out of Firebase and stay here with the reason (the layout no
+    // longer bounces a signed-in user off this screen — we navigate ourselves).
+    const res = await sessionAfterSignIn(auth.currentUser, api, () => signOut(auth));
+    setBusy(false);
+    if (res.ok) router.replace('/');
+    else toast.error(res.message);
   }
 
   return (

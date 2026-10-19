@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, RemittanceBatch, RemittanceLine } from '@prisma/client';
+import {
+  Prisma,
+  RemittanceBatch,
+  RemittanceLine,
+  RemittanceStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 // Prisma tx client (what $transaction hands the callback).
@@ -81,6 +86,34 @@ export class RemittanceRepository {
       orderBy: { createdAt: 'desc' },
       take: 200,
     });
+  }
+
+  // Shop names by id, for labelling batches. RemittanceBatch.shopId has no FK
+  // relation, so this is a lookup rather than an include; a missing shop is
+  // simply absent from the map.
+  async shopNames(shopIds: string[]): Promise<Map<string, string>> {
+    const rows = await this.prisma.shop.findMany({
+      where: { id: { in: shopIds } },
+      select: { id: true, name: true },
+    });
+    return new Map(rows.map((r) => [r.id, r.name]));
+  }
+
+  // Count + payout sum per status over EVERY batch (no take cap), so the
+  // console's totals don't depend on which page or filter is showing.
+  async totalsByStatus(): Promise<
+    { status: RemittanceStatus; count: number; total: Prisma.Decimal }[]
+  > {
+    const rows = await this.prisma.remittanceBatch.groupBy({
+      by: ['status'],
+      _count: { _all: true },
+      _sum: { totalPhp: true },
+    });
+    return rows.map((r) => ({
+      status: r.status,
+      count: r._count._all,
+      total: r._sum.totalPhp ?? new Prisma.Decimal(0),
+    }));
   }
 
   // Shops the user is an OWNER/STAFF member of — scopes the shop-facing view.

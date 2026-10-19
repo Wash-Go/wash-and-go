@@ -19,6 +19,16 @@ export const LOAD_CATEGORIES: LoadCategory[] = [
   { key: 'L', label: 'Large', estimateKg: 9 },
 ];
 
+// Weigh-in bounds (U0 T3). The weigh-in sets the customer's final bill, so a
+// weight outside (0, MAX_WEIGH_KG] is refused as a typo rather than billed.
+// Mirrors packages/domain/src/load.ts MAX_WEIGH_KG (pinned by parity.spec.ts).
+export const MAX_WEIGH_KG = 50;
+export const WEIGH_RANGE_MESSAGE = `Enter a weight above 0 kg and no more than ${MAX_WEIGH_KG} kg.`;
+
+export function isWeighableKg(kg: number): boolean {
+  return Number.isFinite(kg) && kg > 0 && kg <= MAX_WEIGH_KG;
+}
+
 export function loadCategory(key: string): LoadCategory | undefined {
   return LOAD_CATEGORIES.find((c) => c.key === key);
 }

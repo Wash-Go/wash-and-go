@@ -34,6 +34,8 @@ jobs:
           --filter @wash-and-go/admin-dashboard
           --filter @wash-and-go/laundry-portal
           --filter @wash-and-go/rider-mobile
+          --filter @wash-and-go/ui
+          --filter wash-and-go-landing-page
           test
 
   api-test:
@@ -88,6 +90,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Generate Prisma client
         run: pnpm --filter @wash-and-go/api prisma:generate
+      # The landing page's postbuild runs check:ssr, so this step also fails if
+      # the prerendered / loses its hero <h1> or falls back to client rendering.
       - name: Build
         run: pnpm -r build
 

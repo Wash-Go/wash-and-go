@@ -1,11 +1,13 @@
 'use client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { peso, type RemittanceBatchView } from '@wash-and-go/domain';
 import { api, API_BASE_URL } from '../../lib/api';
 import { TableSkeleton } from '../Skeleton';
-import { c } from '../../lib/theme';
-import { countByStatus, lastWeekPeriod, pendingTotalPhp } from '../../lib/remittance';
+import { c, tint } from '../../lib/theme';
+import { lastWeekPeriod } from '../../lib/remittance';
+import { mutationErrorMessage, shouldRefresh } from '../../lib/mutation-errors';
+import { MONEY_QUERY_OPTIONS } from '../../lib/query-cache';
 
 type StatusFilter = 'ALL' | 'PENDING' | 'PAID';
 
@@ -15,14 +17,21 @@ export default function RemittancePage() {
   const [toast, setToast] = useState<string | null>(null);
 
   const batches = useQuery({
-    queryKey: ['remittance', filter],
+    queryKey: ['remittance', 'batches', filter],
     queryFn: () =>
       api.getRemittanceBatches(filter === 'ALL' ? undefined : { status: filter }),
+    ...MONEY_QUERY_OPTIONS,
+  });
+  // Headline totals come from the server over ALL batches, so they don't change
+  // with the filter (or the list's row cap). "Owed" under "Paid" is still owed.
+  const summary = useQuery({
+    queryKey: ['remittance', 'summary'],
+    queryFn: () => api.getRemittanceSummary(),
+    ...MONEY_QUERY_OPTIONS,
   });
 
   const rows = batches.data ?? [];
-  const summary = useMemo(() => countByStatus(rows), [rows]);
-  const owed = useMemo(() => pendingTotalPhp(rows), [rows]);
+  const totals = summary.data;
 
   const flash = (m: string) => {
     setToast(m);
@@ -31,6 +40,9 @@ export default function RemittancePage() {
 
   const close = useMutation({
     mutationFn: () => api.closeRemittance(lastWeekPeriod(new Date())),
+    onError: (e) => {
+      if (shouldRefresh(e)) qc.invalidateQueries({ queryKey: ['remittance'] });
+    },
     onSuccess: (created) => {
       qc.invalidateQueries({ queryKey: ['remittance'] });
       flash(
@@ -54,9 +66,9 @@ export default function RemittancePage() {
       </div>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
-        <Stat label="Owed (pending)" value={peso(owed)} accent />
-        <Stat label="Pending batches" value={String(summary.pending)} />
-        <Stat label="Paid batches" value={String(summary.paid)} />
+        <Stat label="Owed (pending)" value={totals ? peso(totals.pending.totalPhp) : '—'} accent />
+        <Stat label="Pending batches" value={totals ? String(totals.pending.count) : '—'} />
+        <Stat label="Paid batches" value={totals ? String(totals.paid.count) : '—'} />
         <button
           onClick={() => close.mutate()}
           disabled={close.isPending}
@@ -73,6 +85,11 @@ export default function RemittancePage() {
         >
           {close.isPending ? 'Closing…' : 'Close last week'}
         </button>
+        {close.isError ? (
+          <span role="alert" style={{ color: c.danger, fontSize: 12, alignSelf: 'center' }}>
+            {mutationErrorMessage('close-week', close.error)}
+          </span>
+        ) : null}
       </div>
 
       <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
@@ -166,6 +183,9 @@ function BatchRow({
   const [ref, setRef] = useState('');
   const pay = useMutation({
     mutationFn: () => api.markRemittancePaid(batch.id, ref.trim()),
+    onError: (e) => {
+      if (shouldRefresh(e)) qc.invalidateQueries({ queryKey: ['remittance'] });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['remittance'] });
       onPaid('Marked paid');
@@ -174,7 +194,7 @@ function BatchRow({
 
   return (
     <tr>
-      <td style={{ fontWeight: 600 }}>{batch.shopId}</td>
+      <td style={{ fontWeight: 600 }}>{batch.shopName ?? batch.shopId}</td>
       <td style={{ color: c.muted, fontSize: 12 }}>{fmtPeriod(batch)}</td>
       <td className="tnum">{batch.lineCount}</td>
       <td className="tnum" style={{ fontWeight: 600 }}>{peso(batch.totalPhp)}</td>
@@ -210,8 +230,8 @@ function BatchRow({
               {pay.isPending ? '…' : 'Mark paid'}
             </button>
             {pay.isError ? (
-              <span style={{ color: c.danger, fontSize: 12 }}>
-                {pay.error instanceof Error ? pay.error.message : 'Failed'}
+              <span role="alert" style={{ color: c.danger, fontSize: 12 }}>
+                {mutationErrorMessage('mark-paid', pay.error)}
               </span>
             ) : null}
           </div>
@@ -227,7 +247,7 @@ function StatusPill({ status }: { status: 'PENDING' | 'PAID' }) {
     <span
       style={{
         color,
-        background: color + '1A',
+        background: tint(color),
         padding: '3px 10px',
         borderRadius: 999,
         fontSize: 12,

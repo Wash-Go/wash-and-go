@@ -18,6 +18,8 @@ import {
   useToast,
 } from '@wash-and-go/ui';
 import { api } from '../lib/api';
+import { bookingErrorMessage, isOutOfCoverage } from '../lib/coverage';
+import { needsMobileNumber } from '../lib/profile';
 
 export default function CheckoutScreen() {
   const p = useLocalSearchParams<{
@@ -52,6 +54,9 @@ export default function CheckoutScreen() {
   const [quote, setQuote] = useState<OrderQuote | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Out of the service area: a retry can't help, so the error offers a way back
+  // to change the pickup instead (U0 T6).
+  const [outOfArea, setOutOfArea] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const toast = useToast();
   // One key per checkout mount — a retried confirm dedupes to a single order.
@@ -60,6 +65,7 @@ export default function CheckoutScreen() {
   const loadQuote = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setOutOfArea(false);
     try {
       const q = await api.quoteOrder({
         pickupLat,
@@ -70,7 +76,10 @@ export default function CheckoutScreen() {
       });
       setQuote(q);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not get a quote.');
+      // The quote runs create's coverage check, so an out-of-area pickup lands
+      // here, in plain words, before any price is shown.
+      setOutOfArea(isOutOfCoverage(e));
+      setError(bookingErrorMessage(e, 'Could not get a quote.'));
     } finally {
       setLoading(false);
     }
@@ -80,10 +89,24 @@ export default function CheckoutScreen() {
     loadQuote();
   }, [loadQuote]);
 
+  // Back to Book (its pin and load choice are still there); a cold deep link
+  // with no history opens Book fresh.
+  const changePickup = useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/book');
+  }, []);
+
   const confirm = useCallback(async () => {
     if (!quote) return;
     setSubmitting(true);
     try {
+      // U0 T4: the rider calls the customer at pickup, and email sign-ups start
+      // without a number. Ask for it before the order exists; read fresh so a
+      // number saved a moment ago counts. Nothing is booked on this path.
+      if (needsMobileNumber(await api.getMe())) {
+        router.push({ pathname: '/your-details', params: { gate: '1' } });
+        return;
+      }
       const order = await api.createOrder(
         {
           shopServiceId: quote.shopServiceId,
@@ -98,7 +121,7 @@ export default function CheckoutScreen() {
       );
       router.replace(`/orders/${order.id}`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not place your order.');
+      toast.error(bookingErrorMessage(e, 'Could not place your order.'));
     } finally {
       setSubmitting(false);
     }
@@ -114,7 +137,11 @@ export default function CheckoutScreen() {
   if (error && !quote) {
     return (
       <Screen scroll={false}>
-        <ErrorState message={error} onRetry={loadQuote} />
+        {outOfArea ? (
+          <ErrorState message={error} onRetry={changePickup} retryLabel="Change pickup" />
+        ) : (
+          <ErrorState message={error} onRetry={loadQuote} />
+        )}
       </Screen>
     );
   }

@@ -3,18 +3,27 @@ import { API_URL } from '../playwright.config';
 /*
  * API seeding helpers for the browser smokes. Uses the x-dev-uid dev-bypass
  * (AUTH_DEV_BYPASS=1) to act as each seeded role without real tokens.
+ *
+ * The customer app is the exception: it signs in with a real Firebase account,
+ * and the API lets a real token win over x-dev-uid. So data the customer app
+ * must see (its saved addresses) is seeded as that account, with the session's
+ * own ID token ({ token }), not as the seeded dev-customer.
  */
+type Caller = string | { token: string };
+
 async function call(
   method: string,
   path: string,
-  devUid: string,
+  as: Caller,
   body?: unknown,
 ): Promise<unknown> {
   const res = await fetch(`${API_URL}${path}`, {
     method,
     // content-type only with a body — Fastify 500s on empty json bodies.
     headers: {
-      'x-dev-uid': devUid,
+      ...(typeof as === 'string'
+        ? { 'x-dev-uid': as }
+        : { authorization: `Bearer ${as.token}` }),
       ...(body != null ? { 'content-type': 'application/json' } : {}),
     },
     body: body != null ? JSON.stringify(body) : undefined,
@@ -104,10 +113,12 @@ export async function seedAssignedToRider(
   return { ...order, riderId: rider.id };
 }
 
-// Cancel every non-terminal order (admin). Cleanup for smokes that create real
-// orders (e.g. the customer confirm-booking path) under a different user.
-export async function cancelAllOpenOrders(): Promise<void> {
-  const orders = (await call('GET', '/orders', 'dev-admin')) as {
+// Cancel the signed-in customer's own open orders (the list is scoped to the
+// token's user), as admin — who can cancel from any status. Cleanup for the
+// customer confirm-booking path. Scoped on purpose: an "every open order"
+// sweep would also cancel other users' orders in a shared dev database.
+export async function cancelOpenOrdersOf(token: string): Promise<void> {
+  const orders = (await call('GET', '/orders?limit=100', { token })) as {
     id: string;
     status: string;
   }[];
@@ -119,6 +130,25 @@ export async function cancelAllOpenOrders(): Promise<void> {
       status: 'CANCELLED',
     }).catch(() => undefined);
   }
+}
+
+export type SavedAddress = { id: string; label: string | null; line: string };
+
+/*
+ * Adds a saved pickup address to the signed-in customer's address book. The
+ * booking and address screens pick locations on a map (react-native-webview),
+ * which does not render on Expo web, so a smoke books from a saved address
+ * seeded here instead. Pair with deleteSavedAddress in cleanup.
+ */
+export async function seedSavedAddress(
+  token: string,
+  input: { label: string; line: string; lat: number; lng: number },
+): Promise<SavedAddress> {
+  return (await call('POST', '/me/addresses', { token }, input)) as SavedAddress;
+}
+
+export async function deleteSavedAddress(token: string, id: string): Promise<void> {
+  await call('DELETE', `/me/addresses/${id}`, { token });
 }
 
 // Delete any zones with the given name (smoke cleanup).

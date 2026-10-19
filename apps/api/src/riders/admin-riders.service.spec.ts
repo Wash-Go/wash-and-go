@@ -53,6 +53,15 @@ describe('AdminRidersService', () => {
     );
   });
 
+  it('reports an applicant still on the placeholder phone as null', async () => {
+    const row = { ...withUser('SUBMITTED'), user: { displayName: 'R', phone: 'pending:fb-u1' } };
+    const { svc } = make({
+      riderProfile: { findMany: jest.fn().mockResolvedValue([row]) },
+    });
+    const [view] = await svc.listApplications();
+    expect(view.phone).toBeNull();
+  });
+
   it('reject sets REJECTED + reason and notifies', async () => {
     const update = jest.fn().mockResolvedValue(withUser('REJECTED'));
     const { svc, notifications } = make({

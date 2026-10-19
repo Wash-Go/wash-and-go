@@ -14,11 +14,21 @@ export const STATUS_FILTERS: (OrderStatus | 'ALL')[] = [
   'CANCELLED',
 ];
 
-export function filterOrders(
-  orders: OrderView[],
-  status: OrderStatus | 'ALL',
-): OrderView[] {
-  return status === 'ALL' ? orders : orders.filter((o) => o.status === status);
+// The board pages the server (newest first). The status filter goes to the
+// API — filtering the newest page client-side hid older orders in that status.
+export const ORDERS_PAGE_SIZE = 50;
+
+export function statusParam(filter: OrderStatus | 'ALL'): OrderStatus | undefined {
+  return filter === 'ALL' ? undefined : filter;
+}
+
+// `before` cursor for the next page: the last order's id while pages come back
+// full. A short (or empty) page is the end.
+export function nextOrdersCursor(
+  page: OrderView[],
+  pageSize: number = ORDERS_PAGE_SIZE,
+): string | undefined {
+  return page.length >= pageSize ? page[page.length - 1]?.id : undefined;
 }
 
 // Admin can assign iff the shaped read says ASSIGNED is an available action.

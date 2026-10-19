@@ -6,12 +6,13 @@ import {
 } from '@nestjs/common';
 import type { User, UserRole } from '@prisma/client';
 import { UsersRepository } from './users.repository';
+import { visiblePhone } from './phone';
 
 // Shaped user for the admin directory (no Firebase internals beyond the uid).
 export interface AdminUserView {
   id: string;
   firebaseUid: string;
-  phone: string;
+  phone: string | null; // null = still the pending:<uid> placeholder
   displayName: string;
   roles: UserRole[];
   disabledAt: string | null;
@@ -74,7 +75,7 @@ export class AdminUsersService {
     return {
       id: u.id,
       firebaseUid: u.firebaseUid,
-      phone: u.phone,
+      phone: visiblePhone(u.phone),
       displayName: u.displayName,
       roles: u.roles,
       disabledAt: u.disabledAt ? u.disabledAt.toISOString() : null,

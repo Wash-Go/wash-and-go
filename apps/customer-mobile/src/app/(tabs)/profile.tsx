@@ -1,7 +1,8 @@
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { signOut } from 'firebase/auth';
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { Alert, Platform, Text } from 'react-native';
+import { formatPhMobile, type MeView } from '@wash-and-go/domain';
 import {
   Card,
   Muted,
@@ -12,10 +13,27 @@ import {
   useToast,
 } from '@wash-and-go/ui';
 import { auth } from '../../lib/firebase';
+import { api } from '../../lib/api';
 
 export default function ProfileScreen() {
   const toast = useToast();
   const email = auth.currentUser?.email ?? null;
+  // Name + mobile number; refreshed whenever the tab regains focus (e.g. back
+  // from "Your details"). null = not loaded (or failed) — the card still opens
+  // the edit screen, which loads and reports on its own.
+  const [me, setMe] = useState<MeView | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      let live = true;
+      api
+        .getMe()
+        .then((m) => live && setMe(m))
+        .catch(() => {});
+      return () => {
+        live = false;
+      };
+    }, []),
+  );
 
   function doSignOut() {
     // The root auth gate redirects to /login once the user becomes null.
@@ -40,9 +58,21 @@ export default function ProfileScreen() {
 
   return (
     <Screen>
-      <Card>
+      <Card testID="your-details" onPress={() => router.push('/your-details')}>
         <Muted>Signed in as</Muted>
-        <Text style={[type.title, { color: colors.text }]}>{email ?? '—'}</Text>
+        {me ? (
+          <>
+            <Text style={[type.title, { color: colors.text }]}>
+              {me.displayName || 'Add your name'}
+            </Text>
+            <Text style={[type.body, { color: me.phone ? colors.text : colors.textMuted }]}>
+              {me.phone ? formatPhMobile(me.phone) : 'Add your mobile number'}
+            </Text>
+            <Muted>{email ?? '—'}</Muted>
+          </>
+        ) : (
+          <Text style={[type.title, { color: colors.text }]}>{email ?? '—'}</Text>
+        )}
       </Card>
       <Card testID="open-notifications" onPress={() => router.push('/notifications')}>
         <Text style={[type.title, { color: colors.text }]}>Notifications</Text>

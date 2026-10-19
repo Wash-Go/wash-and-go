@@ -79,6 +79,7 @@ export default function RootLayout() {
           <Stack.Screen name="checkout" options={{ title: 'Review & confirm' }} />
           <Stack.Screen name="change-laundry" options={{ title: 'Choose a laundry' }} />
           <Stack.Screen name="orders/[id]" options={{ title: 'Order' }} />
+          <Stack.Screen name="your-details" options={{ title: 'Your details' }} />
         </Stack>
       </ToastProvider>
     </SafeAreaProvider>

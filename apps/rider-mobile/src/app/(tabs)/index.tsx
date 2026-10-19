@@ -19,7 +19,7 @@ import {
   type,
 } from '@wash-and-go/ui';
 import { api } from '../../lib/api';
-import { actionLabel, GROUP_LABEL, jobGroup, sortJobs } from '../../lib/triage';
+import { actionLabel, activeJobCount, GROUP_LABEL, jobGroup, sortJobs } from '../../lib/triage';
 
 type State =
   | { kind: 'loading' }
@@ -85,6 +85,8 @@ export default function JobsScreen() {
     );
   }
 
+  // Delivered / cancelled jobs stay listed (the "done" group) but aren't active.
+  const active = activeJobCount(state.jobs);
   const needsAction = state.jobs.filter((j) => jobGroup(j) === 'action').length;
 
   return (
@@ -92,7 +94,7 @@ export default function JobsScreen() {
       {/* The tab header already says "My jobs" — this is just the live count,
           so the screen leads with content instead of a duplicate title. */}
       <Text style={styles.count}>
-        {state.jobs.length} active
+        {active} active
         {needsAction > 0 ? ` · ${needsAction} need${needsAction > 1 ? '' : 's'} you` : ''}
       </Text>
 

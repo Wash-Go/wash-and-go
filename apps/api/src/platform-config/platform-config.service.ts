@@ -54,6 +54,15 @@ export interface PlatformConfigValues {
 
 export type ConfigPatch = Partial<Record<ConfigField, number>>;
 
+// The customer-facing subset (GET /config/booking): what the customer app gates
+// the booking screen on. Whitelisted field by field, never spread from the row,
+// so a new admin-only column can't leak by default. There is no pickup-slot
+// config on the server yet; the app builds its Scheduled windows itself.
+// Mirrored by BookingConfigView in @wash-and-go/domain.
+export interface BookingConfig {
+  expressWeightThresholdKg: number;
+}
+
 /*
  * Cross-field invariants the per-field `≥ 0` check can't catch. A misconfigured
  * delivery fee silently misprices EVERY order, so these are guarded server-side
@@ -153,6 +162,13 @@ export class PlatformConfigService {
       riderCodCapPhp: Number(r.riderCodCapPhp),
       updatedAt: r.updatedAt,
     };
+  }
+
+  // Customer-readable booking rules. The same row the booking flow enforces,
+  // so an admin edit reaches the app's Express gating without a release.
+  async getBookingConfig(): Promise<BookingConfig> {
+    const r = await this.ensure();
+    return { expressWeightThresholdKg: Number(r.expressWeightThresholdKg) };
   }
 
   // Apply a partial update. Validates each field, writes only changed columns,

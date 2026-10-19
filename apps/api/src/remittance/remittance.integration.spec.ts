@@ -11,7 +11,7 @@ import { RemittanceService } from './remittance.service';
  */
 const D = (v: Prisma.Decimal.Value) => new Prisma.Decimal(v);
 const SUFFIX = `${Date.now()}`;
-const SHOP = `rem-shop-${SUFFIX}`;
+const SHOP_NAME = `Remit Test Laundry ${SUFFIX}`;
 const PERIOD = {
   periodStart: new Date('2026-06-01T00:00:00Z'),
   periodEnd: new Date('2026-06-08T00:00:00Z'),
@@ -23,11 +23,21 @@ describe('Remittance integration (Docker Postgres)', () => {
   const service = new RemittanceService(prisma, new RemittanceRepository(prisma));
 
   let customerId: string;
+  // A real Shop row, so the batch reads can resolve its name.
+  let SHOP: string;
   const orderIds: string[] = [];
   const batchIds: string[] = [];
+  // Platform-wide totals before this suite adds its batch (the test DB is shared,
+  // so the summary is asserted as a delta).
+  let before: Awaited<ReturnType<RemittanceService['summary']>>;
 
   beforeAll(async () => {
     await prisma.$connect();
+    const shop = await prisma.shop.create({
+      data: { name: SHOP_NAME, address: 'Test', lat: D('6.9'), lng: D('122.07') },
+    });
+    SHOP = shop.id;
+    before = await service.summary();
     const customer = await prisma.user.create({
       data: {
         firebaseUid: `rem-cust-${SUFFIX}`,
@@ -74,6 +84,7 @@ describe('Remittance integration (Docker Postgres)', () => {
     }
     await prisma.order.deleteMany({ where: { id: { in: orderIds } } });
     await prisma.user.deleteMany({ where: { id: customerId } });
+    await prisma.shop.deleteMany({ where: { id: SHOP } });
     await prisma.$disconnect();
   });
 
@@ -91,6 +102,19 @@ describe('Remittance integration (Docker Postgres)', () => {
     expect(lines.every((l) => l.batchId === batch!.id)).toBe(true);
   });
 
+  it("lists the batch under its shop's name", async () => {
+    const rows = await service.listBatches({ shopId: SHOP });
+    expect(rows.map((b) => b.id)).toEqual([batchIds[0]]);
+    expect(rows[0].shopName).toBe(SHOP_NAME);
+  });
+
+  it('summary counts the new batch as pending (sum over all batches)', async () => {
+    const now = await service.summary();
+    expect(now.pending.count).toBe(before.pending.count + 1);
+    expect(D(now.pending.totalPhp).sub(before.pending.totalPhp).toFixed(2)).toBe('145.50');
+    expect(now.paid).toEqual(before.paid);
+  });
+
   it('does not re-batch already-batched lines (empty second close)', async () => {
     const again = await service.closeBatch(SHOP, PERIOD);
     expect(again).toBeNull();
@@ -106,5 +130,12 @@ describe('Remittance integration (Docker Postgres)', () => {
     // Re-mark: idempotent, keeps the original reference.
     const again = await service.markPaid(id, 'DIFFERENT-REF', 'other-admin');
     expect(again.reference).toBe('GCASH-TEST-1');
+  });
+
+  it('summary moves the batch from pending to paid once marked', async () => {
+    const now = await service.summary();
+    expect(now.pending).toEqual(before.pending);
+    expect(now.paid.count).toBe(before.paid.count + 1);
+    expect(D(now.paid.totalPhp).sub(before.paid.totalPhp).toFixed(2)).toBe('145.50');
   });
 });

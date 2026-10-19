@@ -9,6 +9,7 @@ import {
 import { api, API_BASE_URL } from '../../lib/api';
 import { TableSkeleton } from '../Skeleton';
 import { c } from '../../lib/theme';
+import { mutationErrorMessage } from '../../lib/mutation-errors';
 
 export default function UsersPage() {
   const [role, setRole] = useState<UserRole | ''>('');
@@ -146,7 +147,9 @@ function UserRow({
 
   return (
     <tr data-testid={`user-${user.id}`} style={{ opacity: disabled ? 0.55 : 1 }}>
-      <td style={{ fontWeight: 600 }}>{user.phone}</td>
+      <td style={{ fontWeight: 600 }}>
+        {user.phone ?? <span style={{ color: c.muted, fontWeight: 400 }}>No phone yet</span>}
+      </td>
       <td>{user.displayName || <span style={{ color: c.muted }}>—</span>}</td>
       <td>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -208,7 +211,12 @@ function UserRow({
             {toggleDisabled.isPending ? '…' : disabled ? 'Enable' : 'Disable'}
           </button>
           {(save.isError || toggleDisabled.isError) ? (
-            <span style={{ color: c.danger, fontSize: 12 }}>failed</span>
+            <span role="alert" style={{ color: c.danger, fontSize: 12 }}>
+              {mutationErrorMessage(
+                'update-user',
+                save.isError ? save.error : toggleDisabled.error,
+              )}
+            </span>
           ) : null}
         </div>
       </td>

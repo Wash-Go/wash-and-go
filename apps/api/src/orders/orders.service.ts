@@ -15,7 +15,17 @@ import {
   ShopService,
   User,
 } from '@prisma/client';
-import { isExpressEligible, loadCategory, LoadCategoryKey } from './load';
+import {
+  cashToRecordOnDelivery,
+  isRiderlessCodDelivery,
+} from './cash-on-delivery';
+import {
+  isExpressEligible,
+  isWeighableKg,
+  loadCategory,
+  LoadCategoryKey,
+  WEIGH_RANGE_MESSAGE,
+} from './load';
 import { rankShopCandidates, ShopCandidate } from './shop-match';
 import { isUniqueViolation } from '../common/prisma-errors';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -32,12 +42,23 @@ const STATUS_MSG: Partial<Record<OrderStatus, string>> = {
   DELIVERED: 'Your laundry was delivered',
   CANCELLED: 'Your order was cancelled',
 };
+
+// Shown to the shop verbatim (the laundry portal maps it to the same copy).
+const READY_NEEDS_WEIGHT_MESSAGE =
+  'Weigh this order before marking it ready';
+
+// One message for every out-of-area answer (quote, both creates, and the
+// no-shop-in-range resolve). The customer app matches on it to show its own
+// plain-words copy, so keep it stable. Mirrors packages/domain/src/coverage.ts
+// OUTSIDE_COVERAGE_MESSAGE (pinned by parity.spec.ts).
+export const OUTSIDE_COVERAGE_MESSAGE = 'Pickup location is outside coverage';
 import { pricePreview, PricingBreakdown, PricingError } from '../pricing/pricing';
 import { PlatformConfigService } from '../platform-config/platform-config.service';
 import { computeDeliveryFee, haversineKm } from '../pricing/distance';
 import { OrdersRepository, OrderWithRelations } from './orders.repository';
 import { ZonesService } from '../zones/zones.service';
 import { manilaDayWindow } from './manila-time';
+import { visiblePhone } from '../users/phone';
 import {
   canRoleDrive,
   isLegalTransition,
@@ -49,7 +70,8 @@ import {
 // customer / rider relations + the actions THIS actor may drive next.
 export type OrderDetail = Order & {
   shop: { id: string; name: string; address: string } | null;
-  customer: { id: string; displayName: string; phone: string };
+  // phone is null while the customer still has the pending:<uid> placeholder.
+  customer: { id: string; displayName: string; phone: string | null };
   rider: { id: string; displayName: string } | null;
   availableActions: OrderStatus[];
   ratedStars: number | null;
@@ -78,6 +100,7 @@ export type OrderQuoteResult = {
  *  T1 capacity: advisory lock → count → insert, all one tx
  *  S1 audit:    OrderEvent written in the same tx as the status change
  *  S2 payout:   RemittanceLine written in the same tx as the DELIVERED transition
+ *  U0 T2 COD:   paidCashAt set in the same write as the DELIVERED transition
  */
 @Injectable()
 export class OrdersService {
@@ -118,6 +141,16 @@ export class OrdersService {
     shop: { lat: Prisma.Decimal; lng: Prisma.Decimal },
   ): number {
     return haversineKm(pickup, { lat: Number(shop.lat), lng: Number(shop.lng) });
+  }
+
+  // The service-zone gate. Quote and both creates call this one method, so an
+  // out-of-area customer gets the same 400 at quote time that Confirm would
+  // give (U0 T6), before any price is shown. Quote reveals nothing create
+  // doesn't: both are CUSTOMER-only and answer coverage before touching a shop.
+  private async assertCovered(pickup: { lat: number; lng: number }): Promise<void> {
+    if (!(await this.zones.isCovered(pickup))) {
+      throw new BadRequestException(OUTSIDE_COVERAGE_MESSAGE);
+    }
   }
 
   // Map a load category → its estimate kg AND enforce the Express weight ceiling
@@ -190,7 +223,7 @@ export class OrdersService {
       .map((ss) => ({ ss, km: this.kmToShop(pickup, ss.shop) }))
       .filter((x) => x.km <= maxResolveKm);
     if (inRange.length === 0) {
-      throw new BadRequestException('Pickup location is outside coverage');
+      throw new BadRequestException(OUTSIDE_COVERAGE_MESSAGE);
     }
 
     const capacityAware = serviceType !== ServiceType.SCHEDULED;
@@ -224,12 +257,14 @@ export class OrdersService {
 
   // POST /orders/quote — resolve the shop (nearest, or the override) + full
   // price breakdown (distance delivery fee). Powers the checkout screen.
+  // Gates run in create's order: load rule first, then coverage, then the shop.
   async quoteOrder(dto: QuoteOrderDto): Promise<OrderQuoteResult> {
     const estimateKg =
       dto.serviceType === 'SCHEDULED'
         ? this.scheduledLoadKg(dto.loadCategory)
         : await this.resolveExpressLoadKg(dto.loadCategory);
     const pickup = { lat: dto.pickupLat, lng: dto.pickupLng };
+    await this.assertCovered(pickup);
     let ss: ShopService & { shop: Shop };
     let km: number;
     if (dto.shopServiceId) {
@@ -278,9 +313,7 @@ export class OrdersService {
     // Backstop the Express weight ceiling before any work (the client gates it too).
     const estimateKg = await this.resolveExpressLoadKg(dto.loadCategory);
 
-    if (!(await this.zones.isCovered({ lat: dto.pickupLat, lng: dto.pickupLng }))) {
-      throw new BadRequestException('Pickup location is outside coverage');
-    }
+    await this.assertCovered({ lat: dto.pickupLat, lng: dto.pickupLng });
 
     const shopService = await this.repo.findShopServiceWithShop(
       dto.shopServiceId,
@@ -422,9 +455,7 @@ export class OrdersService {
     if (!cat) throw new BadRequestException('Unknown load category');
     const estimateKg = cat.estimateKg; // Scheduled accepts any size
 
-    if (!(await this.zones.isCovered({ lat: dto.pickupLat, lng: dto.pickupLng }))) {
-      throw new BadRequestException('Pickup location is outside coverage');
-    }
+    await this.assertCovered({ lat: dto.pickupLat, lng: dto.pickupLng });
 
     const shopService = await this.repo.findShopServiceWithShop(
       dto.shopServiceId,
@@ -540,8 +571,15 @@ export class OrdersService {
     });
   }
 
-  // POST /orders/:id/weigh — shop sets actual weight; price recomputes.
+  // POST /orders/:id/weigh — shop sets actual weight; price recomputes. The
+  // shop may re-weigh (fix a typo) while the order is AT_SHOP or PROCESSING;
+  // the latest weight is what READY_FOR_RETURN checks and what gets billed.
   async weigh(actor: User, orderId: string, dto: WeighDto): Promise<Order> {
+    // U0 T3: this sets the customer's final bill. The DTO bounds it on the
+    // HTTP path; re-check here so no caller can bill an impossible weight.
+    if (!isWeighableKg(Number(dto.weightKg))) {
+      throw new BadRequestException(WEIGH_RANGE_MESSAGE);
+    }
     return this.prisma.$transaction(async (tx) => {
       const order = await this.repo.findByIdForUpdate(tx, orderId);
       if (!order) throw new NotFoundException('Order not found');
@@ -621,14 +659,41 @@ export class OrdersService {
         );
       }
       await this.assertTransitionOwnership(actor, order, from, to);
+      // U0 T3: an unweighed order still carries its booking-estimate price.
+      // Refuse to release it for return (admin included) until the shop has
+      // recorded the actual weight, so the customer is billed on the scale.
+      if (to === OrderStatus.READY_FOR_RETURN && order.weightKg == null) {
+        throw new BadRequestException(READY_NEEDS_WEIGHT_MESSAGE);
+      }
+      // Money first: refuse (and explain) rather than deliver a COD order whose
+      // cash nobody would owe while the shop payout still accrues.
+      if (to === OrderStatus.DELIVERED && isRiderlessCodDelivery(order)) {
+        throw new ConflictException(
+          `No rider is on this order, so nobody holds its ₱${order.customerTotalPhp.toFixed(2)} cash. ` +
+            'Record the cash with pay-cash first, then mark it delivered.',
+        );
+      }
 
       const data: Prisma.OrderUpdateInput = { status: to };
+      let meta: Prisma.InputJsonValue | undefined;
       if (to === OrderStatus.DELIVERED) {
-        data.deliveredAt = new Date();
+        const now = new Date();
+        data.deliveredAt = now;
+        // U0 T2: delivering a COD order IS collecting its cash. Record it in
+        // this same write (rider or admin alike), so the rider owes it — and
+        // the COD debt cap sees it — the moment the order is delivered. Never
+        // re-stamps an earlier pay-cash; the row lock above serializes this
+        // against a concurrent pay-cash.
+        const cash = cashToRecordOnDelivery(order);
+        if (cash) {
+          data.paidCashAt = now;
+          meta = { paidCash: true, cashCollectedPhp: cash.toFixed(2) };
+        }
       }
       if (to === OrderStatus.CANCELLED) {
         data.cancelledAt = new Date();
         data.cancelReason = dto.reason?.trim() || null;
+        if (dto.reason) meta = { reason: dto.reason };
       }
       const updated = await this.repo.updateOrder(tx, order.id, data);
 
@@ -637,7 +702,7 @@ export class OrdersService {
         orderId: order.id,
         status: to,
         actorUserId: actor.id,
-        meta: to === OrderStatus.CANCELLED && dto.reason ? { reason: dto.reason } : undefined,
+        meta,
       });
 
       // In-app notification to the customer, in the same tx as the status change.
@@ -668,6 +733,9 @@ export class OrdersService {
   }
 
   // POST /orders/:id/pay-cash — record a manual cash payment (idempotent).
+  // Since U0 T2 the DELIVERED transition records COD itself, so this is for
+  // legacy delivered-but-unpaid orders and ops corrections; on an already-paid
+  // order it is a no-op success (no second event, timestamp kept).
   async payCash(actor: User, orderId: string): Promise<Order> {
     return this.prisma.$transaction(async (tx) => {
       const order = await this.repo.findByIdForUpdate(tx, orderId);
@@ -855,7 +923,7 @@ export class OrdersService {
       customer: {
         id: customer.id,
         displayName: customer.displayName,
-        phone: customer.phone,
+        phone: visiblePhone(customer.phone),
       },
       rider: assignedRider
         ? { id: assignedRider.id, displayName: assignedRider.displayName }

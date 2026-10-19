@@ -87,3 +87,13 @@ npm run format
 
 Use Node.js `22.13.0` or newer. Several current TanStack, Vite, and ESLint
 dependencies do not support Node `22.11.0`.
+
+## React version
+
+`react` and `react-dom` are pinned to the same version the rest of the monorepo
+resolves (currently `19.2.3`, set by the Expo apps). The repo uses pnpm's
+hoisted linker, so a different version here gets copied under every
+`@tanstack/*` package, the prerendered homepage then runs its hooks against a
+second React instance, and the page ships without its content (React error
+#419). `src/react-singleton.test.ts` fails if that happens again; bump these two
+pins together with the mobile apps.

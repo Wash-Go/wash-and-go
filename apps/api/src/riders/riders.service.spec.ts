@@ -22,4 +22,14 @@ describe('RidersService', () => {
       { id: 'r1', displayName: 'Rider One', phone: '+639170000002' },
     ]);
   });
+
+  it('reports a rider still on the placeholder phone as null', async () => {
+    const findMany = jest.fn().mockResolvedValue([
+      { id: 'r2', displayName: 'Rider Two', phone: 'pending:fb-r2' },
+    ]);
+    const service = new RidersService({ user: { findMany } } as unknown as PrismaService);
+    expect(await service.listRiders()).toEqual([
+      { id: 'r2', displayName: 'Rider Two', phone: null },
+    ]);
+  });
 });

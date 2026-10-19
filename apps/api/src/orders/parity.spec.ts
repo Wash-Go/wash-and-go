@@ -1,7 +1,12 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { OrderStatus } from '@prisma/client';
-import { LOAD_CATEGORIES as API_LOADS, LOAD_CATEGORY_KEYS as API_KEYS } from './load';
+import {
+  LOAD_CATEGORIES as API_LOADS,
+  LOAD_CATEGORY_KEYS as API_KEYS,
+  MAX_WEIGH_KG as API_MAX_WEIGH_KG,
+} from './load';
+import { OUTSIDE_COVERAGE_MESSAGE } from './orders.service';
 
 /*
  * Cross-package parity. The API hand-mirrors shared runtime constants because it
@@ -11,11 +16,14 @@ import { LOAD_CATEGORIES as API_LOADS, LOAD_CATEGORY_KEYS as API_KEYS } from './
  * the mirrors self-enforcing:
  *  - domain ORDER_STATUSES must equal the Prisma-generated enum (schema truth)
  *  - API + domain load catalogs must agree on keys + estimate kg
+ *  - API + domain must agree on the out-of-coverage message (the customer app
+ *    matches on the domain constant)
  * A drift now fails CI instead of shipping silently.
  */
 const DOMAIN = join(__dirname, '../../../../packages/domain/src');
 const orderStatusSrc = readFileSync(join(DOMAIN, 'order-status.ts'), 'utf8');
 const loadSrc = readFileSync(join(DOMAIN, 'load.ts'), 'utf8');
+const coverageSrc = readFileSync(join(DOMAIN, 'coverage.ts'), 'utf8');
 
 function domainOrderStatuses(): string[] {
   const block = orderStatusSrc.match(/ORDER_STATUSES\s*=\s*\[([\s\S]*?)\]/);
@@ -41,5 +49,25 @@ describe('cross-package parity', () => {
   it('API and domain load categories agree on estimate kg per key', () => {
     const apiKg = API_LOADS.map((c) => [c.key, c.estimateKg] as [string, number]);
     expect(apiKg).toEqual(domainLoads());
+  });
+
+  // The laundry portal gates the weigh input on the domain value; the API
+  // enforces its mirror. A drift would let the UI offer a weight the API
+  // refuses (or silently accept one the UI meant to block).
+  it('API and domain agree on the maximum weigh-in kg', () => {
+    const m = loadSrc.match(/MAX_WEIGH_KG\s*=\s*(\d+(?:\.\d+)?)/);
+    if (!m) throw new Error('MAX_WEIGH_KG not found in domain/load.ts');
+    expect(API_MAX_WEIGH_KG).toBe(Number(m[1]));
+    expect(API_MAX_WEIGH_KG).toBe(50);
+  });
+
+  // The customer checkout swaps this exact API message for plain words, matching
+  // on the domain constant. A reworded API message would silently fall back to
+  // showing the raw text.
+  it('API and domain agree on the out-of-coverage message', () => {
+    const m = coverageSrc.match(/OUTSIDE_COVERAGE_MESSAGE\s*=\s*'([^']+)'/);
+    if (!m) throw new Error('OUTSIDE_COVERAGE_MESSAGE not found in domain/coverage.ts');
+    expect(OUTSIDE_COVERAGE_MESSAGE).toBe(m[1]);
+    expect(OUTSIDE_COVERAGE_MESSAGE).toBe('Pickup location is outside coverage');
   });
 });

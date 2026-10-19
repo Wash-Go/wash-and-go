@@ -54,6 +54,13 @@ export class RemittanceController {
     return this.remittance.listBatches(query);
   }
 
+  @Get('summary')
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Payout count + total per status, over all batches' })
+  summary() {
+    return this.remittance.summary();
+  }
+
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('batches/:id/mark-paid')
   @Roles('ADMIN')

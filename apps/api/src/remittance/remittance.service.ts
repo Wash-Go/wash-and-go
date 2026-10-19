@@ -4,13 +4,28 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, RemittanceBatch } from '@prisma/client';
+import { Prisma, RemittanceBatch, RemittanceStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RemittanceRepository } from './remittance.repository';
 
 export interface ClosePeriod {
   periodStart: Date;
   periodEnd: Date; // exclusive
+}
+
+// Every batch the API returns carries its shop's name (null if the shop row is
+// gone — shopId has no FK), so the consoles never show a raw id.
+export type NamedBatch = RemittanceBatch & { shopName: string | null };
+
+export interface StatusTotal {
+  count: number;
+  totalPhp: string; // stringified Decimal, 2dp
+}
+
+// Platform-wide payout totals per status, over all batches.
+export interface RemittanceSummary {
+  pending: StatusTotal;
+  paid: StatusTotal;
 }
 
 /*
@@ -35,17 +50,18 @@ export class RemittanceService {
   async closeBatch(
     shopId: string,
     period: ClosePeriod,
-  ): Promise<RemittanceBatch | null> {
+  ): Promise<NamedBatch | null> {
     this.assertPeriod(period);
-    return this.prisma.$transaction((tx) =>
+    const batch = await this.prisma.$transaction((tx) =>
       this.closeBatchTx(tx, shopId, period),
     );
+    return batch ? (await this.withShopNames([batch]))[0] : null;
   }
 
   // Close every shop that has unbatched lines in the period — one batch each.
-  async closeAllShops(period: ClosePeriod): Promise<RemittanceBatch[]> {
+  async closeAllShops(period: ClosePeriod): Promise<NamedBatch[]> {
     this.assertPeriod(period);
-    return this.prisma.$transaction(async (tx) => {
+    const batches = await this.prisma.$transaction(async (tx) => {
       const shopIds = await this.repo.distinctUnbatchedShops(
         tx,
         period.periodStart,
@@ -58,6 +74,7 @@ export class RemittanceService {
       }
       return batches;
     });
+    return this.withShopNames(batches);
   }
 
   private async closeBatchTx(
@@ -105,21 +122,35 @@ export class RemittanceService {
   // Shop-facing: only the caller's own shop payout batches. Strip paidByUid — a
   // shop has no business seeing which admin's Firebase UID marked the transfer
   // (the reference + paidAt are enough proof of payment).
-  async listBatchesForMember(userId: string): Promise<RemittanceBatch[]> {
+  async listBatchesForMember(userId: string): Promise<NamedBatch[]> {
     const shopIds = await this.repo.shopIdsForMember(userId);
     if (shopIds.length === 0) return [];
     const batches = await this.repo.listBatches({ shopId: { in: shopIds } });
-    return batches.map((b) => ({ ...b, paidByUid: null }));
+    return this.withShopNames(batches.map((b) => ({ ...b, paidByUid: null })));
   }
 
   async listBatches(filter: {
     shopId?: string;
     status?: 'PENDING' | 'PAID';
-  }): Promise<RemittanceBatch[]> {
+  }): Promise<NamedBatch[]> {
     const where: Prisma.RemittanceBatchWhereInput = {};
     if (filter.shopId) where.shopId = filter.shopId;
     if (filter.status) where.status = filter.status;
-    return this.repo.listBatches(where);
+    return this.withShopNames(await this.repo.listBatches(where));
+  }
+
+  // Owed / paid totals across ALL batches. The list is filtered and capped, so
+  // the console must not derive its headline numbers from the rows it shows.
+  async summary(): Promise<RemittanceSummary> {
+    const rows = await this.repo.totalsByStatus();
+    const pick = (status: RemittanceStatus): StatusTotal => {
+      const r = rows.find((x) => x.status === status);
+      return {
+        count: r?.count ?? 0,
+        totalPhp: (r?.total ?? new Prisma.Decimal(0)).toFixed(2),
+      };
+    };
+    return { pending: pick('PENDING'), paid: pick('PAID') };
   }
 
   // Record the external payout transfer. Idempotent — a batch already PAID is
@@ -128,11 +159,21 @@ export class RemittanceService {
     batchId: string,
     reference: string,
     actorUid: string,
-  ): Promise<RemittanceBatch> {
+  ): Promise<NamedBatch> {
     const batch = await this.repo.findBatchById(batchId);
     if (!batch) throw new NotFoundException('Batch not found');
-    if (batch.status === 'PAID') return batch;
-    return this.repo.markBatchPaid(batchId, { reference, paidByUid: actorUid });
+    const out =
+      batch.status === 'PAID'
+        ? batch
+        : await this.repo.markBatchPaid(batchId, { reference, paidByUid: actorUid });
+    return (await this.withShopNames([out]))[0];
+  }
+
+  // One shop lookup per call (deduped ids), not one per batch.
+  private async withShopNames(batches: RemittanceBatch[]): Promise<NamedBatch[]> {
+    if (batches.length === 0) return [];
+    const names = await this.repo.shopNames([...new Set(batches.map((b) => b.shopId))]);
+    return batches.map((b) => ({ ...b, shopName: names.get(b.shopId) ?? null }));
   }
 
   private assertPeriod(period: ClosePeriod): void {

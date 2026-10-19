@@ -2,13 +2,14 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { visiblePhone } from '../users/phone';
 
 // Admin view of a rider application — profile + who it belongs to.
 export interface RiderApplicationView {
   id: string;
   userId: string;
   displayName: string;
-  phone: string;
+  phone: string | null; // null = still the pending:<uid> placeholder
   status: string;
   vehicleType: string | null;
   vehiclePlate: string | null;
@@ -93,7 +94,7 @@ export class AdminRidersService {
       id: p.id,
       userId: p.userId,
       displayName: p.user.displayName,
-      phone: p.user.phone,
+      phone: visiblePhone(p.user.phone),
       status: p.status,
       vehicleType: p.vehicleType,
       vehiclePlate: p.vehiclePlate,

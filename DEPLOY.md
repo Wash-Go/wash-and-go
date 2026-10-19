@@ -7,8 +7,11 @@ Cost matrix: ~$45/mo recurring + $124 one-time (see the cost PDF).
 
 ## 1. API → Railway
 
-1. **New project** → deploy from the GitHub repo. Railway reads `railway.json`
-   (Dockerfile build at `apps/api/Dockerfile`, healthcheck `/health`).
+1. **New project** → deploy from the GitHub repo, branch `main`. Leave **Root
+   Directory empty** (repo root) — the Dockerfile needs the whole monorepo
+   (`pnpm-workspace.yaml`, `packages/`) as its build context. Railway reads the
+   root `railway.json` (Dockerfile build at `apps/api/Dockerfile`, healthcheck
+   `/health/ready`). Setting Root Directory to `apps/api` breaks the build.
 2. **Add Postgres** — Railway → "+ New" → Database → Postgres. It exposes
    `DATABASE_URL`; reference it in the API service.
 3. **Set env vars** on the API service (see `apps/api/.env.production.example`):

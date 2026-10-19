@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { RiderCashDetail } from '@wash-and-go/domain';
 import {
@@ -17,6 +18,7 @@ import { api } from '../../lib/api';
 export default function CashScreen() {
   const [data, setData] = useState<RiderCashDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -27,8 +29,19 @@ export default function CashScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    load();
+  // Reload every time the tab gains focus (the first open included), so the
+  // balance is current after a COD delivery or a recorded deposit — not the
+  // number from whenever the tab was first opened.
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
   }, [load]);
 
   if (!data && !error) {
@@ -50,7 +63,14 @@ export default function CashScreen() {
   const owed = Number(b.outstandingPhp);
 
   return (
-    <Screen>
+    <Screen refreshing={refreshing} onRefresh={onRefresh}>
+      {error ? (
+        // A reload failed with a balance already on screen: keep it, but don't
+        // let an old number pass for the current one.
+        <Text style={styles.stale}>
+          Couldn't refresh — this is your last loaded balance. Pull down to try again.
+        </Text>
+      ) : null}
       <Card style={{ backgroundColor: colors.navyTint }}>
         <Muted>Outstanding — cash you still owe the platform</Muted>
         <Text
@@ -123,5 +143,6 @@ const styles = StyleSheet.create({
   section: { ...type.h2, color: colors.text, marginTop: space.md },
   sub: { ...type.small, color: colors.textMuted, marginTop: space.xs },
   li: { ...type.body, color: colors.textMuted, lineHeight: 20 },
+  stale: { ...type.small, color: colors.danger },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 });
