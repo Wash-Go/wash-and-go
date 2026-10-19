@@ -53,14 +53,15 @@ test.describe('laundry-portal shell (phone)', () => {
     ['/staff', 'Staff', null],
     ['/help', 'Help', null],
   ] as const) {
-    test(`stub route ${path} loads inside the shell`, async ({ page }) => {
+    test(`route ${path} loads inside the shell`, async ({ page }) => {
       await page.goto(path);
       await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
       await expect(page.getByTestId('shell-header')).toBeVisible();
       if (tab) {
         await expect(page.locator('nav.tb').getByRole('link', { name: tab })).toHaveAttribute('aria-current', 'page');
       }
-      if (path !== '/payouts') await expect(page.getByTestId('empty-state')).toBeVisible();
+      // Services and Help are still stubs; Payouts, Shop and Staff are real screens now.
+      if (path === '/services' || path === '/help') await expect(page.getByTestId('empty-state')).toBeVisible();
       await noHorizontalScroll(page);
     });
   }
