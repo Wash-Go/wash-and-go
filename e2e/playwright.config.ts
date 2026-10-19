@@ -53,7 +53,6 @@ const WEB_SERVERS: PlaywrightTestConfig['webServer'] & unknown[] = [
       timeout: 240_000,
       cwd: '..',
     },
-  
 ];
 
 export default defineConfig({
