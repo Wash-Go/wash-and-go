@@ -164,6 +164,12 @@ model Shop {
   // R2 object keys for submitted proof (business permit + storefront photos).
   permitKey          String?
   photoKeys          String[]  @default([])
+  // Owner-entered wizard fields (portal B3). contactPhone is canonical
+  // +639XXXXXXXXX; hours is 7 × { day 0..6, open/close 'HH:MM' | null }, shape
+  // owned by UpdateOnboardingDto.
+  contactPhone       String?  @db.VarChar(20)
+  description        String?  @db.VarChar(500)
+  hours              Json?
   // PENDING founder rate card — 12% is the planning assumption
   commissionPct      Decimal  @default(12.00) @db.Decimal(5, 2)
   // Reserved express queue capacity (Logistics v1.1). Count check runs inside
