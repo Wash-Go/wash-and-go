@@ -24,9 +24,15 @@ describe('shouldFetchPendingInvites', () => {
     expect(shouldFetchPendingInvites({ devBypass: false, inviteEmailOnFile: undefined, emailVerified: true })).toBe(true);
     expect(shouldFetchPendingInvites({ devBypass: false, inviteEmailOnFile: undefined, emailVerified: undefined })).toBe(false);
   });
-  it('never asks with both flags false or under the dev stub', () => {
+  it('never asks with both flags false', () => {
     expect(shouldFetchPendingInvites({ devBypass: false, inviteEmailOnFile: false, emailVerified: false })).toBe(false);
-    expect(shouldFetchPendingInvites({ devBypass: true, inviteEmailOnFile: true, emailVerified: true })).toBe(false);
+  });
+  it('under the dev stub, asks only when the API says an email is on file', () => {
+    // A dev-route user created with an email (the invite e2e); the seeded stub has none.
+    expect(shouldFetchPendingInvites({ devBypass: true, inviteEmailOnFile: true, emailVerified: false })).toBe(true);
+    expect(shouldFetchPendingInvites({ devBypass: true, inviteEmailOnFile: false, emailVerified: true })).toBe(false);
+    // An older API without the flag: never guess from emailVerified for the stub.
+    expect(shouldFetchPendingInvites({ devBypass: true, inviteEmailOnFile: undefined, emailVerified: true })).toBe(false);
   });
 });
 

@@ -10,15 +10,19 @@ const status = (e: unknown): number | undefined => {
   return typeof s === 'number' ? s : undefined;
 };
 
-// The dev x-dev-uid stub has no email: never ask. inviteEmailOnFile (B6a) is
-// the right flag; an older API without it falls back to emailVerified.
+// inviteEmailOnFile (B6a) is the flag: the API matches invites against the
+// stored User.email, so ask exactly when it says one is on file. That also
+// holds under the dev x-dev-uid stub (a dev-route user created with an
+// email). An older API without the flag falls back to emailVerified, except
+// under the stub, which has no Firebase email to have verified.
 export function shouldFetchPendingInvites(s: {
   devBypass: boolean;
   inviteEmailOnFile: boolean | undefined;
   emailVerified: boolean | undefined;
 }): boolean {
+  if (s.inviteEmailOnFile !== undefined) return s.inviteEmailOnFile;
   if (s.devBypass) return false;
-  return !!s.inviteEmailOnFile || !!s.emailVerified;
+  return !!s.emailVerified;
 }
 
 function firstOpen(invites: readonly PendingInviteView[], dismissed: readonly string[]): PendingInviteView | null {

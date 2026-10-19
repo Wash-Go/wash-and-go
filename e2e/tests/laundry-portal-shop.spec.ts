@@ -9,9 +9,9 @@ import { expect, test, type Page } from '@playwright/test';
  * The spec edits the seeded shop, so beforeAll snapshots the columns it
  * touches (contact phone, payout account) with psql (E2E_DATABASE_URL, default
  * the design DB the local API runs on) and afterAll writes them back and
- * deletes the invite rows it created. Invite acceptance needs a real verified
- * email, which the dev stub cannot have; it is covered by jest
- * (lib/invites.spec.ts) and the api-client spec instead.
+ * deletes the invite rows it created (seeded-shop columns and the owner's own
+ * invite rows, which the dev route's user cascade does not cover). Invite
+ * acceptance has its own smoke: laundry-portal-invite.spec.ts.
  */
 const PHONE = { width: 390, height: 844 };
 const DB = process.env.E2E_DATABASE_URL ?? 'postgresql://ban@localhost:5432/wash_and_go_design';

@@ -1,5 +1,5 @@
 'use client';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -10,6 +10,8 @@ import { useConsole } from '../console/ConsoleContext';
 import { useLastLive, useNow, useOnline } from '../../lib/live';
 import { activeTab, MORE_ITEMS, RAIL_ITEMS, TAB_ITEMS, type NavItem } from '../../lib/nav';
 import { formatUpdatedAgo } from '../../lib/relative-time';
+import { shopMeKey } from '../../lib/shop-profile';
+import { api } from '../../lib/api';
 import { ShopChip } from './Chip';
 import { NAV_ICONS } from './icons';
 import { Sheet } from './Sheet';
@@ -49,7 +51,15 @@ function Frame({ children }: { children: ReactNode }) {
   const now = useNow();
   const qc = useQueryClient();
 
-  const shopName = shop?.name || 'Your shop';
+  // Staff have no owner onboarding view (OWNER-scoped), so their shop's name
+  // comes from GET /shop/me (OWNER or STAFF), the Shop page's own query.
+  const profile = useQuery({
+    queryKey: shopMeKey(me.id),
+    queryFn: () => api.shopMe(),
+    enabled: !shop,
+    refetchInterval: false,
+  });
+  const shopName = shop?.name || profile.data?.name || 'Your shop';
   const role = me.roles.includes('SHOP_OWNER') ? 'Owner' : 'Staff';
   const who = me.displayName ? `${role} · ${me.displayName}` : role;
   const updated = now && lastLive ? formatUpdatedAgo(lastLive, now) : null;

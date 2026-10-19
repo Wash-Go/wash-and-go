@@ -1,6 +1,6 @@
-import { execFileSync } from 'node:child_process';
 import { expect, test, type Page } from '@playwright/test';
 import { API_URL } from '../playwright.config';
+import { actAs, createDevUser, deleteDevUser } from '../fixtures/dev-users';
 
 /*
  * Browser smoke: the laundry-portal onboarding wizard (plan B3). A fresh owner
@@ -9,22 +9,17 @@ import { API_URL } from '../playwright.config';
  * (Fix and resubmit opens the step the reason names) and verifies it (Orders
  * shows the one-time "You're live" banner).
  *
- * The dev x-dev-uid stub only works for users that already exist, and the API
- * has no way to create one without a Firebase token, so beforeAll inserts a
- * plain customer row straight into the local DB (E2E_DATABASE_URL, default the
- * design DB the local API runs on) and then starts onboarding through the API
- * (POST /shop/onboarding/start), exactly as signup does. afterAll removes it.
+ * The dev x-dev-uid stub only works for users that already exist, so
+ * beforeAll creates a plain customer through the API's dev route
+ * (e2e/fixtures/dev-users.ts) and then starts onboarding through the API
+ * (POST /shop/onboarding/start), exactly as signup does. afterAll deletes the
+ * user with the dev route, whose cascade removes the shop, its services and
+ * members, and the owner's notifications.
  * R2 is not configured locally, so the gated documents step is the one tested.
  */
 const PHONE = { width: 390, height: 844 };
-const DB = process.env.E2E_DATABASE_URL ?? 'postgresql://ban@localhost:5432/wash_and_go_design';
 const UID = `e2e-onboard-${Date.now()}`;
-const USER_ID = `usr_${UID}`;
 const SHOP_NAME = `E2E Laundry ${Date.now() % 100000}`;
-
-function sql(q: string): string {
-  return execFileSync('psql', [DB, '-v', 'ON_ERROR_STOP=1', '-Atc', q]).toString().trim();
-}
 
 async function api(method: string, path: string, uid: string, body?: unknown) {
   const res = await fetch(`${API_URL}${path}`, {
@@ -39,31 +34,17 @@ async function api(method: string, path: string, uid: string, body?: unknown) {
 let shopId = '';
 
 test.beforeAll(async () => {
-  sql(
-    `INSERT INTO "User" (id, "firebaseUid", phone, "displayName", roles) ` +
-      `VALUES ('${USER_ID}', '${UID}', 'pending:${UID}', 'Lorna Onboard', '{CUSTOMER}')`,
-  );
+  await createDevUser({ uid: UID, displayName: 'Lorna Onboard', roles: ['CUSTOMER'] });
   const shop = (await api('POST', '/shop/onboarding/start', UID)) as { id: string; status: string };
   expect(shop.status).toBe('DRAFT');
   shopId = shop.id;
 });
 
 test.afterAll(async () => {
-  if (shopId) {
-    sql(`DELETE FROM "ShopService" WHERE "shopId" = '${shopId}'`);
-    sql(`DELETE FROM "ShopMember" WHERE "shopId" = '${shopId}'`);
-    sql(`DELETE FROM "Shop" WHERE id = '${shopId}'`);
-  }
-  // Verify / reject notify the owner.
-  sql(`DELETE FROM "Notification" WHERE "userId" = '${USER_ID}'`);
-  sql(`DELETE FROM "User" WHERE id = '${USER_ID}'`);
+  // Cascade: the solely owned shop (services, members, invites) and the
+  // owner's notifications from verify / reject go with the user.
+  await deleteDevUser(UID);
 });
-
-async function actAs(page: Page, uid: string) {
-  await page.route(`${API_URL}/**`, (route) =>
-    route.continue({ headers: { ...route.request().headers(), 'x-dev-uid': uid } }),
-  );
-}
 
 const wizard = (page: Page) => page.getByTestId('wizard');
 const next = (page: Page) => page.getByTestId('wizard-next');
