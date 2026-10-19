@@ -1,5 +1,5 @@
 import type { ShopProfileView } from '@wash-and-go/domain';
-import { profileDraft, profileErrorMessage, sectionDirty, sectionPatch, validateSection } from './shop-profile';
+import { hoursUnset, profileDraft, profileErrorMessage, sectionDirty, sectionPatch, validateSection } from './shop-profile';
 
 const view: ShopProfileView = {
   id: 's1',
@@ -67,6 +67,16 @@ describe('sections', () => {
     const hours = d.hours.map((h) => (h.day === 6 ? { ...h, open: false } : h));
     expect(sectionDirty('hours', { ...d, hours }, view)).toBe(true);
     expect(sectionDirty('hours', d, view)).toBe(false);
+  });
+
+  it('a shop with no hours yet is not dirty until the owner changes something', () => {
+    const unset = { ...view, hours: null };
+    const d = profileDraft(unset);
+    expect(sectionDirty('hours', d, unset)).toBe(false);
+    const hours = d.hours.map((h) => (h.day === 0 ? { ...h, open: true } : h));
+    expect(sectionDirty('hours', { ...d, hours }, unset)).toBe(true);
+    expect(hoursUnset(unset)).toBe(true);
+    expect(hoursUnset(view)).toBe(false);
   });
 });
 

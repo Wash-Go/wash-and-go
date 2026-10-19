@@ -19,6 +19,7 @@ import { api } from '../../lib/api';
 import { useOnline } from '../../lib/live';
 import { manilaDate } from '../../lib/relative-time';
 import {
+  hoursUnset,
   profileDraft,
   profileErrorMessage,
   sectionDirty,
@@ -188,8 +189,13 @@ function OwnerView({ view }: { view: ShopProfileView }) {
       {section(
         'hours',
         <>
-          {view.hours == null ? (
-            <p className="small muted">Your opening hours aren&rsquo;t set yet. Check these, then save.</p>
+          {hoursUnset(view) && !sectionDirty('hours', draft, view) ? (
+            <div className="row" data-testid="hours-unset">
+              <p className="small muted">Your opening hours aren&rsquo;t set yet. These are the usual defaults.</p>
+              <Button variant="secondary" onClick={() => void save('hours')} disabled={saving === 'hours' || !online}>
+                Save these hours
+              </Button>
+            </div>
           ) : null}
           <HoursStep {...fieldProps('hours')} />
         </>,

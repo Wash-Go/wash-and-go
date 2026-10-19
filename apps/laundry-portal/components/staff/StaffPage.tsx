@@ -17,6 +17,8 @@ import { SkeletonCard } from '../ui/Skeleton';
 import { useToast } from '../ui/Toast';
 import { api } from '../../lib/api';
 import { inviteEmailError, inviteErrorMessage } from '../../lib/invites';
+import { shopMeKey } from '../../lib/shop-profile';
+import { staffAccess } from '../../lib/staff';
 import { useOnline } from '../../lib/live';
 import { manilaDate } from '../../lib/relative-time';
 
@@ -31,7 +33,10 @@ type Pending =
 // invites with Revoke, "Invite by email". STAFF: the member list, read-only.
 export function StaffPage() {
   const { me } = useConsole();
-  const owner = me.roles.includes('SHOP_OWNER');
+  // Shop-scoped role (GET /shop/me myRole), not the account's global roles.
+  const shopMe = useQuery({ queryKey: shopMeKey(me.id), queryFn: () => api.shopMe(), refetchInterval: false });
+  const access = staffAccess(shopMe.data?.myRole);
+  const owner = access.manage;
   const qc = useQueryClient();
   const toast = useToast();
   const online = useOnline();
@@ -98,7 +103,9 @@ export function StaffPage() {
   return (
     <div className="shop-page" data-testid="staff-page">
       <p className="small muted" style={{ marginTop: -4 }}>
-        {owner
+        {!access.known
+          ? 'Your team.'
+          : owner
           ? 'Staff work the order queue on their own phones. Owners keep money and settings.'
           : 'Your team. Only the owner can invite or remove people.'}
       </p>

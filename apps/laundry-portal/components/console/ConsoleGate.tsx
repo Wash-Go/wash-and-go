@@ -1,13 +1,14 @@
 'use client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePathname, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import type { MeView, OwnerShopView } from '@wash-and-go/domain';
 import { api } from '../../lib/api';
 import { claimApiCache } from '../../lib/cache-owner-effect';
 import { sessionUid } from '../../lib/cache-owner';
 import { DEV_UID } from '../../lib/firebase';
 import { isShopAccount, resolveGate, type Gate } from '../../lib/gate';
+import { gateRedirect } from '../../lib/gate-route';
 import { readGateSnapshot, saveGateSnapshot, type GateSnapshot } from '../../lib/offline-gate';
 import { ensureSession } from '../../lib/session';
 import { signOutEverywhere } from '../../lib/sign-out';
@@ -130,10 +131,14 @@ export function ConsoleGate({ children }: { children: ReactNode }) {
 
   const gate = boot.data?.gate ?? null;
 
+  // The previous gate kind, so an accepted invite (not-a-shop → ready) lands
+  // on Orders from whatever URL the not-a-shop screen was showing.
+  const lastKind = useRef<Gate['kind'] | null>(null);
   useEffect(() => {
     if (!gate) return;
-    if (gate.kind === 'onboarding' && pathname !== '/onboarding') router.replace('/onboarding');
-    if (gate.kind === 'ready' && pathname === '/onboarding') router.replace('/');
+    const to = gateRedirect(lastKind.current, gate.kind, pathname);
+    lastKind.current = gate.kind;
+    if (to) router.replace(to);
   }, [gate?.kind, pathname, router]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const signOut = useCallback(async () => {

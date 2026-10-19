@@ -65,8 +65,12 @@ test.describe('shop and staff (phone)', () => {
     const profile = page.getByTestId('shop-profile');
     await expect(profile.getByLabel('Laundry name')).toHaveValue('Tetuan Laundry Hub');
 
-    // No Save until something changes; one Save per card.
+    // No Save until something changes; one Save per card. The seeded shop has
+    // no hours yet: a separate nudge, not a dirty section.
     await expect(profile.getByRole('button', { name: 'Save profile' })).toHaveCount(0);
+    const hours = page.getByTestId('shop-hours');
+    await expect(hours.getByRole('button', { name: 'Save hours and capacity' })).toHaveCount(0);
+    await expect(hours.getByTestId('hours-unset')).toBeVisible();
     const phone = profile.getByLabel('Contact phone');
     expect(await phone.evaluate((el) => getComputedStyle(el).fontSize)).toBe('16px');
     await phone.fill('12345');

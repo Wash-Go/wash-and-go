@@ -60,9 +60,13 @@ export function sectionDirty(s: Section, d: WizardDraft, v: ShopProfileView): bo
   if (s === 'location') return d.address.trim() !== saved.address || d.lat !== saved.lat || d.lng !== saved.lng;
   return (
     JSON.stringify(hoursToApi(d.hours)) !== JSON.stringify(hoursToApi(saved.hours)) ||
-    d.expressSlots.trim() !== saved.expressSlots ||
-    v.hours == null
+    d.expressSlots.trim() !== saved.expressSlots
   );
+}
+
+// No hours stored yet (the grid shows defaults). A separate nudge, not dirty.
+export function hoursUnset(v: ShopProfileView): boolean {
+  return v.hours == null;
 }
 
 export function profileErrorMessage(error: unknown): { text: string; onboarding?: boolean } {
