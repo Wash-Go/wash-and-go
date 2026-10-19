@@ -1,7 +1,7 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import type { User } from '@prisma/client';
-import { UpdateMeDto, toMe } from './auth.controller';
+import { SessionDto, UpdateMeDto, toMe } from './auth.controller';
 
 function makeUser(overrides: Partial<User> = {}): User {
   return {
@@ -64,4 +64,27 @@ describe('UpdateMeDto', () => {
     expect(await errors({ name: null })).not.toEqual([]);
     expect(await errors({ name: null, phone: null })).not.toEqual([]);
   });
+});
+
+// POST /auth/session: the body is the token and nothing else. A client cannot
+// supply the email that staff-invite acceptance keys on.
+describe('SessionDto', () => {
+  async function errors(body: unknown): Promise<string[]> {
+    const errs = await validate(plainToInstance(SessionDto, body), {
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    });
+    return errs.flatMap((e) => Object.values(e.constraints ?? {}));
+  }
+
+  it('accepts just an idToken', async () => {
+    expect(await errors({ idToken: 't' })).toEqual([]);
+  });
+
+  it.each([{ email: 'x@example.com' }, { emailVerified: true }, { roles: ['SHOP_STAFF'] }])(
+    'refuses an extra %p',
+    async (extra) => {
+      expect(await errors({ idToken: 't', ...extra })).not.toEqual([]);
+    },
+  );
 });

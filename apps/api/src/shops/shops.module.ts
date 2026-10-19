@@ -16,6 +16,7 @@ import { ShopPayoutController } from './shop-payout.controller';
 import { ShopPayoutService } from './shop-payout.service';
 import { ShopStaffController } from './shop-staff.controller';
 import { ShopStaffService } from './shop-staff.service';
+import { ShopInviteAcceptanceService } from './shop-invite-acceptance.service';
 
 @Module({
   // AdminShopsService notifies owners on verify/reject; onboarding submit reads
@@ -39,6 +40,8 @@ import { ShopStaffService } from './shop-staff.service';
     ShopProfileService,
     ShopPayoutService,
     ShopStaffService,
+    ShopInviteAcceptanceService,
   ],
+  exports: [ShopInviteAcceptanceService], // AuthModule: accept invites on sign-in
 })
 export class ShopsModule {}

@@ -7,6 +7,7 @@ import { Prisma, type User } from '@prisma/client';
 import { AuthService } from './auth.service';
 import type { FirebaseService } from './firebase.service';
 import type { UsersRepository } from '../users/users.repository';
+import type { ShopInviteAcceptanceService } from '../shops/shop-invite-acceptance.service';
 
 function makeUser(overrides: Partial<User> = {}): User {
   return {
@@ -27,6 +28,7 @@ describe('AuthService', () => {
     Pick<UsersRepository, 'findByFirebaseUid' | 'upsertByFirebaseUid' | 'updateProfile'>
   >;
   let service: AuthService;
+  let invites: { onSignIn: jest.Mock };
 
   beforeEach(() => {
     firebase = {
@@ -42,9 +44,12 @@ describe('AuthService', () => {
     } as unknown as jest.Mocked<
       Pick<UsersRepository, 'findByFirebaseUid' | 'upsertByFirebaseUid' | 'updateProfile'>
     >;
+    // Pass-through by default; specific tests assert what it is handed.
+    invites = { onSignIn: jest.fn((u: User) => Promise.resolve(u)) };
     service = new AuthService(
       firebase as unknown as FirebaseService,
       users as unknown as UsersRepository,
+      invites as unknown as ShopInviteAcceptanceService,
     );
   });
 
@@ -139,6 +144,40 @@ describe('AuthService', () => {
       await expect(service.sessionUpsert({ bearer: null })).rejects.toBeInstanceOf(
         UnauthorizedException,
       );
+      expect(invites.onSignIn).not.toHaveBeenCalled();
+    });
+
+    // Staff invites: the email that grants SHOP_STAFF must be the one inside
+    // the VERIFIED token — the only input sessionUpsert takes is the bearer.
+    it('hands the upserted user and the VERIFIED identity to invite acceptance, returning its result', async () => {
+      const identity = {
+        firebaseUid: 'fb-new',
+        email: 'staff@example.com',
+        emailVerified: true,
+      };
+      firebase.verifyIdToken.mockResolvedValue(identity);
+      const u = makeUser({ firebaseUid: 'fb-new' });
+      const promoted = makeUser({ firebaseUid: 'fb-new', roles: ['CUSTOMER', 'SHOP_STAFF'] });
+      users.upsertByFirebaseUid.mockResolvedValue(u);
+      invites.onSignIn.mockResolvedValue(promoted);
+
+      const result = await service.sessionUpsert({ bearer: 'tok' });
+
+      expect(firebase.verifyIdToken).toHaveBeenCalledWith('tok');
+      expect(invites.onSignIn).toHaveBeenCalledWith(u, identity);
+      expect(result).toBe(promoted);
+    });
+
+    it('a token that fails verification never reaches invite acceptance', async () => {
+      firebase.verifyIdToken.mockRejectedValue(new Error('bad token'));
+      await expect(service.sessionUpsert({ bearer: 'forged' })).rejects.toThrow('bad token');
+      expect(invites.onSignIn).not.toHaveBeenCalled();
+    });
+
+    it('sessionUpsert accepts only a bearer — there is no email input to forge', () => {
+      // Compile-time guard made explicit: the signature has one field.
+      const call: Parameters<AuthService['sessionUpsert']>[0] = { bearer: 'x' };
+      expect(Object.keys(call)).toEqual(['bearer']);
     });
   });
 

@@ -9,6 +9,7 @@ import { FirebaseService } from './firebase.service';
 import { UsersRepository } from '../users/users.repository';
 import { normalizePhMobile } from '../users/phone';
 import { isUniqueViolation } from '../common/prisma-errors';
+import { ShopInviteAcceptanceService } from '../shops/shop-invite-acceptance.service';
 
 export const DUPLICATE_PHONE_MESSAGE =
   'That mobile number is already used by another account.';
@@ -21,7 +22,9 @@ export const INVALID_PHONE_MESSAGE =
  * logic is pure and unit-testable (no ExecutionContext mocking).
  *
  *   request ── bearer / x-dev-uid ──▶ resolveFirebaseUid ──▶ resolveAuthedUser
- *   POST /auth/session ─ bearer ─▶ sessionUpsert (creates the User row)
+ *   POST /auth/session ─ bearer ─▶ sessionUpsert (creates the User row, then
+ *                                   accepts staff invites for the token's
+ *                                   VERIFIED email — never a body field)
  *   PATCH /auth/me ─ authed user ─▶ updateMe (own name / mobile number)
  */
 @Injectable()
@@ -29,6 +32,7 @@ export class AuthService {
   constructor(
     private readonly firebase: FirebaseService,
     private readonly users: UsersRepository,
+    private readonly invites: ShopInviteAcceptanceService,
   ) {}
 
   // Real Firebase token WINS (the Admin SDK is initialized): if a bearer is
@@ -69,10 +73,13 @@ export class AuthService {
       throw new UnauthorizedException('Missing bearer token');
     }
     const identity = await this.firebase.verifyIdToken(input.bearer);
-    return this.users.upsertByFirebaseUid({
+    const user = await this.users.upsertByFirebaseUid({
       firebaseUid: identity.firebaseUid,
       phone: identity.phone,
     });
+    // Staff-invite acceptance keys on the VERIFIED token email only. It never
+    // throws (a failure is logged and retried next session).
+    return this.invites.onSignIn(user, identity);
   }
 
   // PATCH /auth/me — any signed-in user sets their OWN name and/or mobile

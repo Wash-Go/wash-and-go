@@ -6,6 +6,10 @@ import { assertAuthConfigSafe } from './auth-config';
 export type VerifiedIdentity = {
   firebaseUid: string;
   phone?: string;
+  // From the verified token. `emailVerified` is the token's email_verified
+  // claim; only a true value lets the email drive a privilege (staff invites).
+  email?: string;
+  emailVerified?: boolean;
 };
 
 /*
@@ -81,6 +85,11 @@ export class FirebaseService implements OnModuleInit {
       throw new Error('Firebase not initialized (set credentials or dev bypass)');
     }
     const decoded = await this.app.auth().verifyIdToken(idToken);
-    return { firebaseUid: decoded.uid, phone: decoded.phone_number };
+    return {
+      firebaseUid: decoded.uid,
+      phone: decoded.phone_number,
+      email: decoded.email,
+      emailVerified: decoded.email_verified === true,
+    };
   }
 }

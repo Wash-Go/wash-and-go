@@ -8,7 +8,9 @@ import { Public } from './public.decorator';
 import { CurrentUser } from './current-user.decorator';
 import { visiblePhone } from '../users/phone';
 
-class SessionDto {
+// Only the token: the email that accepts staff invites is read from the
+// verified token, so any extra body field (email, roles) is refused.
+export class SessionDto {
   @IsString()
   @MinLength(1)
   idToken!: string;
