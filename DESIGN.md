@@ -1,15 +1,16 @@
 ---
 # gstack: design-md-format=spec
 name: Wash & Go — Claim Ticket
-description: A custody trail you can see. Ink-navy structure, a terracotta stamp that means "your turn", plain sturdy type that holds up in Zamboanga noon sun.
+description: A custody trail you can see. Whale-logo navy structure, sky-blue identity on white, plain sturdy type that holds up in Zamboanga noon sun.
 colors:
-  ink: "#004375"
-  ink-deep: "#00335A"
-  ink-tint: "#E3ECF4"
-  on-ink: "#FFFFFF"
-  stamp: "#A64B16"
-  stamp-press: "#8A4012"
-  on-stamp: "#FFFFFF"
+  navy: "#0B3773"
+  navy-deep: "#082A58"
+  on-navy: "#FFFFFF"
+  sky: "#4EBBE6"
+  sky-tint: "#EEF8FD"
+  accent: "#A64B16"
+  accent-press: "#8A4012"
+  on-accent: "#FFFFFF"
   terracotta: "#C96A28"
   peach: "#FFE3CC"
   peach-ink: "#8A4012"
@@ -17,7 +18,7 @@ colors:
   text-muted: "#4A5968"
   line: "#D9DEE3"
   line-strong: "#B9C2CB"
-  ground: "#F5F3EE"
+  ground: "#F5F8FA"
   surface: "#FFFFFF"
   sunken: "#EEF0F2"
   success: "#1F7A4D"
@@ -38,10 +39,10 @@ colors:
   dark-line-strong: "#34495D"
   dark-text: "#E8EEF4"
   dark-text-muted: "#9FB3C8"
-  dark-ink: "#8CB8E0"
-  dark-ink-tint: "#15283A"
-  dark-stamp: "#E07A3A"
-  dark-on-stamp: "#1A0D05"
+  dark-navy: "#8CB8E0"
+  dark-navy-tint: "#15283A"
+  dark-accent: "#E07A3A"
+  dark-on-accent: "#1A0D05"
   dark-peach: "#3A2416"
   dark-peach-ink: "#FFC9A3"
   dark-success: "#5FC08F"
@@ -118,21 +119,21 @@ spacing:
   4xl: 96px
 components:
   button-primary:
-    backgroundColor: "{colors.stamp}"
-    textColor: "{colors.on-stamp}"
+    backgroundColor: "{colors.navy}"
+    textColor: "{colors.on-navy}"
     rounded: "{rounded.md}"
     minHeight: 48px
   button-primary-pressed:
-    backgroundColor: "{colors.stamp-press}"
-  button-ink:
-    backgroundColor: "{colors.ink}"
-    textColor: "{colors.on-ink}"
+    backgroundColor: "{colors.navy-deep}"
+  button-accent:
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.on-accent}"
     rounded: "{rounded.md}"
     minHeight: 48px
   button-secondary:
     backgroundColor: "{colors.surface}"
-    textColor: "{colors.ink}"
-    borderColor: "{colors.ink}"
+    textColor: "{colors.navy}"
+    borderColor: "{colors.navy}"
     borderWidth: 2px
     rounded: "{rounded.md}"
   button-destructive:
@@ -148,12 +149,12 @@ components:
     backgroundColor: "{colors.surface}"
     borderColor: "{colors.line-strong}"
     borderWidth: 1.5px
-    focusBorderColor: "{colors.ink}"
+    focusBorderColor: "{colors.navy}"
     rounded: "{rounded.md}"
     minHeight: 48px
     fontSize: 16px
   input-money:
-    borderColor: "{colors.stamp}"
+    borderColor: "{colors.navy}"
     borderWidth: 2px
     minHeight: 56px
     fontFamily: Atkinson Hyperlegible Mono
@@ -161,11 +162,11 @@ components:
   chip-needs:
     backgroundColor: "{colors.peach}"
     textColor: "{colors.peach-ink}"
-    borderColor: "{colors.stamp}"
+    borderColor: "{colors.accent}"
     rounded: "{rounded.full}"
   chip-moving:
-    backgroundColor: "{colors.ink-tint}"
-    textColor: "{colors.ink}"
+    backgroundColor: "{colors.sky-tint}"
+    textColor: "{colors.navy}"
     rounded: "{rounded.full}"
   chip-at-shop:
     backgroundColor: "{colors.shop-tint}"
@@ -188,25 +189,25 @@ components:
     borderColor: "{colors.line}"
     rounded: "{rounded.lg}"
   status-block:
-    backgroundColor: "{colors.ink}"
-    textColor: "{colors.on-ink}"
+    backgroundColor: "{colors.navy}"
+    textColor: "{colors.on-navy}"
     rounded: "{rounded.lg}"
   rider-collect:
     backgroundColor: "{colors.peach}"
-    borderColor: "{colors.stamp-press}"
+    borderColor: "{colors.accent-press}"
     borderWidth: 2.5px
     rounded: "{rounded.lg}"
   rider-slide:
-    backgroundColor: "{colors.ink}"
-    textColor: "{colors.on-ink}"
+    backgroundColor: "{colors.navy}"
+    textColor: "{colors.on-navy}"
     rounded: "{rounded.full}"
     height: 64px
   table-row:
     height: 40px
     borderColor: "{colors.line}"
   nav-sidebar:
-    backgroundColor: "{colors.ink}"
-    textColor: "{colors.on-ink}"
+    backgroundColor: "{colors.navy}"
+    textColor: "{colors.on-navy}"
   nav-link:
     textColor: "{colors.text}"
 ---
@@ -215,7 +216,7 @@ components:
 
 ## Overview
 
-**Creative North Star:** Claim Ticket. Customers hand their clothes to a partner shop and a rider they have never met, so the product's job is custody. Every screen answers three questions before anything else: who has my clothes, what did they weigh, what do I owe. The look borrows from the paper trail of a neighborhood laundry you trust (claim tickets, a round shop stamp, weights written down) and executes it with modern precision.
+**Creative North Star:** Claim Ticket, under the whale. Customers hand their clothes to a partner shop and a rider they have never met, so the product's job is custody. Every screen answers three questions before anything else: who has my clothes, what did they weigh, what do I owe. The look borrows from the paper trail of a neighborhood laundry you trust (claim tickets, a round shop stamp, weights written down) and executes it with modern precision. The whale lockup (sky-blue whale, navy wordmark, white field) leads the brand: its two blues are the palette.
 
 **Product context:** Scheduling-first laundry pickup and delivery marketplace for Zamboanga City, PH. Express (e-bike, ≤6 kg, same day), Scheduled (any size, pickup window, Piaggio batch), Business (recurring). Platform auto-matches a verified partner shop; a platform rider does pickup and return; cash on delivery at launch. Users live with Grab, foodpanda, GCash and Shopee patterns, often on budget Android phones and mobile data.
 
@@ -229,27 +230,30 @@ components:
 **Reference sites:** Xavier's Wash & Go (xavierslaundry.com, local competitor, bubbles + green), Laundryheap, Poplin, Grab PH, GCash, foodpanda PH, Lalamove PH. Research + screenshots: `~/.gstack/projects/Banyel3-wash-and-go/designs/research/`. Live audit of every current screen: `.../designs/audit/{customer,rider,portal,admin,landing}/`.
 
 **Key characteristics:**
-- Navy structure you can trust; one terracotta stamp that always means "this is your next step".
+- Logo navy structure you can trust on white surfaces; the logo's sky blue carries identity, large graphics and pale section grounds.
 - Numbers are the promise: money, weights, codes and times in a mono face, large, in the same place everywhere.
 - Faces and barangays before maps: the named rider, the named shop, the barangay on every stamp.
-- No water. No bubbles, aqua, sparkles or spin-cycle art anywhere.
+- No bubbles, sparkle or spin-cycle clichés. The whale and its wave are the only water motif.
 
 ## Colors
 
-**Strategy:** Restrained. Ink navy carries structure (headers, status blocks, sidebar, secondary emphasis). Stamp terracotta appears only where someone must act; a screen has at most one solid stamp-filled button. Everything else is warm-neutral ground, white surfaces and carbon text.
+**Strategy:** Restrained, and the logo leads. The palette is measured from the whale lockup (`personal-docs/source/logo-whale-lockup.jpeg`, sampled 2026-10-19): body sky `#4EBBE6`, wordmark and eye navy `#0B3773`, white field. `navy` carries structure and primary actions (headers, status blocks, sidebar, the primary button). `sky` is brand and identity: the logo, large graphics, icons ≥24px, rules and bars, and its pale `sky-tint` for section grounds. Surfaces are white; text is carbon (`text`). Terracotta survives as a rare `accent` (one highlight per view at most, never a second brand colour).
 
 **Light or dark:** Light by default on every surface, decided by the use scene: riders work outdoors in strong sun, customers and shop owners use budget phones in bright rooms. The rider app is **always light** (Sun Mode ignores the system theme; a dark screen becomes a mirror in sunlight). Admin and portal support a dark theme via `prefers-color-scheme` using the `dark-*` tokens; the customer app sets `userInterfaceStyle: "light"` until a dark palette is designed and tested there.
 
 **Roles:**
-- `stamp` is the only fill for primary actions (white text 5.8:1). `terracotta` (#C96A28, the brand's historic orange) is for large graphics only: the chop stamp, icons ≥24px, the timeline "now" node. Never put white text on `terracotta` (3.77:1 fails).
-- `peach` + `peach-ink` with a `stamp` outline is "needs you" as a state (chips, highlight rows). Solid stamp is reserved for the button.
-- Order-status chips follow phases, not a rainbow: moving (booked, assigned, picked up, out for delivery) = `ink-tint`; at the shop (at shop, washing, ready) = `shop-tint`; delivered = `success-tint`; cancelled = `neutral-tint`. "Needs you" is actor-relative and overrides the phase for whoever must act. Always icon + word + color.
+- `navy` is the fill for primary actions (white text 11.6:1); `navy-deep` is its pressed/hover state (white 14.2:1). One solid primary button per screen or viewport.
+- `sky` is identity, not text: the logo, large graphics, bars and the timeline "now" node. Sky on white is 2.2:1, so never set text in `sky` on white. Sky on navy is 5.3:1 (allowed for text, preferred large).
+- `sky-tint` is the pale section ground (navy on it 10.8:1, carbon 15.3:1, muted 6.7:1; 1.08:1 against white, so it reads as a quiet band, not a colour block).
+- `accent` (terracotta `#A64B16`, white text 5.8:1) is rare: a single highlight, a "needs you" outline, an overdue number. `terracotta` (#C96A28) stays for large graphics only (the chop stamp). Never put white text on `terracotta` (3.77:1 fails).
+- `peach` + `peach-ink` with an `accent` outline is "needs you" as a state (chips, highlight rows).
+- Order-status chips follow phases, not a rainbow: moving (booked, assigned, picked up, out for delivery) = `sky-tint` + navy; at the shop (at shop, washing, ready) = `shop-tint`; delivered = `success-tint`; cancelled = `neutral-tint`. "Needs you" is actor-relative and overrides the phase for whoever must act. Always icon + word + color.
 - `warning` is for limits and deltas (over cash cap, weigh-in far from estimate). `danger` is only for destructive actions and failures, never for plain "cancelled" status.
-- Dark mode is a surface ladder (`dark-sunken` < `dark-ground` < `dark-surface`), not an inversion; ink and stamp lighten (`dark-ink`, `dark-stamp`) and text on a stamp fill flips to `dark-on-stamp`. Every input, select and textarea is themed.
+- Dark mode is a surface ladder (`dark-sunken` < `dark-ground` < `dark-surface`), not an inversion; navy and accent lighten (`dark-navy`, `dark-accent`) and text on an accent fill flips to `dark-on-accent`. Every input, select and textarea is themed.
 
-**Retired:** `#FF9F5A` (fails contrast, reads as foodpanda/Shopee), `#A9D6EE` and `#5E9ACB` (laundry-water cliché), `#3D5975` and `#586779` (duplicate navies on the landing page), `#208AEF` (Expo template blue in admin + portal), `#D07A29` (drifted terracotta in code).
+**Retired:** `#004375` / `#00335A` / `#E3ECF4` (the pre-logo ink navy family, replaced by the measured logo navy), `#FF9F5A` (fails contrast, reads as foodpanda/Shopee), `#A9D6EE` and `#5E9ACB` (off-brand blues that are not the logo's), `#3D5975` and `#586779` (duplicate navies on the landing page), `#208AEF` (Expo template blue in admin + portal), `#D07A29` (drifted terracotta in code), `#F5F3EE` (warm ground, replaced by the cool `#F5F8FA`).
 
-**Contrast (computed):** ink/white 10.2, stamp/white 5.8, carbon/white 16.5, muted/white 7.2, peach-ink/peach 6.1, success 5.3, danger 6.5, warning-ink/tint 6.2, shop-ink/tint 7.2, neutral-ink/tint 6.6, dark text/ground 15.1, dark muted 8.2, dark stamp/ground 5.9.
+**Contrast (computed, WCAG 2.x):** navy/white 11.6, white/navy-deep 14.2, sky/navy 5.3 (large text preferred), sky/white 2.2 (graphics only), carbon/white 16.5, carbon/sky-tint 15.3, navy/sky-tint 10.8, muted/white 7.2, muted/sky-tint 6.7, muted/ground 6.7, accent/white 5.8, peach-ink/peach 6.1, success 5.3, danger 6.5, warning-ink/tint 6.2, shop-ink/tint 7.2, neutral-ink/tint 6.6, dark text/ground 15.1, dark muted 8.2, dark accent/ground 5.9.
 
 ## Typography
 
@@ -282,15 +286,15 @@ Flat by default: hierarchy comes from surface vs ground, 1px `line` borders and 
 
 ## Components
 
-- **Buttons:** primary (stamp fill, one per screen), ink (strong secondary, e.g. Call), secondary (ink outline), text (underlined ink), destructive (danger outline; a destructive *confirm* in a dialog may be danger-filled). States: pressed = `stamp-press`; focus-visible = 3px `ink` outline offset 2px; disabled = `sunken` fill + muted text + a reason shown nearby ("Weigh first"). Min height 48px (56px rider primary).
-- **Status block (customer):** ink fill at the top of order detail: status label, the one big line (ETA/window in display-app), one sentence naming the person holding the bag, and the cash-to-have-ready row.
+- **Buttons:** primary (navy fill, one per screen), accent (rare, terracotta fill), secondary (navy outline), text (underlined navy), destructive (danger outline; a destructive *confirm* in a dialog may be danger-filled). States: pressed = `navy-deep`; focus-visible = 3px `navy` outline offset 2px; disabled = `sunken` fill + muted text + a reason shown nearby ("Weigh first"). Min height 48px (56px rider primary).
+- **Status block (customer):** navy fill at the top of order detail: status label, the one big line (ETA/window in display-app), one sentence naming the person holding the bag, and the cash-to-have-ready row.
 - **Claim ticket (customer):** order card with short code (last 4 digits large, mono), bag tag + weighed kg, a dashed perforation, then the custody trail (each step: who, where, time in mono). Future steps readable (muted, not faded below 4.5:1).
 - **Chop stamp:** round mark in `terracotta`, rotated −8°, rim text `BARANGAY · ZAMBOANGA · HH:MM`, center verb (PICKED UP / WEIGHED / DELIVERED). Appears on the ticket after each confirmed handoff. The only decorative element in the system; never on rider, portal or admin.
 - **People cards:** rider (name, vehicle + plate, call) and shop (name, barangay, "partner since") side by side, initials avatars until real photos exist.
-- **Rider job:** leg badge (carbon fill), current-stop card (2.5px carbon border), collect-cash card (peach + stamp-press border, money-hero), icon row (Call / Navigate, 60px outlined ink), sticky slide-to-confirm whose label includes the amount ("Slide: collected ₱137.92"). Slide is required for irreversible money steps and delivery; mid-steps use a single confirm. Delivered and cash-collected are one combined action.
+- **Rider job:** leg badge (carbon fill), current-stop card (2.5px carbon border), collect-cash card (peach + accent-press border, money-hero), icon row (Call / Navigate, 60px outlined navy), sticky slide-to-confirm whose label includes the amount ("Slide: collected ₱137.92"). Slide is required for irreversible money steps and delivery; mid-steps use a single confirm. Delivered and cash-collected are one combined action.
 - **Weigh-in (portal):** labeled money input with unit suffix, `inputmode="decimal"`, 56px; live breakdown (kg × rate, delivery, service fee, total); delta vs estimate in a warning box; over-threshold weights require a second confirm; the primary button names the outcome ("Send ₱385.40 for approval"). Pending, success and error states are mandatory.
-- **Chips:** see Colors. 13px/700, icon 14px, pill. Filled `peach` + stamp outline for needs-you.
-- **Tables (admin):** see Layout. Money right-aligned mono; age column highlights late in `stamp`; no wall of red — destructive actions live in the overflow menu with confirm tiers (inline confirm for reversible, modal with summary for money, diff-confirm for config).
+- **Chips:** see Colors. 13px/700, icon 14px, pill. Filled `peach` + accent outline for needs-you.
+- **Tables (admin):** see Layout. Money right-aligned mono; age column highlights late in `accent`; no wall of red — destructive actions live in the overflow menu with confirm tiers (inline confirm for reversible, modal with summary for money, diff-confirm for config).
 - **Feedback:** one toast component per platform (role=status / aria-live polite), inline field errors, a stale/offline banner with "updated N min ago", skeletons for loading. Human copy only: no server messages, URLs or stack text. Every error offers a recovery action that fits it (retry, back, contact).
 - **Icons:** one set (Ionicons on mobile, the same glyphs as SVG on web). No emoji in UI chrome.
 
@@ -301,8 +305,8 @@ Flat by default: hierarchy comes from surface vs ground, 1px `line` borders and 
 - Do show status as icon + word + phase color, with audience-specific wording (customer: "Rider on the way"; rider: "Pick up"; ops: "Assigned").
 - Do put the rider's primary action in the sticky bottom bar with the amount in its label.
 - Do format dates relative and in Asia/Manila ("Today 4:30pm", "Yesterday"), pesos as ₱1,234.50.
-- Don't use water imagery: bubbles, aqua, sparkles, washing-machine spin art, pale blues.
-- Don't put white text on `terracotta` or the old `#D07A29`; use `stamp`.
+- Don't add bubbles, sparkle or spin-cycle clichés (foam, washing-machine spin art, glints). The whale and its wave are the only water motif; never add a second one.
+- Don't put white text on `terracotta` or the old `#D07A29`; use `accent`. Don't set text in `sky` on white (2.2:1).
 - Don't invent stats, stars, testimonials or "partner shops" before they exist; show real ones or an honest empty state.
 - Don't use order codes, raw errors or dev copy as headlines.
 - Don't ship disabled CTAs as the main action on the landing page; pre-launch the CTA is the waitlist.
@@ -324,3 +328,4 @@ Flat by default: hierarchy comes from surface vs ground, 1px `line` borders and 
 | 2026-09-28 | Archivo Expanded + Atkinson Hyperlegible Next/Mono replace Unbounded, Montserrat, Plus Jakarta Sans | Legibility on budget screens in sun; Montserrat/Plus Jakarta are overused; Unbounded reads crypto/toy |
 | 2026-09-28 | Light-first; rider always light (Sun Mode); admin/portal dark theme supported | Use scene: outdoor riders, bright rooms, cheap screens |
 | 2026-09-28 | Retire #FF9F5A, #A9D6EE, #5E9ACB, #3D5975, #586779, #208AEF, #D07A29 | Contrast failures, category cliché, duplicate navies, template blue, token drift |
+| 2026-10-19 | Logo leads: whale lockup palette adopted; terracotta demoted | The founders' whale lockup is the brand mark investors and customers will see first, and the ink-navy/terracotta system did not match it. Colours were measured from the lockup (navy #0B3773, sky #4EBBE6, white) and every pairing recomputed: navy on white 11.6:1, white on navy-deep 14.2:1, sky on navy 5.3:1, carbon on sky-tint 15.3:1. Navy takes over primary actions and structure; sky becomes identity, large graphics and the pale section ground; terracotta (#A64B16, 5.8:1) stays as a rare accent so nothing that already passes contrast is lost. The "no water" rule narrows to "no bubbles/sparkle/spin-cycle clichés" because the whale and wave are now the mark. Apps still use the old ink/stamp values in code until they are migrated |
