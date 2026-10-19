@@ -357,6 +357,20 @@ img { max-width: 100%; }
   padding: 8px 0; margin-top: auto;
 }
 
+/* ---------- Help ---------- */
+.help h2 { margin-bottom: 10px; }
+.help-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.help-head h2 { margin: 0; }
+.help-steps { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.help-steps li { display: grid; grid-template-columns: minmax(0, 150px) 1fr; gap: 12px; align-items: start; font-size: 15px; }
+.help-steps .chip { justify-self: start; }
+.help-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; line-height: 1.5; }
+.help-contact { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.help-contact li, .help-line { display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 0; }
+.help-contact svg, .help-line svg { width: 20px; height: 20px; color: var(--navy); flex: none; }
+.help-contact a { font-weight: 700; overflow-wrap: anywhere; }
+@media (max-width: 559px) { .help-steps li { grid-template-columns: 1fr; gap: 4px; } }
+
 /* ---------- Breakpoints ---------- */
 @media (min-width: 1024px) {
   .shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); }

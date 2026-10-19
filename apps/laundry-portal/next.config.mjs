@@ -32,12 +32,15 @@ function publicEntries(dir = join(here, 'public')) {
   return out;
 }
 
+const BUILD_REVISION = buildRevision();
+const APP_VERSION = JSON.parse(readFileSync(join(here, 'package.json'), 'utf8')).version;
+
 const withSerwist = withSerwistInit({
   swSrc: 'app/sw.ts',
   swDest: 'public/sw.js',
   register: false, // components/PwaRegister.tsx registers it with the API origin
   disable: process.env.NODE_ENV === 'development',
-  additionalPrecacheEntries: [{ url: '/~offline', revision: buildRevision() }, ...publicEntries()],
+  additionalPrecacheEntries: [{ url: '/~offline', revision: BUILD_REVISION }, ...publicEntries()],
 });
 
 /** @type {import('next').NextConfig} */
@@ -48,5 +51,10 @@ export default withSerwist({
   // Always defined, so Next inlines it and the minifier drops e2e-only
   // branches (the Done ?donePage= hook) from normal builds. An unset
   // NEXT_PUBLIC_* var is NOT inlined and would leave the branch in the bundle.
-  env: { NEXT_PUBLIC_E2E: process.env.NEXT_PUBLIC_E2E === '1' ? '1' : '0' },
+  // Help → App version shows these.
+  env: {
+    NEXT_PUBLIC_E2E: process.env.NEXT_PUBLIC_E2E === '1' ? '1' : '0',
+    NEXT_PUBLIC_APP_VERSION: APP_VERSION,
+    NEXT_PUBLIC_BUILD_ID: BUILD_REVISION,
+  },
 });
