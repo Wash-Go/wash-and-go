@@ -125,7 +125,7 @@ async function main() {
     ['laundry-portal-shell', 'laundry-portal-help', 'laundry-portal-errors', 'laundry-portal-invite'],
     ['laundry-portal-orders', 'laundry-portal-weigh'],
     ['laundry-portal-a11y', 'laundry-portal-payouts'],
-    ['laundry-portal-onboarding', 'laundry-portal-shop'],
+    ['laundry-portal-onboarding', 'laundry-portal-shop', 'laundry-portal-services'],
   ]
   // Any portal spec not listed above still runs, in a last group.
   const listed = new Set(groups.flat())

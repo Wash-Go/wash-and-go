@@ -60,8 +60,6 @@ test.describe('laundry-portal shell (phone)', () => {
       if (tab) {
         await expect(page.locator('nav.tb').getByRole('link', { name: tab })).toHaveAttribute('aria-current', 'page');
       }
-      // Services is still a stub; the other routes are real screens now.
-      if (path === '/services') await expect(page.getByTestId('empty-state')).toBeVisible();
       await noHorizontalScroll(page);
     });
   }
