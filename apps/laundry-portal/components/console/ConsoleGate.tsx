@@ -116,8 +116,19 @@ export function ConsoleGate({ children }: { children: ReactNode }) {
           console.error('[auth] POST /auth/session failed', session.error);
           if (navigator.onLine) toast.show({ tone: 'error', title: session.message });
         }
+        // In parallel to save a round trip on a phone; the onboarding answer
+        // only counts for shop roles (others may get an error, ignored).
+        const onboarding = api.getMyShopOnboarding().then(
+          (v) => ({ ok: true as const, v }),
+          (e: unknown) => ({ ok: false as const, e }),
+        );
         const me = await api.getMe();
-        const shop = isShopAccount(me.roles) ? await api.getMyShopOnboarding() : null;
+        let shop: OwnerShopView | null = null;
+        if (isShopAccount(me.roles)) {
+          const r = await onboarding;
+          if (!r.ok) throw r.e;
+          shop = r.v;
+        }
         const gate = resolveGate(me.roles, shop);
         saveGateSnapshot(storage(), snapshotOf(id, me, shop, gate));
         return { me, shop, gate, offline: false };

@@ -1,8 +1,8 @@
 'use client';
 import { sendPasswordResetEmail, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import { PasswordField } from '../../components/auth/PasswordField';
 import { TextField } from '../../components/auth/TextField';
 import { api } from '../../lib/api';
@@ -16,7 +16,13 @@ import { useAuth } from '../../lib/useAuth';
 // human error, Forgot password (Firebase reset email), Register your laundry.
 function LoginScreen() {
   const router = useRouter();
-  const next = safeNext(useSearchParams().get('next'));
+  // Read ?next= after mount, not with useSearchParams: that hook opts the
+  // whole page out of static rendering, so the HTML arrived empty and the
+  // headline painted only after the JS (a slow LCP on mobile).
+  const [next, setNext] = useState('/');
+  useEffect(() => {
+    setNext(safeNext(new URLSearchParams(window.location.search).get('next')));
+  }, []);
   const { user, loading, devBypass } = useAuth();
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
@@ -129,9 +135,5 @@ function LoginScreen() {
 }
 
 export default function LoginPage() {
-  return (
-    <Suspense fallback={null}>
-      <LoginScreen />
-    </Suspense>
-  );
+  return <LoginScreen />;
 }

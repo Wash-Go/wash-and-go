@@ -68,7 +68,7 @@ function Frame({ children }: { children: ReactNode }) {
     <div className="shell">
       <nav className="rail" aria-label="Main">
         <div className="rail-who">
-          <img src="/brand/logo-mark.webp" alt="" width={44} height={23} />
+          <img src="/brand/logo-mark-96.webp" alt="" width={44} height={23} />
           <div>
             {shopName}
             <small>{who}</small>
@@ -95,7 +95,7 @@ function Frame({ children }: { children: ReactNode }) {
 
       <div className="shell-main">
         <header className="hd" data-testid="shell-header">
-          <img className="hd-mark" src="/brand/logo-mark.webp" alt="" width={34} height={18} />
+          <img className="hd-mark" src="/brand/logo-mark-96.webp" alt="" width={34} height={18} />
           <div className="hd-name">
             <span>{shopName}</span>
             <small aria-live="off" data-testid="updated-ago">

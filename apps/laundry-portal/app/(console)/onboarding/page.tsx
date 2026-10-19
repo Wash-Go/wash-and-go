@@ -24,7 +24,7 @@ export default function OnboardingPage() {
   return (
     <div className="shell-main">
       <header className="hd">
-        <img className="hd-mark" src="/brand/logo-mark.webp" alt="" width={34} height={18} style={{ display: 'block' }} />
+        <img className="hd-mark" src="/brand/logo-mark-96.webp" alt="" width={34} height={18} style={{ display: 'block' }} />
         <div className="hd-name wiz-head">
           <span>{submitted && shop?.name ? shop.name : 'Register your laundry'}</span>
           {submitted && shop?.submittedAt && now ? (
