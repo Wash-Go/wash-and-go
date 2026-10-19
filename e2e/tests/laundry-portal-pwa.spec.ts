@@ -104,3 +104,64 @@ test('caches API GETs network-first and never caches writes', async ({ page }) =
   expect(after.every((k) => k.startsWith('GET '))).toBe(true);
   expect(after).not.toContain('GET /orders/preview');
 });
+
+const apiKeys = (page: import('@playwright/test').Page) =>
+  page.evaluate(async () => {
+    if (!(await caches.has('wg-api'))) return [] as string[];
+    const cache = await caches.open('wg-api');
+    return (await cache.keys()).map((r) => new URL(r.url).pathname);
+  });
+
+test('never stores identity or the bearer token in the API cache', async ({ page }) => {
+  await page.goto('/');
+  await swReady(page);
+  await page.reload();
+  await expect.poll(() => apiKeys(page)).toContain('/orders');
+  const keys = await apiKeys(page);
+  expect(keys).not.toContain('/auth/me');
+  expect(keys).not.toContain('/shop/onboarding');
+  const authHeaders = await page.evaluate(async () => {
+    const cache = await caches.open('wg-api');
+    return (await cache.keys()).map((r) => r.headers.get('authorization') ?? r.headers.get('x-dev-uid'));
+  });
+  expect(authHeaders.every((h) => h === null)).toBe(true);
+});
+
+test('sign-out empties the API cache and forgets the gate and its owner', async ({ page }) => {
+  await page.goto('/');
+  await swReady(page);
+  await page.reload();
+  await expect.poll(() => apiKeys(page)).toContain('/orders');
+  const before = await page.evaluate(() => [
+    localStorage.getItem('wg-portal-gate'),
+    localStorage.getItem('wg-portal-cache-owner'),
+  ]);
+  expect(before[0]).toContain('"kind":"ready"');
+  expect(before[1]).toBe('dev:dev-shop-owner');
+
+  await page.locator('nav.tb').getByRole('button', { name: 'More' }).click();
+  await page.getByRole('dialog', { name: 'More' }).getByRole('button', { name: 'Sign out' }).click();
+  await expect(page).toHaveURL(/\/login$/);
+
+  await expect.poll(() => page.evaluate(() => caches.has('wg-api'))).toBe(false);
+  expect(
+    await page.evaluate(() => [localStorage.getItem('wg-portal-gate'), localStorage.getItem('wg-portal-cache-owner')]),
+  ).toEqual([null, null]);
+});
+
+test('purges another account’s cached data before the gate opens', async ({ page }) => {
+  await page.goto('/');
+  await swReady(page);
+  await page.reload();
+  await expect.poll(() => apiKeys(page)).toContain('/orders');
+  // Simulate the previous person's leftovers: a cached entry and an owner record.
+  await page.evaluate(async () => {
+    const cache = await caches.open('wg-api');
+    await cache.put('http://localhost:4000/someone-elses-queue', new Response('[]'));
+    localStorage.setItem('wg-portal-cache-owner', 'fb:someone-else');
+  });
+  await page.reload();
+  await expect(page.getByTestId('shell-header')).toContainText('Tetuan Laundry Hub');
+  await expect.poll(() => apiKeys(page)).not.toContain('/someone-elses-queue');
+  expect(await page.evaluate(() => localStorage.getItem('wg-portal-cache-owner'))).toBe('dev:dev-shop-owner');
+});
