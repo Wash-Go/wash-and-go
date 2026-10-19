@@ -382,4 +382,22 @@ describe('ApiClient', () => {
       });
     });
   });
+
+  it('reads the shop pending payout total', async () => {
+    const body = { totalPhp: '264.00', lineCount: 2, oldestLineAt: null };
+    const fetchFn = jest.fn().mockResolvedValue(res(200, body));
+    const client = new ApiClient({ baseUrl: 'http://api.test', tokens: tokensFrom(['t']), fetchFn });
+    await expect(client.shopRemittancePending()).resolves.toEqual(body);
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe('http://api.test/shop/remittance/pending');
+    expect(init.method).toBe('GET');
+  });
+
+  it('reads one shop payout batch with its lines, id encoded', async () => {
+    const fetchFn = jest.fn().mockResolvedValue(res(200, { id: 'b/1', lines: [] }));
+    const client = new ApiClient({ baseUrl: 'http://api.test', tokens: tokensFrom(['t']), fetchFn });
+    const out = await client.shopRemittanceBatch('b/1');
+    expect(out.lines).toEqual([]);
+    expect(fetchFn.mock.calls[0][0]).toBe('http://api.test/shop/remittance/batches/b%2F1');
+  });
 });

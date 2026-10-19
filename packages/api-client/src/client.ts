@@ -45,7 +45,9 @@ import type {
   PricingBreakdown,
   QuoteOrderBody,
   RateOrderBody,
+  RemittanceBatchDetailView,
   RemittanceBatchView,
+  RemittancePendingView,
   RemittanceSummaryView,
   Rider,
   ShopView,
@@ -198,6 +200,17 @@ export class ApiClient {
   // Shop-facing: the caller's own payout batches.
   getShopRemittance(): Promise<RemittanceBatchView[]> {
     return this.request('GET', '/shop/remittance/batches');
+  }
+
+  // The caller's shop: payout not yet batched (sum of delivered orders).
+  shopRemittancePending(): Promise<RemittancePendingView> {
+    return this.request('GET', '/shop/remittance/pending');
+  }
+
+  // One of the caller's shop's payout batches with its per-order lines.
+  // 404 "Batch not found" for a missing or another shop's batch.
+  shopRemittanceBatch(id: string): Promise<RemittanceBatchDetailView> {
+    return this.request('GET', `/shop/remittance/batches/${encodeURIComponent(id)}`);
   }
 
   // Resolve nearest shop (or the override) + a priced quote for checkout.

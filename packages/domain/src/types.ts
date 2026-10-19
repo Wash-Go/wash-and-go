@@ -451,6 +451,31 @@ export interface RemittanceBatchView {
   createdAt: string;
 }
 
+// The shop's unbatched payout (GET /shop/remittance/pending): the sum of
+// payoutPhp over delivered orders not yet in a batch. totalPhp is 2dp.
+export interface RemittancePendingView {
+  totalPhp: string;
+  lineCount: number;
+  oldestLineAt: string | null; // ISO, null when nothing is pending
+}
+
+// One delivered order inside a payout batch. Money is 2dp strings.
+export interface RemittanceLineView {
+  id: string;
+  orderId: string;
+  orderCode: string;
+  deliveredAt: string | null;
+  washValuePhp: string;
+  commissionPhp: string;
+  payoutPhp: string;
+  createdAt: string;
+}
+
+// GET /shop/remittance/batches/:id — the batch plus its lines (oldest first).
+export interface RemittanceBatchDetailView extends RemittanceBatchView {
+  lines: RemittanceLineView[];
+}
+
 // Payout count + total per status over ALL batches (GET /admin/remittance/
 // summary) — independent of the list's status filter and row cap.
 export interface RemittanceStatusTotal {
