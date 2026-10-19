@@ -198,7 +198,17 @@ export const REVENUE_STREAMS: ReadonlyArray<TableRow> = [
   },
 ]
 
-/** Doc §2.2.1, Table 4, copied row for row. */
+/**
+ * Doc §2.2.1, Table 4, copied row for row.
+ *
+ * DISABLED until the founders reconcile Table 4: the delivery row says 40,
+ * but the bill (198 = 150 + 35 + 13) and gross (66 = 18 + 35 + 13) use 35.
+ * An investor page cannot show arithmetic that does not add up, so this data
+ * is kept here but not rendered (see SHOW_UNIT_ECONOMICS and site.test.ts).
+ * Flip the flag only after the doc and these rows agree.
+ */
+export const SHOW_UNIT_ECONOMICS = false
+
 export const UNIT_ECONOMICS: ReadonlyArray<TableRow> = [
   {
     cells: [

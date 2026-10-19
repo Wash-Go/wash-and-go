@@ -120,9 +120,3 @@ body {
 .bg-brand-navy :focus-visible {
   outline-color: #ffffff;
 }
-
-@media (prefers-reduced-motion: no-preference) {
-  html {
-    scroll-behavior: smooth;
-  }
-}
