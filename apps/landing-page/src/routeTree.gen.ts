@@ -9,30 +9,12 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as ServicesRouteImport } from './routes/services'
-import { Route as PricingRouteImport } from './routes/pricing'
-import { Route as MyOrdersRouteImport } from './routes/my-orders'
-import { Route as BookOrderRouteImport } from './routes/book-order'
+import { Route as R404RouteImport } from './routes/404'
 import { Route as IndexRouteImport } from './routes/index'
 
-const ServicesRoute = ServicesRouteImport.update({
-  id: '/services',
-  path: '/services',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PricingRoute = PricingRouteImport.update({
-  id: '/pricing',
-  path: '/pricing',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MyOrdersRoute = MyOrdersRouteImport.update({
-  id: '/my-orders',
-  path: '/my-orders',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BookOrderRoute = BookOrderRouteImport.update({
-  id: '/book-order',
-  path: '/book-order',
+const R404Route = R404RouteImport.update({
+  id: '/404',
+  path: '/404',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -43,70 +25,37 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/book-order': typeof BookOrderRoute
-  '/my-orders': typeof MyOrdersRoute
-  '/pricing': typeof PricingRoute
-  '/services': typeof ServicesRoute
+  '/404': typeof R404Route
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/book-order': typeof BookOrderRoute
-  '/my-orders': typeof MyOrdersRoute
-  '/pricing': typeof PricingRoute
-  '/services': typeof ServicesRoute
+  '/404': typeof R404Route
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/book-order': typeof BookOrderRoute
-  '/my-orders': typeof MyOrdersRoute
-  '/pricing': typeof PricingRoute
-  '/services': typeof ServicesRoute
+  '/404': typeof R404Route
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/book-order' | '/my-orders' | '/pricing' | '/services'
+  fullPaths: '/' | '/404'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/book-order' | '/my-orders' | '/pricing' | '/services'
-  id: '__root__' | '/' | '/book-order' | '/my-orders' | '/pricing' | '/services'
+  to: '/' | '/404'
+  id: '__root__' | '/' | '/404'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  BookOrderRoute: typeof BookOrderRoute
-  MyOrdersRoute: typeof MyOrdersRoute
-  PricingRoute: typeof PricingRoute
-  ServicesRoute: typeof ServicesRoute
+  R404Route: typeof R404Route
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/services': {
-      id: '/services'
-      path: '/services'
-      fullPath: '/services'
-      preLoaderRoute: typeof ServicesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pricing': {
-      id: '/pricing'
-      path: '/pricing'
-      fullPath: '/pricing'
-      preLoaderRoute: typeof PricingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/my-orders': {
-      id: '/my-orders'
-      path: '/my-orders'
-      fullPath: '/my-orders'
-      preLoaderRoute: typeof MyOrdersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/book-order': {
-      id: '/book-order'
-      path: '/book-order'
-      fullPath: '/book-order'
-      preLoaderRoute: typeof BookOrderRouteImport
+    '/404': {
+      id: '/404'
+      path: '/404'
+      fullPath: '/404'
+      preLoaderRoute: typeof R404RouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -121,10 +70,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  BookOrderRoute: BookOrderRoute,
-  MyOrdersRoute: MyOrdersRoute,
-  PricingRoute: PricingRoute,
-  ServicesRoute: ServicesRoute,
+  R404Route: R404Route,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

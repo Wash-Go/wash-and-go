@@ -60,7 +60,7 @@ export function DataTable({
                 return (
                   <td
                     key={i}
-                    className={`${base} ${col?.numeric ? 'text-right font-mono whitespace-nowrap tabular-nums' : ''} ${i === last && !col?.numeric ? 'text-muted' : ''}`}
+                    className={`${base} ${col?.numeric ? 'text-right font-mono tabular-nums sm:whitespace-nowrap' : ''} ${i === last && !col?.numeric ? 'text-muted' : ''}`}
                   >
                     {cell}
                   </td>

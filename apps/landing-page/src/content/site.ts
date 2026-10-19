@@ -14,8 +14,17 @@ export const SITE_TITLE = 'Wash & Go — Laundry logistics for Zamboanga City'
 export const SITE_DESCRIPTION =
   'A scheduling-first laundry marketplace for Zamboanga City: pickup, partner-shop washing, doorstep return and settlement. Alpha built, pre-launch.'
 
-/** Production origin (no trailing slash), set as VITE_SITE_URL on the host. */
-export const SITE_ORIGIN: string | undefined = import.meta.env.VITE_SITE_URL
+/**
+ * Production origin, no trailing slash. VITE_SITE_URL wins; otherwise Vercel's
+ * system variable for the production domain (exposed to Vite builds as
+ * VITE_VERCEL_PROJECT_PRODUCTION_URL, host only). Unset locally, the tags fall
+ * back to root-relative paths.
+ */
+const VERCEL_HOST: string | undefined = import.meta.env
+  .VITE_VERCEL_PROJECT_PRODUCTION_URL
+export const SITE_ORIGIN: string | undefined =
+  import.meta.env.VITE_SITE_URL ??
+  (VERCEL_HOST ? `https://${VERCEL_HOST}` : undefined)
 export const CANONICAL_URL = absoluteUrl('/', SITE_ORIGIN)
 export const OG_IMAGE_URL = absoluteUrl('/og.png', SITE_ORIGIN)
 

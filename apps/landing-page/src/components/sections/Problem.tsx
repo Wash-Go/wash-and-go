@@ -7,7 +7,7 @@ export function Problem() {
       <SectionHeading
         id="problem"
         eyebrow="The problem"
-        title="Laundry is a daily burden. The shops that do it are offline."
+        title="Laundry is a recurring burden. The shops that do it are offline."
         lead="Laundry competes with work, study, rest and productivity, and demand for laundry services is driven largely by necessity."
       />
 
