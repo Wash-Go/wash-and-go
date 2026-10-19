@@ -1,5 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { expect, test, type Page } from '@playwright/test';
+import { API_URL } from '../playwright.config';
+import { actAs, createDevUser, deleteDevUser, devUid } from '../fixtures/dev-users';
 
 /*
  * Browser smoke: the laundry-portal Services & rates page (plan A4
@@ -10,6 +12,12 @@ import { expect, test, type Page } from '@playwright/test';
  * beforeAll snapshots the shop's ShopService rows with psql (E2E_DATABASE_URL,
  * default the design DB the local API runs on); afterAll puts every saved
  * rate, turnaround and on/off back and deletes any row the spec created.
+ *
+ * The staff test follows laundry-portal-invite.spec.ts: a fresh user with an
+ * email on file (dev route), invited by the seeded owner, accepts through the
+ * API and opens /services read-only. Cleanup removes the membership, deletes
+ * the user with the dev route and the accepted invite row with psql, and
+ * checks the seeded shop's member list is back to what it was.
  */
 const PHONE = { width: 390, height: 844 };
 const DB = process.env.E2E_DATABASE_URL ?? 'postgresql://ban@localhost:5432/wash_and_go_design';
@@ -81,5 +89,63 @@ test.describe('services and rates (phone)', () => {
 
     await page.reload();
     await expect(page.getByTestId('svc-WDF').getByLabel('Rate per kg')).toHaveValue('27.50');
+  });
+});
+
+async function call(uid: string, method: string, path: string, body?: unknown) {
+  const res = await fetch(`${API_URL}${path}`, {
+    method,
+    headers: { 'x-dev-uid': uid, ...(body != null ? { 'content-type': 'application/json' } : {}) },
+    body: body != null ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) throw new Error(`${method} ${path} → ${res.status}: ${await res.text()}`);
+  return res.status === 204 ? null : res.json();
+}
+
+type Member = { id: string; userId: string; role: string; email: string | null };
+
+test.describe('services and rates as staff (phone)', () => {
+  // page.route rewrites x-dev-uid; the service worker's fetches would skip it.
+  test.use({ viewport: PHONE, serviceWorkers: 'block' });
+
+  const STAFF_UID = devUid('e2e-services-staff');
+  const EMAIL = `${STAFF_UID}@example.com`;
+  let inviteId = '';
+  let membersBefore: string[] = [];
+
+  test.beforeAll(async () => {
+    membersBefore = ((await call('dev-shop-owner', 'GET', '/shop/members')) as Member[]).map((m) => m.id).sort();
+    const me = await createDevUser({ uid: STAFF_UID, displayName: 'Sam Staff', email: EMAIL, roles: ['CUSTOMER'] });
+    expect(me.inviteEmailOnFile).toBe(true);
+    inviteId = ((await call('dev-shop-owner', 'POST', '/shop/invites', { email: EMAIL })) as { id: string }).id;
+    const joined = (await call(STAFF_UID, 'POST', `/shop/invites/${inviteId}/accept`)) as { role: string };
+    expect(joined.role).toBe('STAFF');
+  });
+
+  test.afterAll(async () => {
+    const team = (await call('dev-shop-owner', 'GET', '/shop/members')) as Member[];
+    for (const m of team.filter((x) => x.email === EMAIL)) await call('dev-shop-owner', 'DELETE', `/shop/members/${m.id}`);
+    await deleteDevUser(STAFF_UID);
+    if (inviteId) sql(`DELETE FROM "ShopInvite" WHERE id = '${inviteId.replace(/'/g, "''")}'`);
+    const after = ((await call('dev-shop-owner', 'GET', '/shop/members')) as Member[]).map((m) => m.id).sort();
+    expect(after).toEqual(membersBefore);
+  });
+
+  test('staff see the live rates read-only with "Ask the owner to change rates"', async ({ page }) => {
+    await actAs(page, STAFF_UID);
+    await page.goto('/services');
+    await expect(page.getByRole('heading', { level: 1, name: 'Services & rates' })).toBeVisible();
+    const page_ = page.getByTestId('services-page');
+    await expect(page_.getByTestId('service-WDF')).toContainText('Wash, Dry & Fold');
+    // The owner test may have changed the rate (restored in afterAll), so match the shape.
+    await expect(page_.getByTestId('service-WDF')).toContainText(/₱[\d,]+\.\d{2} \/ kg · \d+ h/);
+    await expect(page_.getByTestId('service-WDF')).toContainText('Offered');
+    await expect(page.getByText('Ask the owner to change rates.')).toBeVisible();
+    // No editing: no save, no rate or turnaround inputs, no toggles.
+    await expect(page.getByTestId('services-save')).toHaveCount(0);
+    await expect(page_.getByRole('textbox')).toHaveCount(0);
+    await expect(page_.getByRole('spinbutton')).toHaveCount(0);
+    await expect(page_.getByRole('checkbox')).toHaveCount(0);
+    await noHorizontalScroll(page);
   });
 });
