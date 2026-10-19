@@ -1,5 +1,5 @@
 import lockup from '../../assets/brand/logo-lockup-320.webp'
-import { CONTACT_EMAIL } from '../../content/site'
+import { CONTACT_EMAIL, INCUBATOR_LINE } from '../../content/site'
 import { Container } from '../ui'
 
 export function Footer() {
@@ -16,9 +16,7 @@ export function Footer() {
             decoding="async"
             className="h-16 w-auto"
           />
-          <p className="mt-4 text-sm text-muted">
-            Incubated at AZUL Hub, Ateneo de Zamboanga University
-          </p>
+          <p className="mt-4 text-sm text-muted">{INCUBATOR_LINE}</p>
         </div>
         <div className="space-y-1 text-sm text-muted md:text-right">
           <p className="font-mono text-ink">{CONTACT_EMAIL}</p>

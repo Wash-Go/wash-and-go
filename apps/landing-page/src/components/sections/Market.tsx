@@ -7,7 +7,7 @@ export function Market() {
       <SectionHeading
         id="market"
         eyebrow="Market"
-        title="₱60M–₱110M a year, and no laundry platform in the city."
+        title="~₱60M–₱110M a year, and no laundry platform in the city."
         lead="Sized two independent ways, bottom-up from the local shop base and top-down from the national market, then reconciled. Both are conservative working estimates pending a field price survey."
       />
 

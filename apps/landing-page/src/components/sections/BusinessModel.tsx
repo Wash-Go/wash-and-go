@@ -1,4 +1,4 @@
-import { REVENUE_STREAMS } from '../../content/site'
+import { REVENUE_STREAMS, REVENUE_STREAMS_NOTE } from '../../content/site'
 import { DataTable, Section, SectionHeading } from '../ui'
 
 export function BusinessModel() {
@@ -20,6 +20,7 @@ export function BusinessModel() {
             { label: 'Charged to' },
           ]}
           rows={REVENUE_STREAMS}
+          note={REVENUE_STREAMS_NOTE}
         />
       </div>
     </Section>

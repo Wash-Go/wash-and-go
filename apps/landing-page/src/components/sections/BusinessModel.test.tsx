@@ -10,6 +10,9 @@ describe('BusinessModel', () => {
     expect(html).toContain('Revenue streams')
     expect(html).toContain('Transaction commission')
     expect(html).toContain('Platform service fee')
+    expect(html).toContain(
+      'Business-plan rates. In the alpha, delivery is priced by TomTom driving distance and every fee is admin-editable; the app screenshots show alpha test values.',
+    )
   })
 
   // Table 4 in the founders' doc does not add up (delivery 40 in the row, 35

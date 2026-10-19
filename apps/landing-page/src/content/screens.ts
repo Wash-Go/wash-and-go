@@ -28,7 +28,7 @@ export const COVERAGE_MAP: Shot = {
   ...DESKTOP,
   alt: 'TomTom map of Zamboanga City with a blue rectangle marking the active coverage zone and two pins labelled Guiwan Wash Center and Tetuan Laundry Hub.',
   caption:
-    'Live map: the active coverage zone (admin-editable) and the two pilot partner shops, Tetuan Laundry Hub and Guiwan Wash Center.',
+    'Map: the active coverage zone (admin-editable) and the two pilot partner shops, Tetuan Laundry Hub and Guiwan Wash Center.',
 }
 
 /** image3 */
@@ -85,7 +85,7 @@ export const PORTAL_ORDER_QUEUE: Shot = {
   src: portalOrderQueue,
   ...DESKTOP,
   alt: 'Shop console order queue: an order at the shop with an actual-kg field, a Preview price button and a Mark Washing button.',
-  caption: 'Laundry portal: the shop’s live order queue with the weigh-in.',
+  caption: 'Laundry portal: the shop’s order queue with the weigh-in.',
 }
 
 /** image10, image22, image19, image5, image6 */

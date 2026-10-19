@@ -155,13 +155,13 @@ export const IMPACT: ReadonlyArray<Actor> = [
     points: [
       'A new, predictable order flow; scheduled collections let a shop plan machines and staff.',
       'No delivery staff needed: riders handle pickup and return.',
-      'Weekly payouts in per-shop batches, carrying 88% of the wash value.',
+      'Periodic payouts in per-shop batches, carrying 88% of the wash value.',
     ],
   },
   {
     name: 'Riders',
     points: [
-      'E-bike jobs dispatched by proximity, current workload and travel time.',
+      'Auto-matched to a rider, with admin dispatch as the fallback.',
       'One clear next step per job, with pickup and return as separate legs.',
       'Cash on delivery recorded per order and reconciled against deposits.',
     ],
@@ -197,6 +197,14 @@ export const REVENUE_STREAMS: ReadonlyArray<TableRow> = [
     ],
   },
 ]
+
+/**
+ * Caveat under the revenue-streams table, kept until the founders settle the
+ * ₱13 (business plan) vs ₱7 (alpha default) service fee: the checkout
+ * screenshots on the same page show alpha test values.
+ */
+export const REVENUE_STREAMS_NOTE =
+  'Business-plan rates. In the alpha, delivery is priced by TomTom driving distance and every fee is admin-editable; the app screenshots show alpha test values.'
 
 /**
  * Doc §2.2.1, Table 4, copied row for row.
@@ -372,7 +380,7 @@ export const QUALITY_LINE =
 
 /** From the doc's Remaining Deliverables and logistics plan; no dates given. */
 export const NEXT_STEPS = [
-  'Alpha field test with pilot partner shops',
+  'Internal alpha testing across all four apps',
   'Scheduled / Tier-1 batch routing',
   'Business accounts',
   'Digital payments',

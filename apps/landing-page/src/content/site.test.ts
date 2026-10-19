@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
   DECK_MAILTO,
+  IMPACT,
+  NEXT_STEPS,
   MARKET_SIZING,
   NAV_SECTIONS,
   PROBLEM_STATS,
@@ -53,5 +55,16 @@ describe('investor page content', () => {
     const ids = NAV_SECTIONS.map((s) => s.id)
     expect(new Set(ids).size).toBe(ids.length)
     expect(DECK_MAILTO).toMatch(/^mailto:[^?]+@[^?]+\?subject=/)
+  })
+
+  it('keeps the roadmap and impact copy to what the doc states', () => {
+    expect(NEXT_STEPS[0]).toBe('Internal alpha testing across all four apps')
+    expect(NEXT_STEPS.join(' ')).not.toMatch(/pilot partner shops/i)
+    const points = IMPACT.flatMap((actor) => actor.points).join(' ')
+    expect(points).toContain('Periodic payouts in per-shop batches')
+    expect(points).not.toMatch(/weekly/i)
+    expect(points).toContain(
+      'Auto-matched to a rider, with admin dispatch as the fallback.',
+    )
   })
 })
