@@ -7,7 +7,13 @@ import { useState } from 'react';
 import { PasswordField } from '../../components/auth/PasswordField';
 import { TextField } from '../../components/auth/TextField';
 import { api } from '../../lib/api';
-import { authErrorMessage, MIN_PASSWORD, validateSignup, type SignupErrors } from '../../lib/auth-copy';
+import {
+  authErrorMessage,
+  MIN_PASSWORD,
+  profileSaveErrors,
+  validateSignup,
+  type SignupErrors,
+} from '../../lib/auth-copy';
 import { auth } from '../../lib/firebase';
 import { sessionErrorMessage } from '../../lib/session';
 
@@ -37,7 +43,9 @@ export default function SignupPage() {
     setBusy(true);
     const { name, email, password, phone } = v.value;
     try {
-      if (!auth.currentUser || auth.currentUser.email !== email) {
+      // Firebase stores emails lower-cased; compare the same way so a retry
+      // reuses the account this form already created.
+      if (!auth.currentUser || auth.currentUser.email?.toLowerCase() !== email.toLowerCase()) {
         await createUserWithEmailAndPassword(auth, email, password);
       }
     } catch (ex) {
@@ -55,10 +63,9 @@ export default function SignupPage() {
     try {
       await api.updateMe({ name, phone });
     } catch (ex) {
-      const status = (ex as { status?: number })?.status;
-      if (status === 409) setErrors({ phone: 'That mobile number is already used by another account.' });
-      else if (status === 400) setErrors({ phone: 'Enter a Philippine mobile number, like 0917 123 4567.' });
-      else setErr("Your account is made, but we couldn't save your details. Try again.");
+      const r = profileSaveErrors(ex);
+      if ('fields' in r) setErrors(r.fields);
+      else setErr(r.general);
       setBusy(false);
       return;
     }

@@ -1,4 +1,4 @@
-import { authErrorMessage, resetPasswordCopy, validateSignup } from './auth-copy';
+import { authErrorMessage, profileSaveErrors, resetPasswordCopy, validateSignup } from './auth-copy';
 
 describe('authErrorMessage', () => {
   it('maps sign-in failures to human copy with a next step', () => {
@@ -70,5 +70,44 @@ describe('validateSignup', () => {
     const r = validateSignup({ name: ' ', email: 'nope', password: 'short', phone: '' });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(Object.keys(r.errors).sort()).toEqual(['email', 'name', 'password', 'phone']);
+  });
+});
+
+describe('profileSaveErrors (PATCH /auth/me during sign-up)', () => {
+  const err = (status: number, message?: unknown) => ({ status, body: message === undefined ? undefined : { message } });
+
+  it('puts a duplicate number on the phone field', () => {
+    expect(profileSaveErrors(err(409))).toEqual({
+      fields: { phone: 'That mobile number is already used by another account.' },
+    });
+  });
+
+  it('maps a 400 to the field the API names', () => {
+    expect(profileSaveErrors(err(400, 'Enter a Philippine mobile number, like 0917 123 4567.'))).toEqual({
+      fields: { phone: 'Enter a Philippine mobile number, like 0917 123 4567.' },
+    });
+    expect(profileSaveErrors(err(400, ['phone must be shorter than or equal to 32 characters']))).toEqual({
+      fields: { phone: 'Enter a Philippine mobile number, like 0917 123 4567.' },
+    });
+    expect(profileSaveErrors(err(400, ['name must be shorter than or equal to 80 characters']))).toEqual({
+      fields: { name: 'Keep your name under 80 characters.' },
+    });
+    expect(profileSaveErrors(err(400, 'Enter your name.'))).toEqual({ fields: { name: 'Enter your name.' } });
+  });
+
+  it('falls back to a general message for an unattributed 400', () => {
+    expect(profileSaveErrors(err(400))).toEqual({ general: 'Check your name and mobile number, then try again.' });
+    expect(profileSaveErrors(err(400, 'Bad Request'))).toEqual({
+      general: 'Check your name and mobile number, then try again.',
+    });
+  });
+
+  it('says the account exists for anything else', () => {
+    expect(profileSaveErrors(err(500))).toEqual({
+      general: "Your account is made, but we couldn't save your details. Try again.",
+    });
+    expect(profileSaveErrors(new Error('offline'))).toEqual({
+      general: "Your account is made, but we couldn't save your details. Try again.",
+    });
   });
 });
