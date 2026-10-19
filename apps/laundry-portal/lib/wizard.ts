@@ -97,24 +97,29 @@ export function draftFromServer(shop: OwnerShopView, catalog: ShopCatalogItem[],
     address: shop.address,
     lat: pin.lat,
     lng: pin.lng,
-    services: catalog.map((c) => {
-      const row = services.find((s) => s.serviceId === c.id);
-      return {
-        serviceId: c.id,
-        code: c.code,
-        name: c.name,
-        billingUnit: c.billingUnit,
-        enabled: !!row?.active,
-        rate: row ? row.ratePhp : '',
-        turnaround: row ? String(row.turnaroundHours) : '24',
-      };
-    }),
+    services: servicesFromServer(catalog, services),
     hours: hoursFromApi(shop.hours),
     expressSlots: String(shop.expressSlotsPerDay ?? 0),
     permitKey: shop.permitKey,
     photoKeys: [...shop.photoKeys],
     accurate: false,
   };
+}
+
+// Every catalog item as a form row, with the shop's saved rate (on when active).
+export function servicesFromServer(catalog: ShopCatalogItem[], services: ShopServiceRow[]): ServiceDraft[] {
+  return catalog.map((c) => {
+    const row = services.find((s) => s.serviceId === c.id);
+    return {
+      serviceId: c.id,
+      code: c.code,
+      name: c.name,
+      billingUnit: c.billingUnit,
+      enabled: !!row?.active,
+      rate: row ? row.ratePhp : '',
+      turnaround: row ? String(row.turnaroundHours) : '24',
+    };
+  });
 }
 
 // ---------- Resume ----------
@@ -205,14 +210,7 @@ export function validateStep(step: number, d: WizardDraft, uploads: UploadsStatu
     else if (addr.length > MAX_ADDRESS) e.address = 'Keep the address to 200 characters.';
     if (d.lat == null || d.lng == null || (d.lat === 0 && d.lng === 0)) e.pin = 'Place the pin on your shop.';
   } else if (step === STEP.services) {
-    const on = d.services.filter((s) => s.enabled);
-    if (!on.length) e.services = 'Turn on at least one service.';
-    for (const s of on) {
-      const r = rateError(s.rate);
-      if (r) e[`rate:${s.serviceId}`] = r;
-      const t = turnaroundError(s.turnaround);
-      if (t) e[`turnaround:${s.serviceId}`] = t;
-    }
+    Object.assign(e, validateServices(d.services));
   } else if (step === STEP.hours) {
     for (const h of d.hours) {
       if (!h.open) continue;
@@ -226,6 +224,21 @@ export function validateStep(step: number, d: WizardDraft, uploads: UploadsStatu
     if (uploads.configured && !d.permitKey) e.permit = 'Add a photo or PDF of your business permit.';
   } else if (step === STEP.review) {
     if (!d.accurate) e.accurate = 'Tick the box to confirm your details are accurate.';
+  }
+  return e;
+}
+
+// Services rules (wizard step 3 and the Services page): at least one on, and
+// each enabled row's rate and turnaround within the PUT caps.
+export function validateServices(services: ServiceDraft[]): StepErrors {
+  const e: StepErrors = {};
+  const on = services.filter((s) => s.enabled);
+  if (!on.length) e.services = 'Turn on at least one service.';
+  for (const s of on) {
+    const r = rateError(s.rate);
+    if (r) e[`rate:${s.serviceId}`] = r;
+    const t = turnaroundError(s.turnaround);
+    if (t) e[`turnaround:${s.serviceId}`] = t;
   }
   return e;
 }
@@ -251,7 +264,7 @@ export function hoursPatch(d: WizardDraft): UpdateOnboardingBody {
 // PUT bodies for the services step: a newly enabled item, a changed rate or
 // turnaround, or a saved item switched off (active:false, saved rate kept).
 // active is always sent: the API rejects a body without it.
-export function servicePuts(d: WizardDraft, saved: ShopServiceRow[]): { serviceId: string; body: PutShopServiceBody }[] {
+export function servicePuts(d: Pick<WizardDraft, 'services'>, saved: ShopServiceRow[]): { serviceId: string; body: PutShopServiceBody }[] {
   const out: { serviceId: string; body: PutShopServiceBody }[] = [];
   for (const s of d.services) {
     const row = saved.find((r) => r.serviceId === s.serviceId);
