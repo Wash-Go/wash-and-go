@@ -11,7 +11,7 @@ describe('BusinessModel', () => {
     expect(html).toContain('Transaction commission')
     expect(html).toContain('Platform service fee')
     expect(html).toContain(
-      'Business-plan rates. In the alpha, delivery is priced by TomTom driving distance and every fee is admin-editable; the app screenshots show alpha test values.',
+      'Business-plan rates. Today, delivery is priced by TomTom driving distance and every fee is admin-editable; the app screenshots show test values.',
     )
   })
 

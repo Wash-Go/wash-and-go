@@ -58,7 +58,7 @@ describe('investor page content', () => {
   })
 
   it('keeps the roadmap and impact copy to what the doc states', () => {
-    expect(NEXT_STEPS[0]).toBe('Internal alpha testing across all four apps')
+    expect(NEXT_STEPS[0]).toBe('Internal testing across all four apps')
     expect(NEXT_STEPS.join(' ')).not.toMatch(/pilot partner shops/i)
     const points = IMPACT.flatMap((actor) => actor.points).join(' ')
     expect(points).toContain('Periodic payouts in per-shop batches')

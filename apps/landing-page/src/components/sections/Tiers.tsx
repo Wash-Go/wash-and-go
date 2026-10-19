@@ -46,7 +46,7 @@ export function Tiers() {
           <PhoneShot shot={CUSTOMER_CHECKOUT_SCHEDULED} />
         </div>
         <div className="max-w-xl">
-          <h3 className="text-xl font-bold text-ink">The rules in the alpha</h3>
+          <h3 className="text-xl font-bold text-ink">The rules today</h3>
           <ul className="mt-4 space-y-3">
             {RULES.map((rule) => (
               <li key={rule} className="flex gap-3 leading-relaxed text-ink">

@@ -9,7 +9,7 @@ import { NotFound } from '../components/layout'
 export const Route = createFileRoute('/404')({
   head: () => ({
     meta: [
-      { title: 'Page not found — Wash & Go' },
+      { title: 'Page not found · Wash & Go' },
       { name: 'robots', content: 'noindex' },
     ],
   }),
