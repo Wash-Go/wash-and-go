@@ -111,20 +111,18 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-.hero-image-shell {
-  position: relative;
+:focus-visible {
+  outline: 3px solid var(--color-brand-navy);
+  outline-offset: 2px;
 }
 
-.hero-image-shell::before {
-  content: '';
-  position: absolute;
-  top: -1px;
-  left: 50%;
-  z-index: 10;
-  width: min(36rem, calc(100% - 3rem));
-  height: 5.75rem;
-  transform: translateX(-50%);
-  background: #f4f4f5;
-  border-bottom-left-radius: 9999px;
-  border-bottom-right-radius: 9999px;
+/* On the navy band the navy ring would vanish; use white there. */
+.bg-brand-navy :focus-visible {
+  outline-color: #ffffff;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }

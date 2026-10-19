@@ -17,9 +17,11 @@ import {
   within,
 } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { DECK_MAILTO } from '../../content/site'
 import { Navbar } from './Navbar'
 
-const PATHS = ['/', '/services', '/book-order', '/my-orders', '/pricing']
+const PATHS = ['/', '/404']
+const ANCHORS = ['/#problem', '/#how-it-works', '/#model', '/#market', '/#team']
 
 function renderNavbar() {
   const rootRoute = createRootRoute({
@@ -86,7 +88,7 @@ describe('Navbar mobile menu', () => {
       within(menu)
         .getAllByRole('link')
         .map((link) => link.getAttribute('href')),
-    ).toEqual([...PATHS, '#get-the-app'])
+    ).toEqual([...ANCHORS, DECK_MAILTO])
 
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(toggle.getAttribute('aria-expanded')).toBe('false')
@@ -104,19 +106,26 @@ describe('Navbar mobile menu', () => {
     expect(menu.hidden).toBe(true)
   })
 
-  it('navigates and closes when a menu link is followed', async () => {
-    const router = renderNavbar()
+  it('closes when an in-page section link is followed', async () => {
+    renderNavbar()
     const { toggle, menu } = await openableMenu()
 
     fireEvent.click(toggle)
-    fireEvent.click(within(menu).getByRole('link', { name: 'Services' }))
+    fireEvent.click(within(menu).getByRole('link', { name: 'How it works' }))
 
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe('/services'),
-    )
-    expect(await screen.findByText('page /services')).toBeTruthy()
     expect(toggle.getAttribute('aria-expanded')).toBe('false')
     expect(menu.hidden).toBe(true)
+  })
+
+  it('shows the section anchors and the deck CTA on desktop too', async () => {
+    renderNavbar()
+    const nav = await screen.findByRole('navigation', { name: 'Main' })
+    const hrefs = within(nav)
+      .getAllByRole('link')
+      .map((link) => link.getAttribute('href'))
+    for (const href of [...ANCHORS, DECK_MAILTO]) {
+      expect(hrefs).toContain(href)
+    }
   })
 
   it('closes when the route changes some other way (e.g. back button)', async () => {
@@ -126,8 +135,8 @@ describe('Navbar mobile menu', () => {
     fireEvent.click(toggle)
     expect(menu.hidden).toBe(false)
 
-    await act(() => router.navigate({ to: '/pricing' }))
-    expect(router.state.location.pathname).toBe('/pricing')
+    await act(() => router.navigate({ to: '/404' }))
+    expect(router.state.location.pathname).toBe('/404')
     expect(toggle.getAttribute('aria-expanded')).toBe('false')
     expect(menu.hidden).toBe(true)
 
