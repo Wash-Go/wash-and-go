@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as admin from 'firebase-admin';
 import { assertAuthConfigSafe } from './auth-config';
+import { apiRoot, credentialsFileProblem, resolveCredentialsPath } from './credentials-path';
 
 export type VerifiedIdentity = {
   firebaseUid: string;
@@ -60,13 +61,30 @@ export class FirebaseService implements OnModuleInit {
       );
     }
 
+    // File credentials: resolve a relative path against apps/api (the .env's
+    // home), not process.cwd(), and check it NOW — google-auth-library only
+    // reads it lazily on the first token verify, long after boot.
+    if (!inlineJson && credFile) {
+      const abs = resolveCredentialsPath(credFile, apiRoot());
+      const problem = credentialsFileProblem(abs);
+      if (problem) {
+        if (this.devBypass) {
+          this.logger.warn(
+            `${problem} — Firebase Admin not initialized; x-dev-uid only. DEV ONLY.`,
+          );
+          return;
+        }
+        throw new Error(problem);
+      }
+      // applicationDefault() reads the env var itself; hand it the absolute path.
+      process.env.GOOGLE_APPLICATION_CREDENTIALS = abs;
+    }
+
     try {
       const credential = inlineJson
         ? admin.credential.cert(JSON.parse(inlineJson) as admin.ServiceAccount)
         : admin.credential.applicationDefault();
-      this.app = admin.apps.length
-        ? admin.app()
-        : admin.initializeApp({ credential });
+      this.app = admin.apps.length ? admin.app() : admin.initializeApp({ credential });
       if (this.devBypass) {
         this.logger.warn(
           'AUTH_DEV_BYPASS is ON — real Firebase tokens are still verified; x-dev-uid is the fallback. DEV ONLY.',
