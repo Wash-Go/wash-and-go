@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
 import type { FirebaseService, VerifiedIdentity } from '../auth/firebase.service';
 import { UsersRepository } from './users.repository';
-import { ShopInviteAcceptanceService } from '../shops/shop-invite-acceptance.service';
+import { VerifiedEmailService } from '../auth/verified-email.service';
 
 /*
  * U0 T4 against real Postgres: POST /auth/session runs on every web load and
@@ -27,7 +27,7 @@ describe('Users session + profile (Postgres)', () => {
     devBypass: false,
     verifyIdToken: async () => identity,
   } as unknown as FirebaseService;
-  const auth = new AuthService(firebase, repo, new ShopInviteAcceptanceService(prisma));
+  const auth = new AuthService(firebase, repo, new VerifiedEmailService(prisma));
   const uids: string[] = [];
 
   function signIn(firebaseUid: string, phone?: string): Promise<User> {

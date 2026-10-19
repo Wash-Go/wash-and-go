@@ -1,20 +1,20 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { UsersModule } from '../users/users.module';
-import { ShopsModule } from '../shops/shops.module';
 import { FirebaseService } from './firebase.service';
 import { AuthService } from './auth.service';
+import { VerifiedEmailService } from './verified-email.service';
 import { AuthController } from './auth.controller';
 import { FirebaseAuthGuard } from './firebase-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 
 @Module({
-  // ShopsModule exports ShopInviteAcceptanceService (sign-in accepts invites).
-  imports: [UsersModule, ShopsModule],
+  imports: [UsersModule],
   controllers: [AuthController],
   providers: [
     FirebaseService,
     AuthService,
+    VerifiedEmailService,
     // Secure-by-default (debate D3): every route guarded unless @Public.
     // Order matters — FirebaseAuthGuard runs first and attaches req.authUser,
     // then RolesGuard reads it. Registering RolesGuard globally (A12) means a

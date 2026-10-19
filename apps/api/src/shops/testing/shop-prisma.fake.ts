@@ -4,8 +4,11 @@
  * shopService). Specs seed rows, run the real service, then assert on the
  * tables — so ownership scoping is proven against data, not against mock
  * call shapes. Supports plain-equality `where` (null matches null/undefined),
- * compound unique keys, `orderBy` arrays, `include` of shop/user/service, and
- * `$transaction(fn)`. Test-only; nothing in the app imports it.
+ * compound unique keys, `orderBy` arrays, `include` of shop/user/service/
+ * invitedBy, `$transaction(fn)`, and the few raw statements the staff code
+ * runs (the SHOP_STAFF array_append / array_remove and the User row lock),
+ * applied to the user table so specs still assert the resulting roles. Every
+ * raw call is recorded in `raw`. Test-only; nothing in the app imports it.
  */
 import { Prisma } from '@prisma/client';
 
@@ -83,6 +86,7 @@ export function fakeShopPrisma(seed: Partial<FakeTables> = {}) {
     shop: (r) => t.shop.find((s) => s.id === r.shopId) ?? null,
     user: (r) => t.user.find((u) => u.id === r.userId) ?? null,
     service: (r) => t.serviceCatalogItem.find((c) => c.id === r.serviceId) ?? null,
+    invitedBy: (r) => t.user.find((u) => u.id === r.invitedByUserId) ?? null,
   };
   const withIncludes = (row: Row, include?: Record<string, unknown>) => {
     if (!include) return { ...row };
@@ -194,6 +198,42 @@ export function fakeShopPrisma(seed: Partial<FakeTables> = {}) {
     serviceCatalogItem: model('serviceCatalogItem'),
     shopService: model('shopService'),
   };
+  // Raw SQL: only the exact statements the shop staff code issues. Anything
+  // else throws, so a new raw query can't pass silently against the fake.
+  const raw: Array<{ sql: string; values: unknown[] }> = [];
+  const userById = (v: unknown) => t.user.find((u) => u.id === v);
+  const sqlOf = (strings: TemplateStringsArray) => strings.join('$').replace(/\s+/g, ' ').trim();
+  prisma.$executeRaw = async (strings: TemplateStringsArray, ...values: unknown[]) => {
+    const sql = sqlOf(strings);
+    raw.push({ sql, values });
+    const u = userById(values[0]);
+    if (
+      sql ===
+      `UPDATE "User" SET roles = array_append(roles, 'SHOP_STAFF'::"UserRole") WHERE id = $ AND NOT ('SHOP_STAFF'::"UserRole" = ANY(roles))`
+    ) {
+      if (!u || (u.roles as string[]).includes('SHOP_STAFF')) return 0;
+      u.roles = [...(u.roles as string[]), 'SHOP_STAFF'];
+      return 1;
+    }
+    if (
+      sql ===
+      `UPDATE "User" SET roles = array_remove(roles, 'SHOP_STAFF'::"UserRole") WHERE id = $ AND 'SHOP_STAFF'::"UserRole" = ANY(roles)`
+    ) {
+      if (!u || !(u.roles as string[]).includes('SHOP_STAFF')) return 0;
+      u.roles = (u.roles as string[]).filter((r) => r !== 'SHOP_STAFF');
+      return 1;
+    }
+    throw new Error(`fake: unsupported $executeRaw: ${sql}`);
+  };
+  prisma.$queryRaw = async (strings: TemplateStringsArray, ...values: unknown[]) => {
+    const sql = sqlOf(strings);
+    raw.push({ sql, values });
+    if (sql === 'SELECT id FROM "User" WHERE id = $ FOR UPDATE') {
+      const u = userById(values[0]);
+      return u ? [{ id: u.id }] : [];
+    }
+    throw new Error(`fake: unsupported $queryRaw: ${sql}`);
+  };
   prisma.$transaction = async (fn: (tx: unknown) => unknown) => fn(prisma);
-  return { prisma: prisma as never, tables: t };
+  return { prisma: prisma as never, tables: t, raw };
 }

@@ -1,29 +1,39 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { User } from '@prisma/client';
-import type { VerifiedIdentity } from '../auth/firebase.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { normalizeInviteEmail } from './shop-staff.service';
+import type { ShopMemberView } from './shop-staff.service';
 
+// An invite that is neither accepted nor revoked.
 const OPEN = { acceptedAt: null, revokedAt: null };
 
+export const INVITE_NOT_FOUND = 'Invite not found';
+export const ONE_SHOP_PER_ACCOUNT =
+  'One shop per account for now — this account already belongs to a shop';
+
+export interface PendingInviteView {
+  id: string;
+  shopName: string;
+  invitedByName: string;
+  createdAt: string;
+}
+
+export type AcceptedMemberView = ShopMemberView & { shopId: string; shopName: string };
+
 /*
- * Staff-invite acceptance, run from POST /auth/session (AuthService.
- * sessionUpsert) right after the User upsert. It is a privilege grant driven
- * by email, so:
+ * Explicit staff-invite acceptance (GET /shop/invites/pending, POST
+ * /shop/invites/:id/accept). It is a privilege grant driven by email, so:
  *
- *  - the email comes ONLY from the verified Firebase identity, and only when
- *    the token says email_verified === true (an email/password account can be
- *    created for any address without proving ownership). Never a request body.
- *  - matching is exact on the lowercased email (both columns CHECK lowercase).
- *  - each invite is claimed with a conditional update (still open → accepted),
- *    so parallel sessions, a concurrent revoke, or a replay can't double-grant.
- *  - it is idempotent: an existing membership is reused, SHOP_STAFF is added
- *    once, an accepted invite is never re-claimed.
- *  - a user who OWNS a shop is not auto-joined (logged; invite left open).
- *  - a failure never blocks sign-in: it is logged and retried next session.
- *
- * The x-dev-uid stub never reaches here (it carries no email); acceptance
- * needs a real verified token.
+ *  - matching uses ONLY the caller's stored User.email, which POST
+ *    /auth/session writes solely from a verified token email from a provider
+ *    that proves ownership (VerifiedEmailService). Never a request field.
+ *  - an invite that is unknown, revoked, accepted, or for another email is the
+ *    same 404, so the endpoint can't probe other people's invites.
+ *  - one shop per account for now: an owner, or staff at another shop, is a
+ *    409. That check runs inside the transaction after locking the User row,
+ *    so two parallel accepts by one user serialize.
+ *  - the claim is conditional on the invite still being open (count must be
+ *    1), so a concurrent revoke or a replay can't double-grant; SHOP_STAFF is
+ *    added by one conditional array_append.
  */
 @Injectable()
 export class ShopInviteAcceptanceService {
@@ -31,73 +41,74 @@ export class ShopInviteAcceptanceService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async onSignIn(user: User, identity: VerifiedIdentity): Promise<User> {
-    if (user.disabledAt) return user;
-    const email =
-      identity.emailVerified === true && typeof identity.email === 'string' && identity.email.trim()
-        ? normalizeInviteEmail(identity.email)
-        : null;
-    try {
-      let current = user;
-      // Keep User.email in step with the token's VERIFIED email (null when none).
-      if (current.email !== email) {
-        current = await this.prisma.user.update({ where: { id: user.id }, data: { email } });
+  async pending(user: User): Promise<PendingInviteView[]> {
+    if (!user.email) return [];
+    const rows = await this.prisma.shopInvite.findMany({
+      where: { email: user.email, ...OPEN },
+      include: { shop: true, invitedBy: true },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    return rows.map((i) => ({
+      id: i.id,
+      shopName: i.shop.name,
+      invitedByName: i.invitedBy.displayName,
+      createdAt: i.createdAt.toISOString(),
+    }));
+  }
+
+  async accept(user: User, inviteId: string): Promise<AcceptedMemberView> {
+    const email = user.email;
+    if (!email) throw new NotFoundException(INVITE_NOT_FOUND);
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Serialize this user's accepts so the one-shop check below holds.
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${user.id} FOR UPDATE`;
+
+      const invite = await tx.shopInvite.findFirst({ where: { id: inviteId, email, ...OPEN } });
+      if (!invite) throw new NotFoundException(INVITE_NOT_FOUND);
+
+      const memberships = await tx.shopMember.findMany({ where: { userId: user.id } });
+      if (memberships.some((m) => m.role === 'OWNER' || m.shopId !== invite.shopId)) {
+        throw new ConflictException(ONE_SHOP_PER_ACCOUNT);
       }
-      if (!email) return current;
 
-      const invites = await this.prisma.shopInvite.findMany({
-        where: { email, ...OPEN },
-        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      const claim = await tx.shopInvite.updateMany({
+        where: { id: invite.id, email, ...OPEN },
+        data: { acceptedAt: new Date(), acceptedUserId: user.id },
       });
-      if (!invites.length) return current;
+      if (claim.count !== 1) throw new NotFoundException(INVITE_NOT_FOUND);
 
-      const owns = await this.prisma.shopMember.count({ where: { userId: user.id, role: 'OWNER' } });
-      if (owns > 0) {
-        this.logger.warn({
-          event: 'shop.invite.skipped_owner',
-          userId: user.id,
-          inviteIds: invites.map((i) => i.id),
-        });
-        return current;
-      }
+      const member =
+        memberships.find((m) => m.shopId === invite.shopId) ??
+        (await tx.shopMember.create({
+          data: { shopId: invite.shopId, userId: user.id, role: 'STAFF' },
+        }));
+      await tx.$executeRaw`UPDATE "User" SET roles = array_append(roles, 'SHOP_STAFF'::"UserRole") WHERE id = ${user.id} AND NOT ('SHOP_STAFF'::"UserRole" = ANY(roles))`;
 
-      return await this.prisma.$transaction(async (tx) => {
-        const accepted: Array<{ inviteId: string; shopId: string }> = [];
-        for (const inv of invites) {
-          const claim = await tx.shopInvite.updateMany({
-            where: { id: inv.id, email, ...OPEN },
-            data: { acceptedAt: new Date(), acceptedUserId: user.id },
-          });
-          if (claim.count === 0) continue; // revoked/accepted meanwhile
-          const existing = await tx.shopMember.findUnique({
-            where: { shopId_userId: { shopId: inv.shopId, userId: user.id } },
-          });
-          if (!existing) {
-            await tx.shopMember.create({
-              data: { shopId: inv.shopId, userId: user.id, role: 'STAFF' },
-            });
-          }
-          accepted.push({ inviteId: inv.id, shopId: inv.shopId });
-        }
-        const fresh = (await tx.user.findUnique({ where: { id: user.id } })) as User;
-        if (!accepted.length) return fresh;
-        const updated = fresh.roles.includes('SHOP_STAFF')
-          ? fresh
-          : await tx.user.update({
-              where: { id: user.id },
-              data: { roles: [...fresh.roles, 'SHOP_STAFF'] },
-            });
-        for (const a of accepted) {
-          this.logger.log({ event: 'shop.invite.accepted', userId: user.id, ...a });
-        }
-        return updated;
+      const row = await tx.shopMember.findUnique({
+        where: { id: member.id },
+        include: { user: true, shop: true },
       });
-    } catch (e) {
-      this.logger.error(
-        { event: 'shop.invite.accept_failed', userId: user.id, error: (e as Error).message },
-        (e as Error).stack,
-      );
-      return user;
-    }
+      return { inviteId: invite.id, row: row! };
+    });
+
+    const { row } = result;
+    this.logger.log({
+      event: 'shop.invite.accepted',
+      shopId: row.shopId,
+      actorUserId: user.id,
+      inviteId: result.inviteId,
+      memberId: row.id,
+    });
+    return {
+      id: row.id,
+      userId: row.userId,
+      role: row.role,
+      name: row.user.displayName,
+      email: row.user.email,
+      joinedAt: row.createdAt.toISOString(),
+      shopId: row.shopId,
+      shopName: row.shop.name,
+    };
   }
 }

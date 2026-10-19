@@ -10,6 +10,9 @@ export type VerifiedIdentity = {
   // claim; only a true value lets the email drive a privilege (staff invites).
   email?: string;
   emailVerified?: boolean;
+  // decoded.firebase.sign_in_provider ('password', 'google.com', 'phone', …).
+  // Only some providers prove the user owns the email (see trustedEmail).
+  signInProvider?: string;
 };
 
 /*
@@ -90,6 +93,10 @@ export class FirebaseService implements OnModuleInit {
       phone: decoded.phone_number,
       email: decoded.email,
       emailVerified: decoded.email_verified === true,
+      signInProvider:
+        typeof decoded.firebase?.sign_in_provider === 'string'
+          ? decoded.firebase.sign_in_provider
+          : undefined,
     };
   }
 }

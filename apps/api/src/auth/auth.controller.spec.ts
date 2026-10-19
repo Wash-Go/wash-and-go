@@ -18,17 +18,23 @@ function makeUser(overrides: Partial<User> = {}): User {
 
 describe('toMe (GET /auth/me, POST /auth/session, PATCH /auth/me)', () => {
   it('returns the real mobile number', () => {
-    expect(toMe(makeUser())).toEqual({
+    expect(toMe(makeUser(), false)).toEqual({
       id: 'u1',
       phone: '+639171234567',
       displayName: 'Ana',
       roles: ['CUSTOMER'],
+      emailVerified: false,
     });
+  });
+
+  // The portal prompts for email verification before showing staff invites.
+  it('carries emailVerified from the token', () => {
+    expect(toMe(makeUser(), true).emailVerified).toBe(true);
   });
 
   // The app gates booking on `phone === null`; the placeholder is never shown.
   it('reports a placeholder phone as null', () => {
-    expect(toMe(makeUser({ phone: 'pending:fb-1', displayName: '' })).phone).toBeNull();
+    expect(toMe(makeUser({ phone: 'pending:fb-1', displayName: '' }), false).phone).toBeNull();
   });
 });
 

@@ -44,7 +44,7 @@ export class ShopStaffController {
 
   @Post('invites')
   @Roles('SHOP_OWNER')
-  @ApiOperation({ summary: 'Invite a staff member by email (accepted on their next sign-in)' })
+  @ApiOperation({ summary: 'Invite a staff member by email (they accept via POST /shop/invites/:id/accept)' })
   invite(@CurrentUser() user: User, @Body() dto: CreateShopInviteDto) {
     return this.staff.createInvite(user.id, dto.email);
   }
