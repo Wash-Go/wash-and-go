@@ -17,6 +17,7 @@ import { ShopServicesController } from '../shops/shop-services.controller';
 import { ShopProfileController } from '../shops/shop-profile.controller';
 import { ShopPayoutController } from '../shops/shop-payout.controller';
 import { ShopStaffController } from '../shops/shop-staff.controller';
+import { ShopInvitesController } from '../shops/shop-invite-acceptance.controller';
 import { RiderOnboardingController } from '../riders/rider-onboarding.controller';
 import { AdminRidersController } from '../riders/admin-riders.controller';
 import { ZonesController } from '../zones/zones.controller';
@@ -197,6 +198,33 @@ describe('route role matrix', () => {
     expect(rolesOf(c, 'catalog')).toEqual(['SHOP_OWNER', 'SHOP_STAFF']);
     expect(rolesOf(c, 'list')).toEqual(['SHOP_OWNER', 'SHOP_STAFF']);
     expect(rolesOf(c, 'upsert')).toEqual(['SHOP_OWNER']);
+  });
+
+  it('shop profile: OWNER/STAFF read, OWNER-only edit', () => {
+    const c = ShopProfileController.prototype;
+    expect(rolesOf(c, 'get')).toEqual(['SHOP_OWNER', 'SHOP_STAFF']);
+    expect(rolesOf(c, 'update')).toEqual(['SHOP_OWNER']);
+  });
+
+  it('shop payout account is OWNER-only', () => {
+    const c = ShopPayoutController.prototype;
+    expect(rolesOf(c, 'put')).toEqual(['SHOP_OWNER']);
+    expect(rolesOf(c, 'remove')).toEqual(['SHOP_OWNER']);
+  });
+
+  it('shop staff: OWNER/STAFF see members, OWNER-only team changes', () => {
+    const c = ShopStaffController.prototype;
+    expect(rolesOf(c, 'members')).toEqual(['SHOP_OWNER', 'SHOP_STAFF']);
+    for (const m of ['removeMember', 'invites', 'invite', 'revoke']) {
+      expect(rolesOf(c, m)).toEqual(['SHOP_OWNER']);
+    }
+  });
+
+  it('staff invite pending/accept are any-authenticated (matched on the caller’s verified email)', () => {
+    const c = ShopInvitesController.prototype;
+    expect(rolesOf(c, 'pending')).toBeUndefined();
+    expect(rolesOf(c, 'accept')).toBeUndefined();
+    expect(Reflect.getMetadata(ROLES_KEY, ShopInvitesController)).toBeUndefined();
   });
 
   it('own profile routes are any-authenticated (the caller edits only themselves)', () => {

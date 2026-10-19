@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type { ShopInvite } from '@prisma/client';
@@ -34,12 +35,15 @@ export const normalizeInviteEmail = (email: string) => email.trim().toLowerCase(
 
 /*
  * Staff management for the caller's shop (portal B4 "Staff" screen). Members
- * list is OWNER or STAFF; invites and removals are OWNER-only. An invite is
- * accepted on the invitee's next sign-in (ShopInviteAcceptanceService) — this
- * service never grants membership itself.
+ * list is OWNER or STAFF; invites and removals are OWNER-only. The invitee
+ * accepts explicitly (POST /shop/invites/:id/accept, ShopInviteAcceptanceService)
+ * — this service never grants membership itself. Team changes write audit log
+ * lines carrying ids only (never an email or a name).
  */
 @Injectable()
 export class ShopStaffService {
+  private readonly logger = new Logger('ShopInvites');
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: ShopAccessService,
@@ -105,6 +109,7 @@ export class ShopStaffService {
             if (isP2002(e)) throw new ConflictException('That email already has an open invite');
             throw e;
           });
+    this.logger.log({ event: 'shop.invite.created', shopId, actorUserId: userId, inviteId: invite.id });
     return shapeInvite(invite);
   }
 
@@ -126,6 +131,7 @@ export class ShopStaffService {
       data: { revokedAt: new Date() },
     });
     if (count === 0) throw new NotFoundException('Open invite not found');
+    this.logger.log({ event: 'shop.invite.revoked', shopId, actorUserId: userId, inviteId });
   }
 
   async removeMember(userId: string, memberId: string): Promise<void> {
@@ -136,21 +142,19 @@ export class ShopStaffService {
     if (target.role !== 'STAFF') throw new BadRequestException('Only staff members can be removed');
 
     await this.prisma.$transaction(async (tx) => {
+      // Same lock as acceptance, so a removal and an accept for one user
+      // serialize and the role ends up matching the memberships.
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${target.userId} FOR UPDATE`;
       await tx.shopMember.delete({ where: { id: target.id } });
       // Drop the coarse SHOP_STAFF role once they are staff nowhere.
       const stillStaff = await tx.shopMember.count({
         where: { userId: target.userId, role: 'STAFF' },
       });
       if (stillStaff === 0) {
-        const u = await tx.user.findUnique({ where: { id: target.userId } });
-        if (u && u.roles.includes('SHOP_STAFF')) {
-          await tx.user.update({
-            where: { id: u.id },
-            data: { roles: u.roles.filter((r) => r !== 'SHOP_STAFF') },
-          });
-        }
+        await tx.$executeRaw`UPDATE "User" SET roles = array_remove(roles, 'SHOP_STAFF'::"UserRole") WHERE id = ${target.userId} AND 'SHOP_STAFF'::"UserRole" = ANY(roles)`;
       }
     });
+    this.logger.log({ event: 'shop.member.removed', shopId, actorUserId: userId, memberId: target.id });
   }
 }
 

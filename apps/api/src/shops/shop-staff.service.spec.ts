@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ShopAccessService } from './shop-access.service';
@@ -41,10 +42,16 @@ function setup() {
     ],
   });
   const svc = new ShopStaffService(fake.prisma, new ShopAccessService(fake.prisma));
-  return { svc, t: fake.tables };
+  return { svc, t: fake.tables, raw: fake.raw };
 }
 
 describe('ShopStaffService', () => {
+  let log: jest.SpyInstance;
+  beforeEach(() => {
+    log = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+  });
+  afterEach(() => jest.restoreAllMocks());
+
   describe('GET /shop/members', () => {
     it('lists the caller’s shop members with name/email, never phone', async () => {
       const { svc } = setup();
@@ -192,6 +199,45 @@ describe('ShopStaffService', () => {
       const { svc } = setup();
       await svc.removeMember('uA', 'mS');
       await expect(svc.createInvite('uA', 'uS@example.com')).resolves.toBeDefined();
+    });
+
+    it('strips SHOP_STAFF with one conditional array_remove, after locking the user row', async () => {
+      const { svc, raw } = setup();
+      await svc.removeMember('uA', 'mS');
+      expect(raw).toEqual([
+        { sql: 'SELECT id FROM "User" WHERE id = $ FOR UPDATE', values: ['uS'] },
+        {
+          sql: `UPDATE "User" SET roles = array_remove(roles, 'SHOP_STAFF'::"UserRole") WHERE id = $ AND 'SHOP_STAFF'::"UserRole" = ANY(roles)`,
+          values: ['uS'],
+        },
+      ]);
+    });
+
+    it('no role statement when they are still staff elsewhere', async () => {
+      const { svc, raw } = setup();
+      await svc.removeMember('uA', 'mT');
+      expect(raw.map((r) => r.sql)).toEqual(['SELECT id FROM "User" WHERE id = $ FOR UPDATE']);
+    });
+  });
+
+  describe('audit log lines (ids only, never email or name)', () => {
+    it('shop.invite.created / shop.invite.revoked / shop.member.removed', async () => {
+      const { svc } = setup();
+      const inv = await svc.createInvite('uA', 'Secret.Person@Example.com');
+      expect(log).toHaveBeenCalledWith({ event: 'shop.invite.created', shopId: 'sA', actorUserId: 'uA', inviteId: inv.id });
+      await svc.revokeInvite('uA', inv.id);
+      expect(log).toHaveBeenCalledWith({ event: 'shop.invite.revoked', shopId: 'sA', actorUserId: 'uA', inviteId: inv.id });
+      await svc.removeMember('uA', 'mS');
+      expect(log).toHaveBeenCalledWith({ event: 'shop.member.removed', shopId: 'sA', actorUserId: 'uA', memberId: 'mS' });
+      expect(log).toHaveBeenCalledTimes(3);
+      expect(JSON.stringify(log.mock.calls)).not.toMatch(/@|example|Name u/i);
+    });
+
+    it('failed changes log nothing', async () => {
+      const { svc } = setup();
+      await expect(svc.revokeInvite('uA', 'iB')).rejects.toBeDefined();
+      await expect(svc.removeMember('uA', 'mA')).rejects.toBeDefined();
+      expect(log).not.toHaveBeenCalled();
     });
   });
 });
