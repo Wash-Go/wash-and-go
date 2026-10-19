@@ -39,3 +39,11 @@ export function isNewOrder(state: NewOrdersState, id: string, now: number): bool
   const at = state.fresh[id];
   return at != null && now - at < NEW_RING_MS;
 }
+
+// What the polite live region says when orders newly arrive.
+export function newOrdersAnnouncement(atShop: number, booked: number): string {
+  const parts: string[] = [];
+  if (atShop) parts.push(`${atShop} new order${atShop === 1 ? '' : 's'} at your shop.`);
+  if (booked) parts.push(`${booked} new booking${booked === 1 ? '' : 's'} on the way.`);
+  return parts.join(' ');
+}

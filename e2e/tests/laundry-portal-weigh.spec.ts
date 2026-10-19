@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { cancelOrder, seedAtShopOrder } from '../lib/seed';
+import { seedAtShopOrder } from '../lib/seed';
+import { deleteSeededOrders } from '../fixtures/orders';
 
 /*
  * Browser smoke: the laundry-portal weigh flow — the launch-critical path where a
@@ -19,7 +20,7 @@ test.describe('laundry-portal weigh flow', () => {
   });
 
   test.afterAll(async () => {
-    if (orderId) await cancelOrder(orderId).catch(() => undefined);
+    if (orderId) deleteSeededOrders([orderId]);
   });
 
   test('weighs an at-shop order and advances it', async ({ page }) => {

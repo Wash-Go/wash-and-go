@@ -86,7 +86,7 @@ export function LocationStep({ draft, set, errors }: FieldProps) {
             placeholder="Street, barangay or landmark"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            aria-controls={listId}
+            aria-controls={showResults ? listId : undefined}
           />
         </div>
         <div className="field-hint">Type at least 3 letters. Pick a result, then fine-tune the pin.</div>

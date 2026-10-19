@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { usePathname } from 'next/navigation';
 import { readChimePref, shouldChime, writeChimePref } from '../../lib/chime';
 import { audioUnlocked, playChime, unlockAudio } from '../../lib/chime-audio';
-import { emptyNewOrders, isNewOrder, trackNewOrders, type NewOrdersState } from '../../lib/new-orders';
+import { emptyNewOrders, isNewOrder, newOrdersAnnouncement, trackNewOrders, type NewOrdersState } from '../../lib/new-orders';
 import { activeListQuery } from '../../lib/order-queries';
 import { badgeTitle, partitionQueue } from '../../lib/queue';
 
@@ -41,6 +41,8 @@ function storage(): Storage | null {
 export function OrdersLiveProvider({ children }: { children: ReactNode }) {
   const list = useQuery(activeListQuery());
   const [rings, setRings] = useState<NewOrdersState>(emptyNewOrders);
+  // Screen readers hear new arrivals (the ring and the tab count are visual).
+  const [announcement, setAnnouncement] = useState('');
   const ringsRef = useRef(rings);
   const [chimeOn, setChimeOn] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
@@ -97,6 +99,9 @@ export function OrdersLiveProvider({ children }: { children: ReactNode }) {
       ringsRef.current = next.state;
       setRings(next.state);
     }
+    const atShop = next.arrived.filter((k) => k.startsWith('needs:')).length;
+    const booked = next.arrived.length - atShop;
+    if (next.arrived.length) setAnnouncement(newOrdersAnnouncement(atShop, booked));
     const now = Date.now();
     const c = chimeRef.current;
     if (shouldChime({ enabled: c.on, unlocked: audioUnlocked(), arrived: next.arrived.length, lastAt: c.lastAt, now })) {
@@ -131,7 +136,14 @@ export function OrdersLiveProvider({ children }: { children: ReactNode }) {
     }),
     [needs.length, isNew, chimeOn, unlocked, setChime],
   );
-  return <LiveCtx.Provider value={value}>{children}</LiveCtx.Provider>;
+  return (
+    <LiveCtx.Provider value={value}>
+      {children}
+      <div className="sr-only" role="status" aria-live="polite" data-testid="new-orders-live">
+        {announcement}
+      </div>
+    </LiveCtx.Provider>
+  );
 }
 
 export function useOrdersLive(): Live {

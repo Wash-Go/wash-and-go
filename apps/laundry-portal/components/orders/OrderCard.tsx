@@ -36,7 +36,7 @@ export function OrderCard({
         <Link
           href={`/orders/${o.id}`}
           className="oc-code"
-          aria-label={`Order ${o.code}${isNew ? ', new' : ''}`}
+          aria-label={`${o.code.slice(-4)}, order ${o.code}${isNew ? ', new' : ''}`}
           onClick={onOpen ? (e) => onOpen(o, e) : undefined}
         >
           {o.code.slice(-4)}

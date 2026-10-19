@@ -152,7 +152,7 @@ export function WeighSheet({ order, onClose }: { order: OrderView; onClose: () =
               label="Weight on the scale"
               unit="kg"
               value={input}
-              autoFocus
+              data-autofocus=""
               placeholder="0.0"
               onChange={(e) => {
                 setInput(e.target.value);

@@ -1,4 +1,4 @@
-import { NEW_RING_MS, emptyNewOrders, isNewOrder, trackNewOrders } from './new-orders';
+import { NEW_RING_MS, emptyNewOrders, isNewOrder, newOrdersAnnouncement, trackNewOrders } from './new-orders';
 
 const T0 = 1_000_000;
 
@@ -45,5 +45,15 @@ describe('trackNewOrders', () => {
   it('returns the same state object when nothing changed', () => {
     const s = trackNewOrders(emptyNewOrders, ['a'], T0).state;
     expect(trackNewOrders(s, ['a'], T0 + 5_000).state).toBe(s);
+  });
+});
+
+describe('newOrdersAnnouncement', () => {
+  it('names arrivals at the shop and new bookings', () => {
+    expect(newOrdersAnnouncement(1, 0)).toBe('1 new order at your shop.');
+    expect(newOrdersAnnouncement(2, 0)).toBe('2 new orders at your shop.');
+    expect(newOrdersAnnouncement(0, 1)).toBe('1 new booking on the way.');
+    expect(newOrdersAnnouncement(1, 3)).toBe('1 new order at your shop. 3 new bookings on the way.');
+    expect(newOrdersAnnouncement(0, 0)).toBe('');
   });
 });

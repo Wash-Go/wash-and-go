@@ -2,7 +2,8 @@
 import { useEffect, useRef } from 'react';
 
 // Shared modal behaviour for Sheet and ConfirmDialog: Escape closes, focus
-// moves into the panel on open and back to the opener on close, Tab stays inside.
+// moves into the panel on open (to [data-autofocus] if present) and back to
+// the opener on close, Tab stays inside.
 export function useDialog(open: boolean, onClose: () => void) {
   const panel = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
@@ -20,7 +21,10 @@ export function useDialog(open: boolean, onClose: () => void) {
             ),
           )
         : [];
-    (focusables()[0] ?? el)?.focus();
+    // A field marked data-autofocus (the weigh sheet's kg input) takes focus;
+    // otherwise the first focusable. Never React's autoFocus inside a dialog:
+    // it fires before this effect, so the opener would be lost.
+    (el?.querySelector<HTMLElement>('[data-autofocus]') ?? focusables()[0] ?? el)?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();

@@ -1,10 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
-import { cancelOrder, seedAtShopOrder } from '../lib/seed';
+import { seedAtShopOrder } from '../lib/seed';
+import { deleteSeededOrders } from '../fixtures/orders';
 
 /*
  * Browser smoke: the laundry-portal Orders queue (plan B2). Runs as the
  * dev-shop-owner stub against the local API. Seeds its own at-shop orders and
- * cancels them afterwards, so it does not depend on what else is in the queue.
+ * deletes them afterwards (e2e/fixtures/orders.ts), so it does not depend on
+ * what else is in the queue.
  */
 const PHONE = { width: 390, height: 844 };
 const DESKTOP = { width: 1280, height: 800 };
@@ -16,7 +18,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  for (const o of seeded) await cancelOrder(o.id).catch(() => undefined);
+  deleteSeededOrders(seeded.map((o) => o.id));
 });
 
 const queue = (page: Page) => page.getByTestId('orders-queue');

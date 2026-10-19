@@ -1,7 +1,7 @@
-import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { API_URL } from '../playwright.config';
+import { deleteSeededOrders } from '../fixtures/orders';
 
 /*
  * Browser smoke: the laundry-portal Payouts screens (plan B5b). The design DB
@@ -11,40 +11,10 @@ import { API_URL } from '../playwright.config';
  * with `pnpm --filter @wash-and-go/e2e build:portal-e2e`.
  *
  * Cleanup: the API cannot delete a batch or un-deliver an order, so afterAll
- * deletes exactly the rows this run created straight in the local DB
- * (E2E_DATABASE_URL, default the design DB the local API runs on), the same
- * psql pattern as laundry-portal-onboarding.spec.ts. The narrow period means
- * no other shop line is ever batched.
+ * deletes exactly the rows this run created with e2e/fixtures/orders.ts
+ * (psql against E2E_DATABASE_URL). The narrow period means no other shop line
+ * is ever batched.
  */
-const DB = process.env.E2E_DATABASE_URL ?? 'postgresql://ban@localhost:5432/wash_and_go_design';
-
-function sql(q: string): string {
-  return execFileSync('psql', [DB, '-v', 'ON_ERROR_STOP=1', '-Atc', q]).toString().trim();
-}
-
-// Ids come from our own API responses (cuid), but quote-guard them anyway.
-const lit = (id: string) => `'${id.replace(/'/g, "''")}'`;
-
-// FK order: RemittanceLine → RemittanceBatch → the order's dependents
-// (OrderEvent, Rating; Notification has a plain orderId) → Order.
-function deleteSeeded(orderIds: string[], batchIds: string[]) {
-  const orders = orderIds.map(lit).join(',');
-  const batches = batchIds.map(lit).join(',');
-  const stmts = [
-    ...(orders ? [`DELETE FROM "RemittanceLine" WHERE "orderId" IN (${orders})`] : []),
-    ...(batches ? [`DELETE FROM "RemittanceBatch" WHERE id IN (${batches})`] : []),
-    ...(orders
-      ? [
-          `DELETE FROM "OrderEvent" WHERE "orderId" IN (${orders})`,
-          `DELETE FROM "Rating" WHERE "orderId" IN (${orders})`,
-          `DELETE FROM "Notification" WHERE "orderId" IN (${orders})`,
-          `DELETE FROM "Order" WHERE id IN (${orders})`,
-        ]
-      : []),
-  ];
-  if (stmts.length) sql(`BEGIN; ${stmts.join('; ')}; COMMIT;`);
-}
-
 const seededOrders: string[] = [];
 const seededBatches: string[] = [];
 
@@ -91,7 +61,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(() => {
-  deleteSeeded(seededOrders, seededBatches);
+  deleteSeededOrders(seededOrders, seededBatches);
 });
 
 // BOOKED → … → OUT_FOR_RETURN, weighed at the shop on the way.
