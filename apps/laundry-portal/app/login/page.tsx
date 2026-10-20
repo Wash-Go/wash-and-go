@@ -134,6 +134,10 @@ function LoginScreen() {
   );
 }
 
+// The standalone demo build (NEXT_PUBLIC_DEMO=1) signs in without Firebase.
+const DemoLogin: (typeof import('../../components/demo/DemoLogin'))['DemoLogin'] | null =
+  process.env.NEXT_PUBLIC_DEMO === '1' ? require('../../components/demo/DemoLogin').DemoLogin : null;
+
 export default function LoginPage() {
-  return <LoginScreen />;
+  return DemoLogin ? <DemoLogin /> : <LoginScreen />;
 }

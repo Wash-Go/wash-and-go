@@ -6,7 +6,6 @@ import type { MeView, OwnerShopView } from '@wash-and-go/domain';
 import { api } from '../../lib/api';
 import { claimApiCache } from '../../lib/cache-owner-effect';
 import { sessionUid } from '../../lib/cache-owner';
-import { DEV_UID } from '../../lib/firebase';
 import { isShopAccount, resolveGate, type Gate } from '../../lib/gate';
 import { gateRedirect } from '../../lib/gate-route';
 import { readGateSnapshot, saveGateSnapshot, snapshotAllowed, type GateSnapshot } from '../../lib/offline-gate';
@@ -86,13 +85,13 @@ function Loading() {
 // or the console shell. The shop always comes from the API (ShopMember of the
 // caller); nothing here sends a shopId.
 export function ConsoleGate({ children }: { children: ReactNode }) {
-  const { user, loading, devBypass } = useAuth();
+  const { user, loading, devBypass, devUid, email } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const qc = useQueryClient();
   const toast = useToast();
   const signedIn = devBypass || !!user;
-  const uid = sessionUid(user, DEV_UID);
+  const uid = sessionUid(user, devUid);
 
   useEffect(() => {
     if (!loading && !signedIn) router.replace(`/login?next=${encodeURIComponent(pathname)}`);
@@ -167,12 +166,12 @@ export function ConsoleGate({ children }: { children: ReactNode }) {
             shop: boot.data.shop,
             gate,
             offline: boot.data.offline,
-            email: user?.email ?? null,
+            email,
             refresh: () => boot.refetch(),
             signOut,
           }
         : null,
-    [boot.data, gate, user?.email, signOut], // eslint-disable-line react-hooks/exhaustive-deps
+    [boot.data, gate, email, signOut], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   if (loading || !signedIn) return <Loading />;

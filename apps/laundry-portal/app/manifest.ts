@@ -4,7 +4,7 @@ import type { MetadataRoute } from 'next';
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: '/',
-    name: 'Wash & Go Partner',
+    name: process.env.NEXT_PUBLIC_DEMO === '1' ? 'Wash & Go Partner (demo)' : 'Wash & Go Partner',
     short_name: 'Wash & Go',
     description: 'Work your laundry queue, weigh orders and track payouts.',
     start_url: '/',

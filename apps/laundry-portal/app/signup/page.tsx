@@ -22,7 +22,15 @@ import { sessionErrorMessage } from '../../lib/session';
 // PATCH /auth/me (name + mobile) → POST /shop/onboarding/start (draft shop,
 // SHOP_OWNER) → /onboarding. Each step is resumable: a retry after a later
 // step failed reuses the account already created instead of creating another.
+// The standalone demo build (NEXT_PUBLIC_DEMO=1) has no signup.
+const DemoSignup: (typeof import('../../components/demo/DemoLogin'))['DemoSignup'] | null =
+  process.env.NEXT_PUBLIC_DEMO === '1' ? require('../../components/demo/DemoLogin').DemoSignup : null;
+
 export default function SignupPage() {
+  return DemoSignup ? <DemoSignup /> : <SignupScreen />;
+}
+
+function SignupScreen() {
   const router = useRouter();
   const qc = useQueryClient();
   const toast = useToast();

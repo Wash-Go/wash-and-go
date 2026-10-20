@@ -57,6 +57,9 @@ export default withSerwist({
   // Help → App version shows these.
   env: {
     NEXT_PUBLIC_E2E: process.env.NEXT_PUBLIC_E2E === '1' ? '1' : '0',
+    // Standalone demo build (B10): the API answers in the browser (lib/demo).
+    NEXT_PUBLIC_DEMO: process.env.NEXT_PUBLIC_DEMO === '1' ? '1' : '0',
+    NEXT_PUBLIC_DEMO_BADGE: process.env.NEXT_PUBLIC_DEMO_BADGE === '0' ? '0' : '1',
     NEXT_PUBLIC_APP_VERSION: APP_VERSION,
     NEXT_PUBLIC_BUILD_ID: BUILD_REVISION,
   },

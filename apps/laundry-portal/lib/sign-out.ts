@@ -17,7 +17,11 @@ export async function signOutEverywhere(qc: QueryClient): Promise<void> {
   postToServiceWorker(SW_SIGNED_OUT);
   await qc.cancelQueries();
   await deleteApiCache();
-  await signOut(auth).catch(() => undefined);
+  if (process.env.NEXT_PUBLIC_DEMO === '1') {
+    (require('./demo/runtime') as typeof import('./demo/runtime')).setDemoRole(null);
+  } else {
+    await signOut(auth).catch(() => undefined);
+  }
   qc.clear();
   forgetCacheOwner();
   await deleteApiCache();
