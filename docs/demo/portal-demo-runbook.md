@@ -109,3 +109,35 @@ Everything belongs to one shop, "Wash & Go Demo Laundry".
   - "Rider is over the cash limit": run `demo:reset`; the seed records the rider's deposit.
   - "Not your order to move": auto-dispatch gave the order to another rider. Turn auto-dispatch off in admin config for the demo.
 - **The queue looks stale.** Run `demo:reset`, then pull to refresh.
+
+## Standalone demo build
+
+This build needs no API, no database and no Firebase. Everything runs in the browser, and nothing is sent anywhere. Use it when the hosted API is down or there is no signal. It also works fully offline once the page has loaded.
+
+- **URL:** `<STANDALONE_DEMO_URL>` (placeholder until it is deployed).
+- **Build:** `pnpm --filter @wash-and-go/e2e build:portal-demo`. This sets `NEXT_PUBLIC_DEMO=1` and writes to `apps/laundry-portal/.next-e2e`.
+- **Serve locally:** `cd apps/laundry-portal && NEXT_DIST_DIR=.next-e2e npx next start -p 3010`.
+- **Check:** `pnpm --filter @wash-and-go/e2e smoke:portal-demo`. This also proves that a normal build contains none of the demo code.
+- **Logins:**
+  - Owner: `demo.owner@washandgo.ph`, already filled in. Any password of 4 or more characters works.
+  - Staff (read-only rates and team): `staff.demo@washandgo.ph`, with any password of 4 or more characters.
+  - Forgot password and signup show a short "not available in the demo" note.
+- **Data:** the same shop and orders as the seeded demo API above.
+  - The shop: "Wash & Go Demo Laundry", Mon-Sat 08:00-18:00, 10 Express slots.
+  - Rates: wash, dry & fold ₱25/kg; wash + iron ₱35/kg; dry cleaning ₱120 a piece.
+  - Orders: 14 in every state, one paid batch (`GCASH-DEMO-0001`) and one pending batch.
+  - Order times are relative to the moment the demo was first opened (or last reset).
+  - Edits (rates, hours, profile, payout account, invites) stay in this browser until Reset.
+
+**Click path:**
+1. Sign in as the owner.
+2. On **Orders**, show the Needs you, Washing and Ready counts.
+3. Weigh the **Large** order and enter 20 kg. The "more than double the estimate" check appears, and the button reads "Yes, confirm ₱…".
+4. Mark it washing.
+5. Open **Payouts** to show the pending total and the paid batch reference.
+6. On **Services**, change a rate and save it. Reload to show it stuck.
+7. Use **New order arrives** (More, the left rail, or Help; **Shift+N** on a laptop). The order is picked up after 15 s and reaches the shop after 30 s. The Orders tab count, the tab title and the New ring update, and the chime plays if it is on.
+
+**Reset:** use **Reset demo** in the same controls. After a confirm, every order, rate and setting goes back to the start, and you stay signed in.
+
+**The "Demo data" chip** next to Verified in the header (shortened to "Demo" on a phone) tells the audience that the data is sample data. Build with `NEXT_PUBLIC_DEMO_BADGE=0` to hide it.

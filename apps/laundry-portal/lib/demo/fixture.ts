@@ -39,9 +39,9 @@ export const DEMO_SHOP = {
 } as const;
 
 export const DEMO_CATALOG: { id: string; code: string; name: string; billingUnit: BillingUnit }[] = [
-  { id: 'cat-wdf', code: 'WDF', name: 'Wash, dry & fold', billingUnit: 'PER_KG' },
-  { id: 'cat-wdf-iron', code: 'WDF_IRON', name: 'Wash, dry, fold & iron', billingUnit: 'PER_KG' },
-  { id: 'cat-dry-clean', code: 'DRY_CLEAN', name: 'Dry clean', billingUnit: 'PER_PIECE' },
+  { id: 'cat-wdf', code: 'WDF', name: 'Wash, Dry & Fold', billingUnit: 'PER_KG' },
+  { id: 'cat-wdf-iron', code: 'WDF_IRON', name: 'Wash + Iron', billingUnit: 'PER_KG' },
+  { id: 'cat-dry-clean', code: 'DRY_CLEAN', name: 'Dry Cleaning', billingUnit: 'PER_PIECE' },
 ];
 
 export const DEMO_SERVICES = [
