@@ -171,6 +171,9 @@ model Shop {
   // R2 object keys for submitted proof (business permit + storefront photos).
   permitKey          String?
   photoKeys          String[]  @default([])
+  // Owner-uploaded logo (portal B8): R2 key under the owner's uploads/ prefix,
+  // image types only. Returned as a presigned logoUrl, never public.
+  logoKey            String?  @db.VarChar(300)
   // Owner-entered wizard fields (portal B3). contactPhone is canonical
   // +639XXXXXXXXX; hours is 7 × { day 0..6, open/close 'HH:MM' | null }, shape
   // owned by UpdateOnboardingDto.
