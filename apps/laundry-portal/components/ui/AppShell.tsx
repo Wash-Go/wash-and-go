@@ -5,6 +5,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { InstallCard } from '../InstallCard';
+
+// Demo controls and chip, only in the standalone demo build (NEXT_PUBLIC_DEMO=1).
+const Demo: typeof import('../demo/DemoControls') | null =
+  process.env.NEXT_PUBLIC_DEMO === '1' ? require('../demo/DemoControls') : null;
 import { OrdersLiveProvider, useOrdersLive } from '../orders/OrdersLive';
 import { useConsole } from '../console/ConsoleContext';
 import { useLastLive, useNow, useOnline } from '../../lib/live';
@@ -93,6 +97,7 @@ function Frame({ children }: { children: ReactNode }) {
           );
         })}
         <div className="rail-foot">
+          {Demo ? <Demo.DemoControls variant="rail" /> : null}
           <ThemeSwitch />
           <button type="button" onClick={() => void signOut()}>
             <LogOut aria-hidden="true" />
@@ -117,8 +122,10 @@ function Frame({ children }: { children: ReactNode }) {
               {updated ?? ' '}
             </small>
           </div>
+          {Demo ? <Demo.DemoChip /> : null}
           {shop ? <ShopChip status={shop.status} /> : null}
         </header>
+        {Demo ? <Demo.DemoHotkeys /> : null}
         {!online ? (
           <StaleBanner
             message={`Offline. Showing what we last saw${updated ? `, ${updated}` : ''}.`}
@@ -182,6 +189,11 @@ function Frame({ children }: { children: ReactNode }) {
         <div style={{ marginTop: 16 }}>
           <InstallCard />
         </div>
+        {Demo ? (
+          <div style={{ marginTop: 16 }}>
+            <Demo.DemoControls />
+          </div>
+        ) : null}
       </Sheet>
     </div>
   );

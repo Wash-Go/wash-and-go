@@ -372,6 +372,13 @@ img { max-width: 100%; }
 .help-yours { color: var(--peach-ink); }
 @media (max-width: 559px) { .help-steps li { grid-template-columns: 1fr; gap: 4px; } }
 
+/* ---------- Demo build only (B10) ---------- */
+.demo-card h2 { margin-bottom: 4px; }
+.demo-card .btn-text { align-self: flex-start; }
+.demo-chip { flex: none; }
+@media (max-width: 559px) { .demo-chip-more { display: none; } }
+.demo-rail { display: flex; flex-direction: column; gap: 2px; border-top: 1px solid rgba(255, 255, 255, 0.18); padding-top: 8px; margin-bottom: 8px; }
+
 /* ---------- Breakpoints ---------- */
 @media (min-width: 1024px) {
   .shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); }

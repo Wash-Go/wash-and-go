@@ -1,6 +1,9 @@
 'use client';
 import { Mail, MessageCircle, Phone } from 'lucide-react';
 import { InstallCard } from '../InstallCard';
+
+const Demo: typeof import('../demo/DemoControls') | null =
+  process.env.NEXT_PUBLIC_DEMO === '1' ? require('../demo/DemoControls') : null;
 import { ThemeSwitch } from '../ui/ThemeSwitch';
 import { useConsole } from '../console/ConsoleContext';
 import { Chip, OrderChip } from '../ui/Chip';
@@ -22,6 +25,7 @@ export function HelpView() {
   return (
     <div className="stack help" data-testid="help">
       <h1 className="disp">Help</h1>
+      {Demo ? <Demo.DemoControls /> : null}
       <InstallCard />
 
       <section className="card card-pad" aria-labelledby="help-order">
