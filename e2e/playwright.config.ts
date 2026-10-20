@@ -57,6 +57,9 @@ const WEB_SERVERS: PlaywrightTestConfig['webServer'] & unknown[] = [
 
 export default defineConfig({
   testDir: './tests',
+  // The standalone demo build has its own config (playwright.demo.config.ts):
+  // it needs a NEXT_PUBLIC_DEMO=1 build on :3010, not the API-backed portal.
+  testIgnore: /laundry-portal-demo\.spec\.ts/,
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 0,

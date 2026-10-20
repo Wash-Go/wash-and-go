@@ -135,7 +135,7 @@ async function main() {
   const listed = new Set(groups.flat())
   const extra = fs
     .readdirSync(path.join(E2E, 'tests'))
-    .filter((f) => /^laundry-portal-.*\.spec\.ts$/.test(f) && f !== 'laundry-portal-pwa.spec.ts')
+    .filter((f) => /^laundry-portal-.*\.spec\.ts$/.test(f) && f !== 'laundry-portal-pwa.spec.ts' && f !== 'laundry-portal-demo.spec.ts')
     .map((f) => f.replace(/\.spec\.ts$/, ''))
     .filter((f) => !listed.has(f))
   if (extra.length) groups.push(extra)
