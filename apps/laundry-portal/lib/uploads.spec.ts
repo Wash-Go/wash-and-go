@@ -1,4 +1,4 @@
-import { addPhotoKey, checkUploadFile, MAX_PHOTOS, MAX_UPLOAD_BYTES, removeKey, uploadDocument } from './uploads';
+import { addPhotoKey, checkLogoFile, checkUploadFile, MAX_PHOTOS, MAX_UPLOAD_BYTES, removeKey, uploadDocument } from './uploads';
 
 describe('checkUploadFile', () => {
   it('accepts images and PDFs for the permit', () => {
@@ -50,5 +50,18 @@ describe('photo keys', () => {
 
   it('removes a key', () => {
     expect(removeKey(['a', 'b'], 'a')).toEqual(['b']);
+  });
+});
+
+describe('checkLogoFile', () => {
+  it('accepts PNG, JPG and WebP up to 2 MB', () => {
+    expect(checkLogoFile({ type: 'image/png', size: 2 * 1024 * 1024 })).toBeNull();
+    expect(checkLogoFile({ type: 'image/webp', size: 1000 })).toBeNull();
+    expect(checkLogoFile({ type: 'image/jpeg', size: 1000 })).toBeNull();
+  });
+  it('refuses PDFs, other images and big files with human copy', () => {
+    expect(checkLogoFile({ type: 'application/pdf', size: 1000 })).toBe('Use a PNG, JPG or WebP image.');
+    expect(checkLogoFile({ type: 'image/gif', size: 1000 })).toBe('Use a PNG, JPG or WebP image.');
+    expect(checkLogoFile({ type: 'image/png', size: 2 * 1024 * 1024 + 1 })).toBe('That image is over 2 MB. Try a smaller one.');
   });
 });

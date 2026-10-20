@@ -1,5 +1,5 @@
 import { STATUS_META, type OrderStatus } from '@wash-and-go/domain';
-import { c, statusColor, tint } from './theme';
+import { c, resolveTheme, statusColor, THEME_BOOT_SCRIPT, THEME_KEY, tint } from './theme';
 
 // A chip fill used to be `color + '1A'`. For the CSS-variable chrome colours
 // that produced `var(--muted)1A`, which is invalid CSS, so the browser dropped it
@@ -31,5 +31,24 @@ describe('tint', () => {
     expect(tint(statusColor('BOOKED'))).toBe(
       'color-mix(in srgb, var(--muted) 10%, transparent)',
     );
+  });
+});
+
+describe('theme preference (B8: light by default)', () => {
+  it('is light unless dark was chosen on this device', () => {
+    expect(resolveTheme(null)).toBe('light');
+    expect(resolveTheme(undefined)).toBe('light');
+    expect(resolveTheme('light')).toBe('light');
+    expect(resolveTheme('dark')).toBe('dark');
+    expect(resolveTheme('system')).toBe('light');
+    expect(resolveTheme('DARK')).toBe('light');
+  });
+  it('the pre-paint script reads the same key and only ever sets dark', () => {
+    expect(THEME_KEY).toBe('wg-portal-theme');
+    expect(THEME_BOOT_SCRIPT).toContain(`'${THEME_KEY}'`);
+    expect(THEME_BOOT_SCRIPT).toContain("==='dark'");
+    // Never reads the OS setting: light is the default regardless of the system.
+    expect(THEME_BOOT_SCRIPT).not.toContain('prefers-color-scheme');
+    expect(THEME_BOOT_SCRIPT).toContain('try');
   });
 });

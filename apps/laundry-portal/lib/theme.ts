@@ -43,3 +43,18 @@ export function tint(color: string, alpha = '1A'): string {
   const pct = Math.round((parseInt(alpha, 16) / 255) * 100);
   return `color-mix(in srgb, ${color} ${pct}%, transparent)`;
 }
+
+// ---------- Light / dark (B8) ----------
+// Light by default on every device (DESIGN.md: light-first for bright rooms
+// and budget screens); dark only when chosen here, per device. The tokens for
+// both live in app/brand.css under :root and :root[data-theme='dark'].
+export type ThemeName = 'light' | 'dark';
+export const THEME_KEY = 'wg-portal-theme';
+
+export function resolveTheme(stored: string | null | undefined): ThemeName {
+  return stored === 'dark' ? 'dark' : 'light';
+}
+
+// Inlined in <head> (app/layout.tsx) so a dark choice applies before the
+// first paint; any storage error leaves the light default.
+export const THEME_BOOT_SCRIPT = `try{if(localStorage.getItem('${THEME_KEY}')==='dark')document.documentElement.setAttribute('data-theme','dark')}catch(e){}`;

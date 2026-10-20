@@ -39,3 +39,13 @@ export function addPhotoKey(keys: readonly string[], key: string): string[] {
 export function removeKey(keys: readonly string[], key: string): string[] {
   return keys.filter((k) => k !== key);
 }
+
+// Shop logo (B8): images only, up to 2 MB.
+export const LOGO_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
+export const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+
+export function checkLogoFile(file: { type: string; size: number }): string | null {
+  if (!(LOGO_TYPES as readonly string[]).includes(file.type)) return 'Use a PNG, JPG or WebP image.';
+  if (file.size > MAX_LOGO_BYTES) return 'That image is over 2 MB. Try a smaller one.';
+  return null;
+}
