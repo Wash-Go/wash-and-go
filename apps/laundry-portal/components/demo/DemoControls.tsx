@@ -100,8 +100,8 @@ export function DemoChip({ inline }: { inline?: boolean }) {
   if (process.env.NEXT_PUBLIC_DEMO_BADGE === '0') return null;
   if (inline) {
     return (
-      <span className="demo-tag" data-testid="demo-data-tag">
-        Demo data
+      <span className="demo-tag" data-testid="demo-data-tag" aria-label="Demo data">
+        Demo
       </span>
     );
   }
