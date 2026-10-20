@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { useEffect, useId, useRef, useState } from 'react';
 import { TextField } from '../auth/TextField';
 import { api } from '../../lib/api';
-import { useMedia } from '../../lib/useMedia';
+import { useTheme } from '../../lib/useTheme';
 import { MAX_ADDRESS, pinAddressUpdate } from '../../lib/wizard';
 import { FieldError } from './fields';
 import type { FieldProps } from './types';
@@ -31,7 +31,8 @@ export function LocationStep({ draft, set, errors }: FieldProps) {
   const [pinKept, setPinKept] = useState(false);
   const editedRef = useRef(false);
   editedRef.current = addressEdited;
-  const dark = useMedia('(prefers-color-scheme: dark)');
+  const [theme] = useTheme();
+  const dark = theme === 'dark';
   const reverseSeq = useRef(0);
   const listId = useId();
 

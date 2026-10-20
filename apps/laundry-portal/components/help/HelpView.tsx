@@ -1,6 +1,7 @@
 'use client';
 import { Mail, MessageCircle, Phone } from 'lucide-react';
 import { InstallCard } from '../InstallCard';
+import { ThemeSwitch } from '../ui/ThemeSwitch';
 import { useConsole } from '../console/ConsoleContext';
 import { Chip, OrderChip } from '../ui/Chip';
 import { appVersionLine, emailStatusLine, ORDER_STEPS, PAYOUT_RULES, WEIGH_RULES } from '../../lib/help';
@@ -90,6 +91,7 @@ export function HelpView() {
           <Mail aria-hidden="true" />
           <span data-testid="help-email">{emailLine}</span>
         </p>
+        <ThemeSwitch className="help-switch" />
         <p className="small muted mono" data-testid="help-version">
           {appVersionLine(process.env.NEXT_PUBLIC_APP_VERSION ?? '0.0.0', process.env.NEXT_PUBLIC_BUILD_ID ?? '')}
         </p>

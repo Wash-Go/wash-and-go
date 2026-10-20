@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { PwaRegister } from '../components/PwaRegister';
 import { Providers } from './providers';
+import { THEME_BOOT_SCRIPT } from '../lib/theme';
 
 export const metadata: Metadata = {
   title: { default: 'Wash & Go Partner', template: '%s · Wash & Go Partner' },
@@ -31,8 +32,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    // data-theme is set by the pre-paint script before React hydrates.
+    <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Light by default; a stored dark choice applies before the first paint (B8). */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
         {/* The latin faces every screen uses, fetched with the HTML instead of
             after the CSS (the display headline was the late LCP repaint).
             latin-ext loads on demand through unicode-range. */}

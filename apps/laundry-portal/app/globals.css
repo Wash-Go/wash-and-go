@@ -216,7 +216,7 @@ img { max-width: 100%; }
 
 .rail { display: none; }
 .rail-who { display: flex; gap: 10px; align-items: center; padding: 4px 6px 18px; font: 700 14px/1.25 var(--font-body); }
-.rail-who img { width: 44px; background: #fff; border-radius: var(--r-sm); padding: 4px; flex: none; }
+.rail-who .rail-whale { width: 44px; background: #fff; border-radius: var(--r-sm); padding: 4px; flex: none; }
 .rail-who small { display: block; font: 500 12px var(--font-mono); opacity: 0.85; }
 .rail a, .rail button {
   display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 10px; border-radius: var(--r-sm);
@@ -380,7 +380,7 @@ img { max-width: 100%; }
     background: var(--rail); color: #fff; padding: 16px 12px;
   }
   .tb { display: none; }
-  .hd .hd-mark { display: none; }
+  .hd .hd-mark, .hd .hd-lockup { display: none; }
   .page { margin: 0; max-width: 1120px; padding: 24px 32px 48px; }
   .toast-region { bottom: 24px; left: auto; right: 24px; align-items: flex-end; }
   .sheet {
@@ -394,11 +394,20 @@ img { max-width: 100%; }
   .gate-wrap { align-items: center; background: var(--ground); }
   .gate { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); margin: 32px 0; padding: 32px; }
 }
-@media (prefers-color-scheme: dark) {
-  .lockup, .hd-mark { background: #fff; border-radius: var(--r-sm); padding: 2px 6px; }
-  .rail { border-right: 1px solid var(--line); color: var(--text); }
-  .rail :focus-visible { outline-color: var(--navy); }
-}
+[data-theme='dark'] .lockup, [data-theme='dark'] .hd-mark { background: #fff; border-radius: var(--r-sm); padding: 2px 6px; }
+[data-theme='dark'] .rail { border-right: 1px solid var(--line); color: var(--text); }
+[data-theme='dark'] .rail :focus-visible { outline-color: var(--navy); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition: none !important; }
 }
+
+/* Dark mode switch (B8) in the More sheet, rail footer and Help. */
+.switch-state { margin-left: auto; font: 700 13px var(--font-body); color: var(--muted); }
+.rail .switch-state { color: inherit; opacity: 0.85; }
+[role='switch'][aria-checked='true'] .switch-state { color: var(--navy); }
+.rail [role='switch'][aria-checked='true'] .switch-state { color: inherit; opacity: 1; }
+.help-switch {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0; margin: 4px 0;
+  background: none; border: 0; color: var(--text); font: 400 16px var(--font-body); text-align: left;
+}
+.help-switch svg { width: 20px; height: 20px; color: var(--navy); flex: none; }

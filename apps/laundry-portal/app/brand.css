@@ -134,36 +134,36 @@
   color-scheme: light;
 }
 
-/* Dark: the dark-* surface ladder (DESIGN.md), not an inversion. */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --navy: #8cb8e0;
-    --navy-deep: #b7d3ee;
-    --on-navy: #0e1a24;
-    --sky-tint: #15283a;
-    --accent: #e07a3a;
-    --peach: #3a2416;
-    --peach-ink: #ffc9a3;
-    --text: #e8eef4;
-    --muted: #9fb3c8;
-    --line: #253545;
-    --line-strong: #34495d;
-    --ground: #0e1a24;
-    --surface: #142331;
-    --sunken: #0b151e;
-    --success: #5fc08f;
-    --success-tint: #12301f;
-    --success-ink: #5fc08f;
-    --danger: #f08a82;
-    --danger-tint: #3a1715;
-    --warn-tint: #33280a;
-    --warn-ink: #f2c45a;
-    --shop-tint: #2e251b;
-    --shop-ink: #e2cdb4;
-    --neutral-tint: #1c2a37;
-    --neutral-ink: #b4c0cc;
-    --rail: #0b151e;
-    --scrim: rgba(0, 0, 0, 0.6);
-    color-scheme: dark;
-  }
+/* Dark: the dark-* surface ladder (DESIGN.md), not an inversion. Light is
+   the default on every device (B8); dark applies only when chosen in the
+   portal (lib/theme.ts sets data-theme before the first paint). */
+:root[data-theme='dark'] {
+  --navy: #8cb8e0;
+  --navy-deep: #b7d3ee;
+  --on-navy: #0e1a24;
+  --sky-tint: #15283a;
+  --accent: #e07a3a;
+  --peach: #3a2416;
+  --peach-ink: #ffc9a3;
+  --text: #e8eef4;
+  --muted: #9fb3c8;
+  --line: #253545;
+  --line-strong: #34495d;
+  --ground: #0e1a24;
+  --surface: #142331;
+  --sunken: #0b151e;
+  --success: #5fc08f;
+  --success-tint: #12301f;
+  --success-ink: #5fc08f;
+  --danger: #f08a82;
+  --danger-tint: #3a1715;
+  --warn-tint: #33280a;
+  --warn-ink: #f2c45a;
+  --shop-tint: #2e251b;
+  --shop-ink: #e2cdb4;
+  --neutral-tint: #1c2a37;
+  --neutral-ink: #b4c0cc;
+  --rail: #0b151e;
+  --scrim: rgba(0, 0, 0, 0.6);
+  color-scheme: dark;
 }

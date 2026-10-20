@@ -51,6 +51,4 @@
 
 /* Dark: a lightened navy block would glare; use the dark status-block
    treatment from the preview (sky-tint ground, text colour, a rule). */
-@media (prefers-color-scheme: dark) {
-  .pending { background: var(--sky-tint); color: var(--text); border: 1px solid var(--line-strong); }
-}
+:global([data-theme='dark']) .pending { background: var(--sky-tint); color: var(--text); border: 1px solid var(--line-strong); }
