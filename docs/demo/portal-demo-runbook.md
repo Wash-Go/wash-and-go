@@ -114,7 +114,7 @@ Everything belongs to one shop, "Wash & Go Demo Laundry".
 
 This build needs no API, no database and no Firebase. Everything runs in the browser, and nothing is sent anywhere apart from the OpenStreetMap tiles on the Shop page's map. Use it when the hosted API is down or there is no signal. It also works fully offline once the page has loaded.
 
-- **URL:** `<STANDALONE_DEMO_URL>` (placeholder until it is deployed).
+- **URL:** https://wash-and-go-portal-demo.vercel.app (Vercel project `wash-and-go-portal-demo`; redeploy by running `vercel deploy --prod` from a clean checkout of the branch, root directory `apps/laundry-portal`, env `NEXT_PUBLIC_DEMO=1`).
 - **Build:** `pnpm --filter @wash-and-go/e2e build:portal-demo`. This sets `NEXT_PUBLIC_DEMO=1` and writes to `apps/laundry-portal/.next-e2e`.
 - **Serve locally:** `cd apps/laundry-portal && NEXT_DIST_DIR=.next-e2e npx next start -p 3010`.
 - **Check:** `pnpm --filter @wash-and-go/e2e smoke:portal-demo`. This also proves that a normal build contains none of the demo code.
