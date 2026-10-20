@@ -1,9 +1,9 @@
 import 'reflect-metadata';
 import { loadApiEnv } from './env';
-import { demoFirebaseUids } from './firebase-accounts';
+import { demoUids } from './firebase-accounts';
 import { printSummary } from './seed';
-import { demoConfig, firebaseCredentialsPresent, resetAllowed } from '../../src/demo/demo-config';
-import { bootDemo, localDemoUids, resetDemo } from '../../src/demo/demo-seed';
+import { demoConfig, resetAllowed } from '../../src/demo/demo-config';
+import { bootDemo, resetDemo } from '../../src/demo/demo-seed';
 
 // pnpm --filter @wash-and-go/api demo:reset — deletes demo-marked rows only, re-seeds.
 async function main() {
@@ -15,14 +15,10 @@ async function main() {
     process.exit(1);
   }
   const cfg = demoConfig(process.env);
-  let uids = localDemoUids(cfg);
-  let generated: string | null = null;
-  if (firebaseCredentialsPresent(process.env)) {
-    // Never re-passwords on reset; only creates an account that went missing.
-    const fb = await demoFirebaseUids(cfg, { ...process.env, DEMO_RESET_PASSWORDS: 'no' });
-    uids = fb.uids;
-    generated = fb.generatedPassword;
-  }
+  // Never re-passwords on reset; only creates a demo account that went missing.
+  const { uids, generatedPassword: generated } = await demoUids(cfg, process.env, {
+    allowPasswordReset: false,
+  });
   const { app, deps } = await bootDemo();
   try {
     const { before, after, summary } = await resetDemo(deps, cfg, uids);

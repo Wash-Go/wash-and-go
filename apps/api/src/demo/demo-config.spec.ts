@@ -1,7 +1,7 @@
 import {
   DEMO_PREFIX,
   demoConfig,
-  firebaseCredentialsPresent,
+  firebaseMode,
   isDemoAddress,
   isDemoDisplayName,
   orderIdempotencyKey,
@@ -69,16 +69,27 @@ describe('demoConfig(env)', () => {
   });
 });
 
-describe('firebaseCredentialsPresent (the Firebase-less fallback)', () => {
+describe('firebaseMode (opt-in: DEMO_FIREBASE=1)', () => {
+  const creds = { GOOGLE_APPLICATION_CREDENTIALS: './sa.json' };
   it.each([
-    [{}, false],
-    [{ FIREBASE_SERVICE_ACCOUNT_JSON: '' }, false],
-    [{ FIREBASE_SERVICE_ACCOUNT_JSON: '{"project_id":"p"}' }, true],
-    [{ GOOGLE_APPLICATION_CREDENTIALS: './sa.json' }, true],
-    [{ GOOGLE_APPLICATION_CREDENTIALS: './sa.json', DEMO_FIREBASE: '0' }, false],
-    [{ FIREBASE_SERVICE_ACCOUNT_JSON: '{}', DEMO_FIREBASE: '0' }, false],
-  ])('%p → %p', (env, ok) => {
-    expect(firebaseCredentialsPresent(env)).toBe(ok);
+    ['no flag, no creds', {}, 'off'],
+    ['no flag, creds loaded from .env', creds, 'off'],
+    ['DEMO_FIREBASE=0 with creds', { ...creds, DEMO_FIREBASE: '0' }, 'off'],
+    ['DEMO_FIREBASE=true (not exactly 1)', { ...creds, DEMO_FIREBASE: 'true' }, 'off'],
+    ['DEMO_FIREBASE=1 without creds', { DEMO_FIREBASE: '1' }, 'no-credentials'],
+    [
+      'DEMO_FIREBASE=1 with blank creds',
+      { DEMO_FIREBASE: '1', FIREBASE_SERVICE_ACCOUNT_JSON: ' ' },
+      'no-credentials',
+    ],
+    ['DEMO_FIREBASE=1 with a file path', { ...creds, DEMO_FIREBASE: '1' }, 'on'],
+    [
+      'DEMO_FIREBASE=1 with inline JSON',
+      { DEMO_FIREBASE: '1', FIREBASE_SERVICE_ACCOUNT_JSON: '{}' },
+      'on',
+    ],
+  ])('%s → %s', (_l, env, mode) => {
+    expect(firebaseMode(env)).toBe(mode);
   });
 });
 

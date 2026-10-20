@@ -3,8 +3,10 @@ import { Prisma } from '@prisma/client';
 import { demoConfig } from './demo-config';
 import {
   DEMO_PAID_REFERENCE,
+  PRODUCTION_CLEAR_REFUSED,
   type DemoDeps,
   bootDemo,
+  demoCounts,
   localDemoUids,
   resetDemo,
   seedDemo,
@@ -199,6 +201,21 @@ describe('demo seed + reset (Postgres)', () => {
     expect(await deps.prisma.remittanceBatch.count({ where: { shopId: shop.id } })).toBe(2);
     expect(await deps.prisma.shopService.count({ where: { shopId: shop.id } })).toBe(3);
     expect(await deps.prisma.shopMember.count({ where: { shopId: shop.id } })).toBe(2);
+  });
+
+  it('production guard: with allowClear false, existing demo orders are never cleared', async () => {
+    const before = await demoCounts(deps.prisma, cfg, uids);
+    await expect(seedDemo(deps, cfg, uids, new Date(), { allowClear: false })).rejects.toThrow(
+      PRODUCTION_CLEAR_REFUSED,
+    );
+    expect(await demoCounts(deps.prisma, cfg, uids)).toEqual(before);
+  });
+
+  it('a same-named shop the demo owner does not own is never treated as the demo shop', async () => {
+    const decoyCfg = demoConfig({ DEMO_SHOP_NAME: `Real Shop ${SUFFIX}` }); // the outsider's shop
+    await expect(seedDemo(deps, decoyCfg, uids)).rejects.toThrow(/does not own/);
+    const real = await deps.prisma.order.count({ where: { shopId: outsider.shopId } });
+    expect(real).toBe(2);
   });
 
   it('reset clears and re-seeds; non-demo orders (even a lookalike address) survive with their events', async () => {

@@ -1,4 +1,9 @@
-import { ensureFirebaseAccounts, generatePassword, type FirebaseAuthLike } from './demo-firebase';
+import {
+  ensureFirebaseAccounts,
+  generatePassword,
+  lookupOwnerAccount,
+  type FirebaseAuthLike,
+} from './demo-firebase';
 
 function fakeAuth(existing: Record<string, string>) {
   const users = new Map(Object.entries(existing)); // email → uid
@@ -55,15 +60,6 @@ describe('ensureFirebaseAccounts', () => {
     expect(auth.updateUser).toHaveBeenCalledWith('u-s', { emailVerified: true, password: 'pw-2' });
   });
 
-  it('keepPassword accounts are never re-passworded, even with resetPasswords', async () => {
-    const auth = fakeAuth({ 'ceo@x.ph': 'real-uid' });
-    await ensureFirebaseAccounts(auth, [{ email: 'ceo@x.ph', keepPassword: true }], {
-      password: 'pw-2',
-      resetPasswords: true,
-    });
-    expect(auth.updateUser).toHaveBeenCalledWith('real-uid', { emailVerified: true });
-  });
-
   it('rethrows anything other than user-not-found', async () => {
     const auth = fakeAuth({});
     auth.getUserByEmail.mockRejectedValueOnce(
@@ -72,6 +68,31 @@ describe('ensureFirebaseAccounts', () => {
     await expect(
       ensureFirebaseAccounts(auth, [{ email: 'a@x.ph' }], { password: 'p', resetPasswords: false }),
     ).rejects.toThrow('quota');
+  });
+});
+
+// The owner default is the CEO's real address: the scripts only LOOK it up.
+describe('lookupOwnerAccount (read-only)', () => {
+  it('returns the existing uid and never creates or updates anything', async () => {
+    const auth = fakeAuth({ 'ceo@x.ph': 'real-uid' });
+    await expect(lookupOwnerAccount(auth, 'ceo@x.ph')).resolves.toBe('real-uid');
+    expect(auth.createUser).not.toHaveBeenCalled();
+    expect(auth.updateUser).not.toHaveBeenCalled();
+  });
+
+  it('returns null when the owner has no account yet (no create)', async () => {
+    const auth = fakeAuth({});
+    await expect(lookupOwnerAccount(auth, 'ceo@x.ph')).resolves.toBeNull();
+    expect(auth.createUser).not.toHaveBeenCalled();
+    expect(auth.updateUser).not.toHaveBeenCalled();
+  });
+
+  it('rethrows other Firebase errors', async () => {
+    const auth = fakeAuth({});
+    auth.getUserByEmail.mockRejectedValueOnce(
+      Object.assign(new Error('quota'), { code: 'auth/quota' }),
+    );
+    await expect(lookupOwnerAccount(auth, 'ceo@x.ph')).rejects.toThrow('quota');
   });
 });
 

@@ -64,16 +64,20 @@ export function isDemoDisplayName(n: string | null | undefined): boolean {
   return typeof n === 'string' && n.startsWith(DEMO_PREFIX);
 }
 
-// With either credential source the seed manages real Firebase accounts;
-// without, it creates DB users with the deterministic local uids only.
-// DEMO_FIREBASE=0 forces local mode even when apps/api/.env has credentials
-// (a laptop rehearsal must not touch the real Firebase project).
-export function firebaseCredentialsPresent(env: Env): boolean {
-  if (env.DEMO_FIREBASE === '0') return false;
-  return Boolean(
+// Firebase account management is OPT-IN: only DEMO_FIREBASE=1 lets a script
+// touch the Firebase project, even when apps/api/.env loads credentials.
+//   'off'            — not asked: DB users with the deterministic local uids
+//   'no-credentials' — asked, but neither credential source is set
+//   'on'             — asked and credentials present
+export function firebaseMode(env: Env): 'off' | 'no-credentials' | 'on' {
+  if (env.DEMO_FIREBASE !== '1') return 'off';
+  const creds = Boolean(
     env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim() || env.GOOGLE_APPLICATION_CREDENTIALS?.trim(),
   );
+  return creds ? 'on' : 'no-credentials';
 }
+
+export const FIREBASE_SKIPPED_MESSAGE = 'Firebase accounts skipped (set DEMO_FIREBASE=1)';
 
 // The live-order driver books with this idempotency key, so re-running with
 // the same --run id returns the same order instead of booking a second one.

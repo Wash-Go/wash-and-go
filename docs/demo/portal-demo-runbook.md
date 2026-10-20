@@ -8,13 +8,14 @@ For the CEO's investor walkthrough of the laundry portal. Hosting is not decided
 
   | Role | Email | Notes |
   |---|---|---|
-  | Shop owner | `DEMO_OWNER_EMAIL` (default `tatelgabrielle19@gmail.com`) | The CEO's own account. The seed never changes its password. |
+  | Shop owner | `DEMO_OWNER_EMAIL` (default `tatelgabrielle19@gmail.com`) | The CEO's own account. The scripts never create or change it: no password, not even email verification. If it doesn't exist yet, create it in the Firebase console or let the CEO sign up in the portal, then re-run the seed. |
   | Staff | `staff.demo@washandgo.ph` | Read-only view of the shop. |
   | Admin | `admin.demo@washandgo.ph` | Used by the driver to assign the rider. |
   | Rider | `rider.demo@washandgo.ph` | |
   | Customers | `customer1.demo@washandgo.ph` … `customer4.demo@washandgo.ph` | |
 
-- **The password:** a single shared password, `DEMO_PASSWORD`. If it is not set when the seed creates an account, the seed generates one and prints it **once**. Copy it into 1Password straight away; it is not saved anywhere else.
+- **The password:** the staff, admin, rider and customer accounts share one password, `DEMO_PASSWORD`. If it is not set when the seed creates one of those accounts, the seed generates one and prints it **once**. Copy it into 1Password straight away; it is not saved anywhere else.
+- **Firebase is opt-in.** The scripts only touch the Firebase project when **`DEMO_FIREBASE=1`** is set, even if `apps/api/.env` loads credentials. Without it they print "Firebase accounts skipped (set DEMO_FIREBASE=1)" and seed the database only.
 
 ## URLs (placeholders)
 | What | URL |
@@ -27,21 +28,22 @@ For the CEO's investor walkthrough of the laundry portal. Hosting is not decided
 Run these from the repo root.
 - **`demo:seed`** builds the dataset. It is safe to re-run; it converges to the same state.
   ```sh
-  DATABASE_URL=… pnpm --filter @wash-and-go/api demo:seed
+  DEMO_FIREBASE=1 DATABASE_URL=… pnpm --filter @wash-and-go/api demo:seed
   ```
+  With `NODE_ENV=production` the seed only creates the dataset the first time. Replacing existing demo orders needs `DEMO_RESET_CONFIRM=yes`, the same as reset.
 - **`demo:reset`** deletes demo-marked rows only, then re-seeds. It refuses to run with `NODE_ENV=production` unless `DEMO_RESET_CONFIRM=yes`.
   ```sh
   DATABASE_URL=… pnpm --filter @wash-and-go/api demo:reset
   ```
 - **`demo:order`** sends a live order during the demo. It stops at "At the shop" so the CEO can weigh it.
   ```sh
-  API_URL=… FIREBASE_WEB_API_KEY=… DEMO_PASSWORD=… pnpm --filter @wash-and-go/api demo:order --run pitch-1
+  DEMO_FIREBASE=1 API_URL=… FIREBASE_WEB_API_KEY=… DEMO_PASSWORD=… pnpm --filter @wash-and-go/api demo:order --run pitch-1
   ```
   - `--step-seconds 20` sets the pause between steps (20 is the default). `--no-wait` runs every step at once.
   - `--rider-only <code>` resumes an existing order.
   - Re-running with the same `--run` id never books a second order.
 
-**Local rehearsal:** with the API started with `AUTH_DEV_BYPASS=1`, add `DEMO_FIREBASE=0` to any command to skip Firebase entirely. The demo users then use the fixed uids `demo-owner`, `demo-customer-1`, and so on, through the `x-dev-uid` stub.
+**Local rehearsal:** with the API started with `AUTH_DEV_BYPASS=1`, leave `DEMO_FIREBASE` unset. The scripts skip Firebase, and the demo users use the fixed uids `demo-owner`, `demo-customer-1`, and so on, through the `x-dev-uid` stub. The driver falls back to that stub too.
 
 ## What the dataset contains
 Everything belongs to one shop, "Wash & Go Demo Laundry".
@@ -100,7 +102,8 @@ Everything belongs to one shop, "Wash & Go Demo Laundry".
 - **429 "Too many requests".** The API allows 60 requests a minute per client. Close any extra tabs, wait about a minute, and the polling queue recovers by itself.
 - **Sign-in fails.**
   - Check the password in 1Password.
-  - The staff, admin, rider and customer accounts are created with a verified email. Reset their passwords with `DEMO_PASSWORD=… DEMO_RESET_PASSWORDS=yes demo:seed`. The owner's password is never changed by the scripts.
+  - The staff, admin, rider and customer accounts are created with a verified email. Reset their passwords with `DEMO_FIREBASE=1 DEMO_PASSWORD=… DEMO_RESET_PASSWORDS=yes demo:seed`.
+  - The owner is the CEO's own account; the scripts never touch it. Reset that password through Firebase's normal "forgot password" flow.
 - **`demo:order` prints `4xx`/`5xx`.** The response body is printed. Typical causes:
   - "No express capacity": more than 10 Express orders today. Run `demo:reset`.
   - "Rider is over the cash limit": run `demo:reset`; the seed records the rider's deposit.

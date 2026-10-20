@@ -1,8 +1,8 @@
 import 'reflect-metadata';
 import { loadApiEnv } from './env';
-import { demoFirebaseUids } from './firebase-accounts';
-import { demoConfig, firebaseCredentialsPresent } from '../../src/demo/demo-config';
-import { bootDemo, localDemoUids, seedDemo, type SeedSummary } from '../../src/demo/demo-seed';
+import { demoUids } from './firebase-accounts';
+import { demoConfig, resetAllowed } from '../../src/demo/demo-config';
+import { bootDemo, seedDemo, type SeedSummary } from '../../src/demo/demo-seed';
 
 // pnpm --filter @wash-and-go/api demo:seed — see docs/demo/portal-demo-runbook.md.
 export function printSummary(s: SeedSummary): void {
@@ -24,23 +24,15 @@ export function printSummary(s: SeedSummary): void {
 async function main() {
   loadApiEnv();
   const cfg = demoConfig(process.env);
-  let uids = localDemoUids(cfg);
-  let generated: string | null = null;
-  if (firebaseCredentialsPresent(process.env)) {
-    const fb = await demoFirebaseUids(cfg, process.env);
-    uids = fb.uids;
-    generated = fb.generatedPassword;
-    console.log(
-      `Firebase accounts managed (created: ${fb.created.length ? fb.created.join(', ') : 'none'}).`,
-    );
-  } else {
-    console.log(
-      'No Firebase credentials: local DB users only (x-dev-uid uids demo-owner, demo-staff, …).',
-    );
-  }
+  const { uids, generatedPassword: generated } = await demoUids(cfg, process.env, {
+    allowPasswordReset: true,
+  });
   const { app, deps } = await bootDemo();
   try {
-    printSummary(await seedDemo(deps, cfg, uids));
+    // Production without DEMO_RESET_CONFIRM=yes: a first seed only, never a clear.
+    printSummary(
+      await seedDemo(deps, cfg, uids, new Date(), { allowClear: resetAllowed(process.env) }),
+    );
   } finally {
     await app.close();
   }

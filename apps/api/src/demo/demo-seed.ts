@@ -105,11 +105,23 @@ async function markedDemoUsers(prisma: Prisma.TransactionClient, cfg: DemoConfig
   });
 }
 
+// The demo shop: the configured name AND the demo owner is an OWNER member
+// (a same-named shop someone else runs is never treated as demo data).
+async function findDemoShop(prisma: Prisma.TransactionClient, cfg: DemoConfig, uids: DemoUids) {
+  return prisma.shop.findFirst({
+    where: {
+      name: cfg.shopName,
+      members: { some: { role: 'OWNER', user: { firebaseUid: uids.owner } } },
+    },
+  });
+}
+
 async function demoOrderIds(
   prisma: Prisma.TransactionClient,
   cfg: DemoConfig,
+  uids: DemoUids,
 ): Promise<{ shopId: string | null; orderIds: string[]; userIds: string[]; riderIds: string[] }> {
-  const shop = await prisma.shop.findFirst({ where: { name: cfg.shopName } });
+  const shop = await findDemoShop(prisma, cfg, uids);
   const users = await markedDemoUsers(prisma, cfg);
   const userIds = users.map((x) => x.id);
   const orders = await prisma.order.findMany({
@@ -127,8 +139,12 @@ async function demoOrderIds(
   };
 }
 
-export async function demoCounts(prisma: PrismaService, cfg: DemoConfig): Promise<DemoCounts> {
-  const { shopId, orderIds, userIds, riderIds } = await demoOrderIds(prisma, cfg);
+export async function demoCounts(
+  prisma: PrismaService,
+  cfg: DemoConfig,
+  uids: DemoUids,
+): Promise<DemoCounts> {
+  const { shopId, orderIds, userIds, riderIds } = await demoOrderIds(prisma, cfg, uids);
   const [events, ratings, lines, batches, notifications, deposits] = await Promise.all([
     prisma.orderEvent.count({ where: { orderId: { in: orderIds } } }),
     prisma.rating.count({ where: { orderId: { in: orderIds } } }),
@@ -149,9 +165,13 @@ export async function demoCounts(prisma: PrismaService, cfg: DemoConfig): Promis
  * notifications and the demo rider's cash deposits; then the demo orders.
  * Users, the shop, services and memberships are kept (the seed upserts them).
  */
-export async function clearDemoOrders(prisma: PrismaService, cfg: DemoConfig): Promise<void> {
+export async function clearDemoOrders(
+  prisma: PrismaService,
+  cfg: DemoConfig,
+  uids: DemoUids,
+): Promise<void> {
   await prisma.$transaction(async (tx) => {
-    const { shopId, orderIds, userIds, riderIds } = await demoOrderIds(tx, cfg);
+    const { shopId, orderIds, userIds, riderIds } = await demoOrderIds(tx, cfg, uids);
     await tx.orderEvent.deleteMany({ where: { orderId: { in: orderIds } } });
     await tx.rating.deleteMany({ where: { orderId: { in: orderIds } } });
     await tx.remittanceLine.deleteMany({ where: { orderId: { in: orderIds } } });
@@ -280,7 +300,15 @@ export async function ensureDemoShop(
     payoutBankName: null,
     payoutUpdatedAt: null,
   };
-  const existing = await prisma.shop.findFirst({ where: { name: cfg.shopName } });
+  const existing = await prisma.shop.findFirst({
+    where: { name: cfg.shopName, members: { some: { userId: users.owner.id, role: 'OWNER' } } },
+  });
+  if (!existing && (await prisma.shop.count({ where: { name: cfg.shopName } })) > 0) {
+    throw new Error(
+      `A shop named "${cfg.shopName}" exists that the demo owner does not own. ` +
+        'Set DEMO_SHOP_NAME to a different name (or use that shop owner as DEMO_OWNER_EMAIL).',
+    );
+  }
   const shop = existing
     ? await prisma.shop.update({ where: { id: existing.id }, data })
     : await prisma.shop.create({ data });
@@ -375,17 +403,26 @@ const STEP_STATUS: Record<StepKind, OrderStatus> = {
  * paid through RemittanceService, and records the rider's cash deposit through
  * RiderCashService. The only direct writes are timestamps (see the report).
  */
+export const PRODUCTION_CLEAR_REFUSED =
+  'Refusing to replace existing demo orders with NODE_ENV=production. Re-run with DEMO_RESET_CONFIRM=yes.';
+
 export async function seedDemo(
   deps: DemoDeps,
   cfg: DemoConfig,
   uids: DemoUids,
   now: Date = new Date(),
+  // false (production without DEMO_RESET_CONFIRM=yes): a first seed is fine,
+  // but existing demo orders are never cleared.
+  opts: { allowClear?: boolean } = {},
 ): Promise<SeedSummary> {
   const { prisma, orders } = deps;
   const log = new Logger('DemoSeed');
+  if (opts.allowClear === false && (await demoCounts(prisma, cfg, uids)).orders > 0) {
+    throw new Error(PRODUCTION_CLEAR_REFUSED);
+  }
   const users = await ensureDemoUsers(prisma, cfg, uids);
   const { shopId, serviceIds, warnings } = await ensureDemoShop(prisma, cfg, users, now);
-  await clearDemoOrders(prisma, cfg);
+  await clearDemoOrders(prisma, cfg, uids);
 
   // Auto-dispatch would hand seed orders to any verified rider; Scheduled
   // bookings never auto-dispatch, so fall back to them when it is on.
@@ -412,7 +449,7 @@ export async function seedDemo(
       loadCategory: item.load,
       serviceType,
       ...(serviceType === 'SCHEDULED'
-        ? { scheduledPickupAt: new Date(Date.now() + 3_600_000).toISOString() }
+        ? { scheduledPickupAt: new Date(now.getTime() + 3_600_000).toISOString() }
         : {}),
     } as const;
     const order =
@@ -570,9 +607,9 @@ export async function resetDemo(
   uids: DemoUids,
   now: Date = new Date(),
 ): Promise<{ before: DemoCounts; after: DemoCounts; summary: SeedSummary }> {
-  const before = await demoCounts(deps.prisma, cfg);
-  await clearDemoOrders(deps.prisma, cfg);
+  const before = await demoCounts(deps.prisma, cfg, uids);
+  await clearDemoOrders(deps.prisma, cfg, uids);
   const summary = await seedDemo(deps, cfg, uids, now);
-  const after = await demoCounts(deps.prisma, cfg);
+  const after = await demoCounts(deps.prisma, cfg, uids);
   return { before, after, summary };
 }

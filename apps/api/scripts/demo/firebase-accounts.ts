@@ -4,21 +4,43 @@ import {
   credentialsFileProblem,
   resolveCredentialsPath,
 } from '../../src/auth/credentials-path';
-import type { DemoConfig } from '../../src/demo/demo-config';
-import { ensureFirebaseAccounts, generatePassword } from '../../src/demo/demo-firebase';
-import type { DemoUids } from '../../src/demo/demo-seed';
+import {
+  type DemoConfig,
+  FIREBASE_SKIPPED_MESSAGE,
+  firebaseMode,
+} from '../../src/demo/demo-config';
+import {
+  ensureFirebaseAccounts,
+  generatePassword,
+  lookupOwnerAccount,
+} from '../../src/demo/demo-firebase';
+import { type DemoUids, localDemoUids } from '../../src/demo/demo-seed';
 
 /*
- * Create/update the demo Firebase accounts with the Admin SDK (same credential
- * rules as FirebaseService: inline JSON wins; a file path resolves from
- * apps/api). Returns the Firebase uids and, when the seed generated a password
- * for an account it created or reset, that password (printed once by the
- * caller, never stored).
+ * The firebaseUid per demo role. Firebase is touched ONLY with DEMO_FIREBASE=1
+ * (opt-in, even when apps/api/.env loads credentials). Then:
+ *  - the OWNER (default: the CEO's real address) is only looked up — never
+ *    created or modified. Missing → a clear instruction, and the seed carries
+ *    on with the local owner uid;
+ *  - the staff / admin / rider / customer demo accounts are created or marked
+ *    verified (password: DEMO_PASSWORD, else a generated one printed once).
+ * Otherwise: the deterministic local uids for the x-dev-uid stub.
  */
-export async function demoFirebaseUids(
+export async function demoUids(
   cfg: DemoConfig,
   env: Record<string, string | undefined>,
-): Promise<{ uids: DemoUids; generatedPassword: string | null; created: string[] }> {
+  opts: { allowPasswordReset: boolean },
+): Promise<{ uids: DemoUids; generatedPassword: string | null }> {
+  const local = localDemoUids(cfg);
+  const mode = firebaseMode(env);
+  if (mode !== 'on') {
+    console.log(
+      mode === 'off'
+        ? FIREBASE_SKIPPED_MESSAGE
+        : 'DEMO_FIREBASE=1 but no FIREBASE_SERVICE_ACCOUNT_JSON / GOOGLE_APPLICATION_CREDENTIALS: Firebase accounts skipped.',
+    );
+    return { uids: local, generatedPassword: null };
+  }
   if (!admin.apps.length) {
     const inline = env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim();
     if (inline) {
@@ -33,33 +55,42 @@ export async function demoFirebaseUids(
       admin.initializeApp({ credential: admin.credential.applicationDefault() });
     }
   }
+  const auth = admin.auth();
   const e = cfg.emails;
-  const accounts = [
-    // The owner may be the CEO's own account: its password is set only on create.
-    { email: e.owner, displayName: 'Demo Owner', keepPassword: true },
-    { email: e.staff, displayName: 'Demo Staff' },
-    { email: e.admin, displayName: 'Demo Admin' },
-    { email: e.rider, displayName: 'Demo Rider' },
-    ...e.customers.map((email, i) => ({ email, displayName: `Demo Customer ${i + 1}` })),
-  ];
+
+  const ownerUid = await lookupOwnerAccount(auth, e.owner);
+  if (!ownerUid) {
+    console.warn(
+      `Owner account ${e.owner} does not exist in Firebase. Create it in the Firebase console ` +
+        '(or let them sign up in the portal), then re-run. Seeding continues with the local owner uid.',
+    );
+  }
+
   const fromEnv = env.DEMO_PASSWORD?.trim();
   const password = fromEnv || generatePassword();
-  const resetPasswords = env.DEMO_RESET_PASSWORDS === 'yes';
-  const { uids, created } = await ensureFirebaseAccounts(admin.auth(), accounts, {
-    password,
-    resetPasswords,
-  });
-  const usedGenerated = !fromEnv && (created.length > 0 || resetPasswords);
-  // (A generated password only matters if it was actually applied somewhere.)
+  const resetPasswords = opts.allowPasswordReset && env.DEMO_RESET_PASSWORDS === 'yes';
+  const { uids, created } = await ensureFirebaseAccounts(
+    auth,
+    [
+      { email: e.staff, displayName: 'Demo Staff' },
+      { email: e.admin, displayName: 'Demo Admin' },
+      { email: e.rider, displayName: 'Demo Rider' },
+      ...e.customers.map((email, i) => ({ email, displayName: `Demo Customer ${i + 1}` })),
+    ],
+    { password, resetPasswords },
+  );
+  console.log(
+    `Firebase demo accounts managed (created: ${created.length ? created.join(', ') : 'none'}).`,
+  );
   return {
     uids: {
-      owner: uids[e.owner],
+      owner: ownerUid ?? local.owner,
       staff: uids[e.staff],
       admin: uids[e.admin],
       rider: uids[e.rider],
       customers: e.customers.map((c) => uids[c]),
     },
-    generatedPassword: usedGenerated ? password : null,
-    created,
+    // Shown once by the caller, only if it was actually applied to an account.
+    generatedPassword: !fromEnv && (created.length > 0 || resetPasswords) ? password : null,
   };
 }

@@ -3,8 +3,11 @@ import { demoConfig, orderIdempotencyKey } from '../../src/demo/demo-config';
 import {
   authHeaders,
   type DriverAuth,
+  driverUsesFirebase,
+  findOrderByCode,
   parseDriverArgs,
   remainingDriverSteps,
+  signInWithPassword,
 } from '../../src/demo/demo-driver';
 
 /*
@@ -14,8 +17,9 @@ import {
  * demo shop, then the demo admin assigns the demo rider and the rider marks it
  * picked up and at the shop, one step every --step-seconds. It stops at
  * AT_SHOP for the CEO to weigh in the portal. Auth: Firebase email/password
- * sign-in when FIREBASE_WEB_API_KEY + DEMO_PASSWORD are set (tokens are never
- * printed), else the x-dev-uid stub (AUTH_DEV_BYPASS=1 APIs only).
+ * sign-in only with DEMO_FIREBASE=1 + FIREBASE_WEB_API_KEY + DEMO_PASSWORD
+ * (tokens are never printed); otherwise the x-dev-uid stub (AUTH_DEV_BYPASS=1
+ * APIs only).
  */
 loadApiEnv();
 const env = process.env;
@@ -53,32 +57,26 @@ async function http(
 }
 
 async function signIn(email: string): Promise<DriverAuth> {
-  const res = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${env.FIREBASE_WEB_API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email, password: env.DEMO_PASSWORD, returnSecureToken: true }),
-    },
-  );
-  const body = (await res.json()) as { idToken?: string; error?: { message?: string } };
-  if (!res.ok || !body.idToken) {
-    console.error(`Firebase sign-in failed for ${email}: ${body.error?.message ?? res.status}`);
+  try {
+    const idToken = await signInWithPassword(
+      fetch,
+      env.FIREBASE_WEB_API_KEY!,
+      email,
+      env.DEMO_PASSWORD!,
+    );
+    // Create the API user row on first use, exactly as the apps do.
+    await http('POST', '/auth/session', { kind: 'token', idToken }, { idToken });
+    return { kind: 'token', idToken };
+  } catch (e) {
+    console.error(`Firebase sign-in failed: ${(e as Error).message}`);
     process.exit(1);
   }
-  // Create the API user row on first use, exactly as the apps do.
-  await http(
-    'POST',
-    '/auth/session',
-    { kind: 'token', idToken: body.idToken },
-    { idToken: body.idToken },
-  );
-  return { kind: 'token', idToken: body.idToken };
 }
 
 async function main() {
   const args = parseDriverArgs(process.argv.slice(2), () => `run-${Date.now()}`);
-  const useFirebase = Boolean(env.FIREBASE_WEB_API_KEY && env.DEMO_PASSWORD);
+  // Same opt-in as the seed: DEMO_FIREBASE=1 + web API key + password.
+  const useFirebase = driverUsesFirebase(env);
   const [customer, rider, adminAuth] = useFirebase
     ? [
         await signIn(cfg.emails.customers[0]),
@@ -101,7 +99,7 @@ async function main() {
       `/orders?q=${encodeURIComponent(args.riderOnly)}`,
       adminAuth,
     )) as Json[];
-    const match = found.find((o) => o.code === args.riderOnly);
+    const match = findOrderByCode(found, args.riderOnly);
     if (!match) {
       console.error(`No order with code ${args.riderOnly}`);
       process.exit(1);

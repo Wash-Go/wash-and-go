@@ -17,17 +17,15 @@ export function generatePassword(): string {
 }
 
 /*
- * Create-or-update the demo Firebase accounts by email. New accounts get the
- * password and emailVerified: true. EXISTING accounts are only marked
- * emailVerified: their password is left alone unless resetPasswords — the
- * owner default is the CEO's real address, and the seed must never silently
- * change a real person's password. Returns email → Firebase uid.
+ * Create-or-update the demo-only Firebase accounts (staff, admin, rider,
+ * customers) by email. New accounts get the password and emailVerified: true;
+ * existing ones are marked emailVerified and keep their password unless
+ * resetPasswords. NEVER pass the owner here: see lookupOwnerAccount.
+ * Returns email → Firebase uid.
  */
 export async function ensureFirebaseAccounts(
   auth: FirebaseAuthLike,
-  // keepPassword: never change this existing account's password, even with
-  // resetPasswords (the owner may be a real person's own account).
-  accounts: Array<{ email: string; displayName?: string; keepPassword?: boolean }>,
+  accounts: Array<{ email: string; displayName?: string }>,
   opts: { password: string; resetPasswords: boolean },
 ): Promise<{ uids: Record<string, string>; created: string[] }> {
   const uids: Record<string, string> = {};
@@ -42,7 +40,7 @@ export async function ensureFirebaseAccounts(
     if (uid) {
       await auth.updateUser(uid, {
         emailVerified: true,
-        ...(opts.resetPasswords && !a.keepPassword ? { password: opts.password } : {}),
+        ...(opts.resetPasswords ? { password: opts.password } : {}),
       });
     } else {
       uid = (
@@ -58,4 +56,21 @@ export async function ensureFirebaseAccounts(
     uids[a.email] = uid;
   }
   return { uids, created };
+}
+
+/*
+ * The owner (default: the CEO's real address) is READ-ONLY to the scripts: no
+ * create, no password, not even emailVerified. Returns the uid, or null when
+ * the account doesn't exist yet (the caller prints how to create it).
+ */
+export async function lookupOwnerAccount(
+  auth: FirebaseAuthLike,
+  email: string,
+): Promise<string | null> {
+  try {
+    return (await auth.getUserByEmail(email)).uid;
+  } catch (e) {
+    if ((e as { code?: string }).code === 'auth/user-not-found') return null;
+    throw e;
+  }
 }
