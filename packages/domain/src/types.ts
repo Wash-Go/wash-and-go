@@ -128,7 +128,10 @@ export interface OwnerShopView {
   // The owner's own Express e-bike capacity (0..50).
   expressSlotsPerDay: number;
   // Derived: SUBMITTED or VERIFIED without a permit (uploads were off).
-  documentsPending: boolean;
+  documentsPending: boolean;  // Shop logo (B8): the stored upload key, and a 5-minute presigned GET built
+  // by the API only when R2 is configured; null otherwise.
+  logoKey: string | null;
+  logoUrl: string | null;
 }
 
 // One weekday of opening hours. day 0 = Sunday … 6 = Saturday (JS getDay).
@@ -146,6 +149,8 @@ export interface UpdateOnboardingBody {
   lng?: number;
   permitKey?: string;
   photoKeys?: string[];
+  // An image key under the caller's uploads/ prefix; null clears the logo.
+  logoKey?: string | null;
   contactPhone?: string;
   description?: string;
   hours?: ShopHoursDay[];
@@ -617,6 +622,8 @@ export interface ShopProfileView {
   verifiedAt: string | null;
   payoutAccount: PayoutAccountView | null;
   myRole: 'OWNER' | 'STAFF';
+  logoKey: string | null;
+  logoUrl: string | null; // presigned GET (5 min) when R2 is configured, else null
 }
 
 // PATCH /shop/me (OWNER; VERIFIED or REJECTED shops — 409 while onboarding).
@@ -629,6 +636,7 @@ export interface UpdateShopProfileBody {
   description?: string;
   hours?: ShopHoursDay[];
   expressSlotsPerDay?: number;
+  logoKey?: string | null; // null clears the logo
 }
 
 // GET /shop/members. id is the ShopMember id; email is null until the user

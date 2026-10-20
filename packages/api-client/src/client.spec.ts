@@ -483,4 +483,35 @@ describe('ApiClient', () => {
     await client.listActiveOrders('0147', 200);
     expect(fetchFn.mock.calls[1][0]).toBe('http://api.test/orders?active=true&q=0147&limit=200');
   });
+
+  describe('shop logo fields (B8)', () => {
+    const make = () => {
+      const fetchFn = jest.fn().mockResolvedValue(res(200, { id: 's1', logoKey: null, logoUrl: null }));
+      const client = new ApiClient({ baseUrl: 'http://api.test', tokens: tokensFrom(['t']), fetchFn });
+      return { client, fetchFn };
+    };
+
+    it('sets a logo key on PATCH /shop/me', async () => {
+      const { client, fetchFn } = make();
+      await client.updateShopMe({ logoKey: 'uploads/u1/logo.png' });
+      const [url, init] = fetchFn.mock.calls[0];
+      expect(url).toBe('http://api.test/shop/me');
+      expect(init.method).toBe('PATCH');
+      expect(JSON.parse(init.body)).toEqual({ logoKey: 'uploads/u1/logo.png' });
+    });
+
+    it('clears the logo with an explicit null (not an omitted key)', async () => {
+      const { client, fetchFn } = make();
+      await client.updateShopMe({ logoKey: null });
+      expect(JSON.parse(fetchFn.mock.calls[0][1].body)).toEqual({ logoKey: null });
+    });
+
+    it('sends the logo key on PATCH /shop/onboarding during the wizard', async () => {
+      const { client, fetchFn } = make();
+      await client.updateShopOnboarding({ logoKey: 'uploads/u1/logo.webp' });
+      const [url, init] = fetchFn.mock.calls[0];
+      expect(url).toBe('http://api.test/shop/onboarding');
+      expect(JSON.parse(init.body)).toEqual({ logoKey: 'uploads/u1/logo.webp' });
+    });
+  });
 });

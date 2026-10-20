@@ -18,6 +18,8 @@ const shop = (status: OwnerShopView['status']): OwnerShopView => ({
   hours: null,
   expressSlotsPerDay: 0,
   documentsPending: false,
+  logoKey: null,
+  logoUrl: null,
 });
 
 describe('resolveGate', () => {

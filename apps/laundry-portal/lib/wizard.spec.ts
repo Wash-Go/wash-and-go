@@ -39,6 +39,8 @@ const shop = (over: Partial<OwnerShopView> = {}): OwnerShopView => ({
   hours: null,
   expressSlotsPerDay: 0,
   documentsPending: false,
+  logoKey: null,
+  logoUrl: null,
   ...over,
 });
 

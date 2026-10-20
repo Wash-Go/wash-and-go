@@ -23,6 +23,8 @@ const view: ShopProfileView = {
   verifiedAt: '2026-10-03T00:00:00Z',
   payoutAccount: null,
   myRole: 'OWNER',
+  logoKey: null,
+  logoUrl: null,
 };
 
 describe('profileDraft', () => {
