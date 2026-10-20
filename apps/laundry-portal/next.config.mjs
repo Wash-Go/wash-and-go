@@ -45,6 +45,9 @@ const withSerwist = withSerwistInit({
 
 /** @type {import('next').NextConfig} */
 export default withSerwist({
+  // NEXT_DIST_DIR lets a production build for the smokes live beside a
+  // running `next dev` (which owns .next) without clobbering it.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   reactStrictMode: true,
   // Workspace TS packages are compiled by Next (no prebuild step).
   transpilePackages: ['@wash-and-go/domain', '@wash-and-go/api-client'],

@@ -11,3 +11,5 @@
 .lockup-x { color: var(--muted); font: 400 14px var(--font-body); }
 .rail .shop-mark { background: var(--sky-tint); color: var(--navy); }
 .rail .lockup-x { color: inherit; opacity: 0.8; }
+/* The rail is 232px: the lockup sits above the shop name instead of beside it. */
+.rail .rail-who { flex-direction: column; align-items: flex-start; gap: 8px; }
