@@ -47,4 +47,16 @@ describe('UpdateShopProfileDto', () => {
       expect(await errors({ [k]: k === 'photoKeys' ? [] : 'x' })).not.toEqual([]);
     },
   );
+
+  describe('logoKey (B8)', () => {
+    it('accepts a key and an explicit null (clear)', async () => {
+      expect(await errors({ logoKey: 'uploads/u1/logo.png' })).toEqual([]);
+      expect(await errors({ logoKey: null })).toEqual([]);
+    });
+
+    it('rejects a non-string and a key over 300 chars', async () => {
+      expect(await errors({ logoKey: 42 })).not.toEqual([]);
+      expect(await errors({ logoKey: `uploads/u1/${'x'.repeat(290)}.png` })).not.toEqual([]);
+    });
+  });
 });

@@ -42,6 +42,9 @@ export class ShopProfileFieldsDto {
   hours?: ShopHoursDayDto[];
   // Express queue capacity per Asia/Manila day.
   @IsOptional() @IsInt() @Min(0) @Max(50) expressSlotsPerDay?: number;
+  // R2 key from POST /uploads/presign (image types only, under the caller's
+  // own prefix — checked in profileFieldsData). null clears the logo.
+  @IsOptional() @IsString() @MaxLength(300) logoKey?: string | null;
 }
 
 // PATCH /shop/me — the profile fields only; proof keys move through onboarding.

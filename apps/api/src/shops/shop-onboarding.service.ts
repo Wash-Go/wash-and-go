@@ -12,6 +12,7 @@ import type { UpdateOnboardingDto } from './dto/shop-onboarding.dto';
 import { NO_SHOP_MESSAGE, ShopAccessService } from './shop-access.service';
 import type { ShopHoursDay } from './shop-hours';
 import { profileFieldsData } from './shop-profile-fields';
+import { logoUrlFor } from './shop-logo';
 
 // Owner-facing view — NO margin fields (commission stays server-side).
 // expressSlotsPerDay is the owner's own capacity setting (wizard step 4).
@@ -34,6 +35,9 @@ export interface OwnerShopView {
   // Derived, not a column: in review (or live) without a business permit —
   // submitted while uploads were unavailable, so the admin must chase proof.
   documentsPending: boolean;
+  logoKey: string | null;
+  // Presigned GET (5 min) when R2 is configured and a logo is set; else null.
+  logoUrl: string | null;
 }
 
 /*
@@ -97,7 +101,7 @@ export class ShopOnboardingService {
     if (dto.permitKey != null) assertOwnedKey(user.id, dto.permitKey);
     (dto.photoKeys ?? []).forEach((k) => assertOwnedKey(user.id, k));
 
-    const fields = profileFieldsData(dto);
+    const fields = profileFieldsData(dto, user.id);
 
     const updated = await this.prisma.shop.update({
       where: { id: shop.id },
@@ -152,7 +156,7 @@ export class ShopOnboardingService {
     return shop;
   }
 
-  private shape(s: Shop): OwnerShopView {
+  private async shape(s: Shop): Promise<OwnerShopView> {
     return {
       id: s.id,
       name: s.name,
@@ -171,6 +175,8 @@ export class ShopOnboardingService {
       hours: (s.hours as unknown as ShopHoursDay[] | null) ?? null,
       expressSlotsPerDay: s.expressSlotsPerDay,
       documentsPending: (s.status === 'SUBMITTED' || s.status === 'VERIFIED') && !s.permitKey,
+      logoKey: s.logoKey ?? null,
+      logoUrl: await logoUrlFor(this.uploads, s.logoKey),
     };
   }
 }

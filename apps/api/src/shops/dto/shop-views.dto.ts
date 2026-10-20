@@ -61,6 +61,14 @@ export class OwnerShopViewDoc implements OwnerShopView {
   @ApiProperty() expressSlotsPerDay!: number;
   @ApiProperty({ description: 'SUBMITTED/VERIFIED without a business permit' })
   documentsPending!: boolean;
+  @ApiProperty({ type: String, nullable: true, example: 'uploads/<userId>/<uuid>.png' })
+  logoKey!: string | null;
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'Presigned GET (5 min) when R2 is configured and a logo is set; else null',
+  })
+  logoUrl!: string | null;
 }
 
 export class ShopCatalogItemDoc implements ShopCatalogItemView {
@@ -113,6 +121,14 @@ export class ShopProfileDoc implements ShopProfileView {
   @ApiPropertyOptional({ type: PayoutAccountDoc, nullable: true })
   payoutAccount!: PayoutAccountView | null;
   @ApiProperty({ enum: ['OWNER', 'STAFF'] }) myRole!: 'OWNER' | 'STAFF';
+  @ApiProperty({ type: String, nullable: true, example: 'uploads/<userId>/<uuid>.png' })
+  logoKey!: string | null;
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'Presigned GET (5 min) when R2 is configured and a logo is set; else null',
+  })
+  logoUrl!: string | null;
 }
 
 export class ShopMemberDoc implements ShopMemberView {

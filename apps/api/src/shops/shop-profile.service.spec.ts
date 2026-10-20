@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import { ShopAccessService } from './shop-access.service';
 import { ShopProfileService } from './shop-profile.service';
 import { fakeShopPrisma } from './testing/shop-prisma.fake';
+import type { UploadsService } from '../uploads/uploads.service';
 
 const D = (n: number) => new Prisma.Decimal(n);
 
@@ -34,7 +35,7 @@ const shop = (id: string, over: Record<string, unknown> = {}) => ({
 const week = (over: Record<number, unknown> = {}) =>
   [0, 1, 2, 3, 4, 5, 6].map((day) => over[day] ?? { day, open: '08:00', close: '18:00' });
 
-function setup() {
+function setup(opts: { r2?: boolean } = {}) {
   const fake = fakeShopPrisma({
     shop: [
       shop('sA', {
@@ -58,8 +59,16 @@ function setup() {
       { id: 'mR', shopId: 'sR', userId: 'uR', role: 'OWNER' },
     ],
   });
-  const svc = new ShopProfileService(fake.prisma, new ShopAccessService(fake.prisma));
-  return { svc, tables: fake.tables };
+  const uploads = {
+    configured: jest.fn(() => opts.r2 ?? false),
+    presignGet: jest.fn(async (key: string) => ({ url: `https://r2.example/${key}?sig` })),
+  };
+  const svc = new ShopProfileService(
+    fake.prisma,
+    new ShopAccessService(fake.prisma),
+    uploads as unknown as UploadsService,
+  );
+  return { svc, tables: fake.tables, uploads };
 }
 
 describe('ShopProfileService', () => {
@@ -87,6 +96,8 @@ describe('ShopProfileService', () => {
           updatedAt: '2026-10-02T00:00:00.000Z',
         },
         myRole: 'OWNER',
+        logoKey: null,
+        logoUrl: null,
       });
       expect(JSON.stringify(view)).not.toContain('001234567890');
     });
@@ -186,6 +197,72 @@ describe('ShopProfileService', () => {
           }) as never,
         }),
       ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('shop logo (B8)', () => {
+    const LOGO = 'uploads/uA/7f3c.png';
+
+    it('owner sets an image key under their own prefix; the view carries it', async () => {
+      const { svc, tables } = setup();
+      const view = await svc.update('uA', { logoKey: LOGO });
+      expect(tables.shop.find((s) => s.id === 'sA')!.logoKey).toBe(LOGO);
+      expect(view.logoKey).toBe(LOGO);
+    });
+
+    it('null clears the logo', async () => {
+      const { svc, tables } = setup();
+      await svc.update('uA', { logoKey: LOGO });
+      const view = await svc.update('uA', { logoKey: null });
+      expect(tables.shop.find((s) => s.id === 'sA')!.logoKey).toBeNull();
+      expect(view).toMatchObject({ logoKey: null, logoUrl: null });
+    });
+
+    it('omitting logoKey leaves it unchanged', async () => {
+      const { svc, tables } = setup();
+      await svc.update('uA', { logoKey: LOGO });
+      await svc.update('uA', { name: 'Renamed' });
+      expect(tables.shop.find((s) => s.id === 'sA')!.logoKey).toBe(LOGO);
+    });
+
+    it.each([
+      ['another user’s key', 'uploads/uB/7f3c.png'],
+      ['a key outside uploads/', 'public/7f3c.png'],
+      ['a PDF', 'uploads/uA/permit.pdf'],
+      ['an unknown extension', 'uploads/uA/logo.svg'],
+      ['no extension', 'uploads/uA/logo'],
+    ])('rejects %s (400, nothing written)', async (_l, key) => {
+      const { svc, tables } = setup();
+      await expect(svc.update('uA', { logoKey: key })).rejects.toBeInstanceOf(BadRequestException);
+      expect(tables.shop.find((s) => s.id === 'sA')!.logoKey ?? null).toBeNull();
+    });
+
+    it('logoUrl is null when R2 is not configured — never throws, never presigns', async () => {
+      const { svc, uploads } = setup({ r2: false });
+      await svc.update('uA', { logoKey: LOGO });
+      const view = await svc.get('uA');
+      expect(view).toMatchObject({ logoKey: LOGO, logoUrl: null });
+      expect(uploads.presignGet).not.toHaveBeenCalled();
+    });
+
+    it('logoUrl is a presigned GET of the key when R2 is configured (staff too)', async () => {
+      const { svc, uploads } = setup({ r2: true });
+      await svc.update('uA', { logoKey: LOGO });
+      expect((await svc.get('uS')).logoUrl).toBe(`https://r2.example/${LOGO}?sig`);
+      expect(uploads.presignGet).toHaveBeenCalledWith(LOGO);
+    });
+
+    it('a presign failure degrades to logoUrl null instead of failing the request', async () => {
+      const { svc, uploads } = setup({ r2: true });
+      await svc.update('uA', { logoKey: LOGO });
+      uploads.presignGet.mockRejectedValueOnce(new Error('R2 down'));
+      expect((await svc.get('uA')).logoUrl).toBeNull();
+    });
+
+    it('no key → logoUrl null without presigning', async () => {
+      const { svc, uploads } = setup({ r2: true });
+      expect((await svc.get('uB')).logoUrl).toBeNull();
+      expect(uploads.presignGet).not.toHaveBeenCalled();
     });
   });
 });

@@ -65,3 +65,15 @@ describe('Swagger responses on /shop/* routes', () => {
     expect(responses(ctrl, method)['204']).toBeDefined();
   });
 });
+
+// B8: the owner/staff shop views document the logo fields.
+describe('Swagger schemas carry the shop logo (B8)', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const docs = require('../shops/dto/shop-views.dto') as Record<string, { prototype: object }>;
+  const props = (cls: { prototype: object }) =>
+    (Reflect.getMetadata(DECORATORS.API_MODEL_PROPERTIES_ARRAY, cls.prototype) ?? []) as string[];
+
+  it.each(['OwnerShopViewDoc', 'ShopProfileDoc'])('%s has logoKey + logoUrl', (name) => {
+    expect(props(docs[name])).toEqual(expect.arrayContaining([':logoKey', ':logoUrl']));
+  });
+});

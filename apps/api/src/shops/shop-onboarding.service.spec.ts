@@ -18,6 +18,7 @@ function make(overrides: Record<string, unknown> = {}, opts: { r2?: boolean } = 
   } as unknown as PrismaService;
   const uploads = {
     configured: () => opts.r2 ?? true,
+    presignGet: jest.fn(async (key: string) => ({ url: `https://r2.example/${key}?sig` })),
   } as unknown as UploadsService;
   return {
     svc: new ShopOnboardingService(prisma, uploads, new ShopAccessService(prisma)),
@@ -343,6 +344,52 @@ describe('ShopOnboardingService', () => {
         });
         expect((await svc.mine(user))?.documentsPending).toBe(pending);
       }
+    });
+  });
+
+  describe('shop logo (B8)', () => {
+    function editable(shop = draftShop(), opts: { r2?: boolean } = {}) {
+      const update = jest
+        .fn()
+        .mockImplementation(({ data }) => Promise.resolve({ ...shop, ...data }));
+      const ctx = make(
+        { shopMember: { findFirst: jest.fn().mockResolvedValue({ shop }) }, shop: { update } },
+        opts,
+      );
+      return { ...ctx, update };
+    }
+
+    it('stores an owned image key and returns a presigned logoUrl (R2 configured)', async () => {
+      const { svc, update } = editable();
+      const view = await svc.update(user, { logoKey: 'uploads/u1/logo.webp' });
+      expect(update.mock.calls[0][0].data.logoKey).toBe('uploads/u1/logo.webp');
+      expect(view).toMatchObject({
+        logoKey: 'uploads/u1/logo.webp',
+        logoUrl: 'https://r2.example/uploads/u1/logo.webp?sig',
+      });
+    });
+
+    it('rejects a foreign key and a PDF', async () => {
+      const { svc, update } = editable();
+      await expect(svc.update(user, { logoKey: 'uploads/u2/logo.png' })).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      await expect(svc.update(user, { logoKey: 'uploads/u1/permit.pdf' })).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('null clears it', async () => {
+      const { svc, update } = editable(draftShop({ logoKey: 'uploads/u1/logo.png' }));
+      const view = await svc.update(user, { logoKey: null });
+      expect(update.mock.calls[0][0].data.logoKey).toBeNull();
+      expect(view).toMatchObject({ logoKey: null, logoUrl: null });
+    });
+
+    it('logoUrl is null without R2, even with a key', async () => {
+      const { svc } = editable(draftShop({ logoKey: 'uploads/u1/logo.png' }), { r2: false });
+      expect(await svc.mine(user)).toMatchObject({ logoKey: 'uploads/u1/logo.png', logoUrl: null });
     });
   });
 });

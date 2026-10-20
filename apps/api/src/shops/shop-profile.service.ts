@@ -6,6 +6,8 @@ import { ShopAccessService } from './shop-access.service';
 import type { ShopHoursDay } from './shop-hours';
 import { type PayoutAccountView, payoutView } from './shop-payout';
 import { profileFieldsData } from './shop-profile-fields';
+import { logoUrlFor } from './shop-logo';
+import { UploadsService } from '../uploads/uploads.service';
 
 // GET /shop/me — the caller's shop after verification. No margin fields
 // (commission stays server-side); the payout number only ever masked.
@@ -23,6 +25,9 @@ export interface ShopProfileView {
   verifiedAt: string | null;
   payoutAccount: PayoutAccountView | null;
   myRole: 'OWNER' | 'STAFF';
+  logoKey: string | null;
+  // Presigned GET (5 min) when R2 is configured and a logo is set; else null.
+  logoUrl: string | null;
 }
 
 /*
@@ -36,12 +41,13 @@ export class ShopProfileService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: ShopAccessService,
+    private readonly uploads: UploadsService,
   ) {}
 
   async get(userId: string): Promise<ShopProfileView> {
     const m = await this.access.membership(userId);
     const shop = await this.prisma.shop.findUnique({ where: { id: m.shopId } });
-    return shapeProfile(shop as Shop, m.role);
+    return this.view(shop as Shop, m.role);
   }
 
   async update(userId: string, dto: UpdateShopProfileDto): Promise<ShopProfileView> {
@@ -56,9 +62,13 @@ export class ShopProfileService {
     }
     const updated = await this.prisma.shop.update({
       where: { id: shop.id },
-      data: profileFieldsData(dto),
+      data: profileFieldsData(dto, userId),
     });
-    return shapeProfile(updated, m.role);
+    return this.view(updated, m.role);
+  }
+
+  private async view(s: Shop, myRole: 'OWNER' | 'STAFF'): Promise<ShopProfileView> {
+    return { ...shapeProfile(s, myRole), logoUrl: await logoUrlFor(this.uploads, s.logoKey) };
   }
 }
 
@@ -78,5 +88,7 @@ export function shapeProfile(s: Shop, myRole: 'OWNER' | 'STAFF'): ShopProfileVie
     verifiedAt: s.verifiedAt ? s.verifiedAt.toISOString() : null,
     payoutAccount: payoutView(s),
     myRole,
+    logoKey: s.logoKey ?? null,
+    logoUrl: null, // filled by ShopProfileService.view (needs R2)
   };
 }
