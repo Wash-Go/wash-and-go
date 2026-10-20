@@ -376,8 +376,18 @@ img { max-width: 100%; }
 .demo-card h2 { margin-bottom: 4px; }
 .demo-card .btn-text { align-self: flex-start; }
 .demo-chip { flex: none; }
-@media (max-width: 559px) { .demo-chip-more { display: none; } }
-.demo-rail { display: flex; flex-direction: column; gap: 2px; border-top: 1px solid rgba(255, 255, 255, 0.18); padding-top: 8px; margin-bottom: 8px; }
+.hd-meta { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.hd-meta small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.demo-tag {
+  display: none; flex: none; font: 700 11px/1 var(--font-body); color: var(--neutral-ink);
+  background: var(--neutral-tint); border-radius: var(--r-sm); padding: 2px 5px;
+}
+@media (max-width: 559px) {
+  .hd .demo-chip { display: none; }
+  .demo-tag { display: inline-block; }
+}
+/* No rail border token exists; derive the rule from the rail's own text colour. */
+.demo-rail { display: flex; flex-direction: column; gap: 2px; border-top: 1px solid color-mix(in srgb, currentColor 20%, transparent); padding-top: 8px; margin-bottom: 8px; }
 
 /* ---------- Breakpoints ---------- */
 @media (min-width: 1024px) {

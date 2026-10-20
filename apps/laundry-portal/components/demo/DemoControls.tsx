@@ -93,12 +93,21 @@ export function DemoHotkeys() {
   return null;
 }
 
-// Header chip: the shop's data is sample data (NEXT_PUBLIC_DEMO_BADGE=0 hides it).
-export function DemoChip() {
+// Header chip: the shop's data is sample data (NEXT_PUBLIC_DEMO_BADGE=0 hides
+// it). From 560 px it sits beside Verified; on a phone it moves under the
+// shop name as a small tag, so the name and "updated" line keep their room.
+export function DemoChip({ inline }: { inline?: boolean }) {
   if (process.env.NEXT_PUBLIC_DEMO_BADGE === '0') return null;
+  if (inline) {
+    return (
+      <span className="demo-tag" data-testid="demo-data-tag">
+        Demo data
+      </span>
+    );
+  }
   return (
-    <span className="chip chip-cancel demo-chip" data-testid="demo-data-chip" aria-label="Demo data">
-      Demo<span className="demo-chip-more"> data</span>
+    <span className="chip chip-cancel demo-chip" data-testid="demo-data-chip">
+      Demo data
     </span>
   );
 }

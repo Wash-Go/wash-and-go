@@ -1,6 +1,6 @@
 import { monogram } from '../monogram';
 import { DEMO_ORDERS, DEMO_SHOP } from './fixture';
-import { DEMO_STATE_KEY, DEMO_STATE_VERSION, loadState, saveState, seedState } from './store';
+import { DEMO_STATE_KEY, DEMO_STATE_MAX_AGE_MS, DEMO_STATE_VERSION, loadState, saveState, seedState } from './store';
 
 const NOW = Date.parse('2026-10-20T06:00:00Z');
 
@@ -72,6 +72,19 @@ describe('persistence', () => {
     expect(loadState(mem({ [DEMO_STATE_KEY]: '{nope' }), NOW).orders).toHaveLength(14);
     const old = JSON.stringify({ ...seedState(NOW), version: DEMO_STATE_VERSION - 1, orders: [] });
     expect(loadState(mem({ [DEMO_STATE_KEY]: old }), NOW).orders).toHaveLength(14);
+  });
+
+  it('re-seeds a state seeded more than 24 h ago, keeps a fresher one', () => {
+    const st = mem();
+    const s = loadState(st, NOW);
+    s.shop.name = 'Edited';
+    saveState(st, s);
+    expect(loadState(st, NOW + DEMO_STATE_MAX_AGE_MS).shop.name).toBe('Edited');
+    const later = NOW + DEMO_STATE_MAX_AGE_MS + 1;
+    const re = loadState(st, later);
+    expect(re.shop.name).toBe('Wash & Go Demo Laundry');
+    expect(re.seededAt).toBe(later);
+    expect(Date.parse(re.orders.find((o) => o.status === 'ASSIGNED')!.createdAt)).toBe(later - 0.4 * 3_600_000);
   });
 
   it('works without storage', () => {

@@ -118,9 +118,12 @@ function Frame({ children }: { children: ReactNode }) {
           />
           <div className="hd-name">
             <span>{shopName}</span>
-            <small aria-live="off" data-testid="updated-ago">
+            <div className="hd-meta">
+              <small aria-live="off" data-testid="updated-ago">
               {updated ?? ' '}
             </small>
+              {Demo ? <Demo.DemoChip inline /> : null}
+            </div>
           </div>
           {Demo ? <Demo.DemoChip /> : null}
           {shop ? <ShopChip status={shop.status} /> : null}

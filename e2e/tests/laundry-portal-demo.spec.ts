@@ -1,10 +1,12 @@
-import { expect, test, type Page } from '@playwright/test';
-import { DEMO_URL } from '../playwright.demo.config';
+import type { Page } from '@playwright/test';
+import { expect, test } from '../fixtures/demo-egress';
 
 /*
  * Browser smoke: the standalone demo build (B10), no API and no Firebase.
  * Every test starts from a fresh browser context, so the demo state
- * (localStorage) is re-seeded each time.
+ * (localStorage) is re-seeded each time. fixtures/demo-egress.ts fails any
+ * test whose pages or service worker requested anything but the page's own
+ * origin or OpenStreetMap tiles.
  */
 const PHONE = { width: 390, height: 844 };
 const OWNER = 'demo.owner@washandgo.ph';
@@ -25,13 +27,6 @@ test.describe('demo (phone)', () => {
   test.use({ viewport: PHONE });
 
   test('the owner signs in with the prefilled email and sees the demo queue', async ({ page }) => {
-    const outside: string[] = [];
-    page.on('request', (r) => {
-      const u = new URL(r.url());
-      if (u.origin !== new URL(DEMO_URL).origin && !u.protocol.startsWith('data') && !u.protocol.startsWith('blob')) {
-        outside.push(r.url());
-      }
-    });
     await page.goto('/login');
     await expect(page.getByLabel('Email')).toHaveValue(OWNER);
     await page.getByRole('button', { name: 'Forgot password?' }).click();
@@ -44,13 +39,15 @@ test.describe('demo (phone)', () => {
 
     await expect(page.getByRole('heading', { level: 1, name: 'Orders' })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId('shell-header')).toContainText('Wash & Go');
-    await expect(page.getByTestId('demo-data-chip')).toBeVisible();
+    // On a phone the Demo data tag sits under the shop name, not beside Verified.
+    await expect(page.getByTestId('demo-data-tag')).toBeVisible();
+    await expect(page.getByTestId('demo-data-chip')).toBeHidden();
+    const meta = await page.getByTestId('updated-ago').evaluate((el) => el.getClientRects().length);
+    expect(meta).toBe(1); // "updated just now" stays on one line
     await expect(count(page, 'needs')).toHaveText('2');
     await expect(count(page, 'washing')).toHaveText('2');
     await expect(count(page, 'ready')).toHaveText('1');
     await expect(page.getByTestId('incoming')).toContainText('Incoming (2)');
-    // Nothing left the browser: no API, no Firebase, no third party.
-    expect(outside).toEqual([]);
   });
 
   test('weigh the Large order through the second confirm, then mark it washing', async ({ page }) => {
@@ -102,6 +99,7 @@ test.describe('demo (phone)', () => {
   });
 
   test('"New order arrives" adds a Needs-you card; reset restores the counts', async ({ page }) => {
+    test.setTimeout(150_000);
     await signIn(page);
     await page.locator('nav.tb').getByRole('button', { name: 'More' }).click();
     await page.getByTestId('demo-controls').getByRole('button', { name: 'New order arrives' }).click();
@@ -118,6 +116,33 @@ test.describe('demo (phone)', () => {
     await page.keyboard.press('Escape');
     await expect(count(page, 'needs')).toHaveText('2', { timeout: 15_000 });
     await expect(count(page, 'washing')).toHaveText('2');
+
+    // A new order after the reset rings again (its id is new to the page).
+    await page.locator('nav.tb').getByRole('button', { name: 'More' }).click();
+    await page.getByTestId('demo-controls').getByRole('button', { name: 'New order arrives' }).click();
+    await page.keyboard.press('Escape');
+    await expect(count(page, 'needs')).toHaveText('3', { timeout: 60_000 });
+    await expect(page.locator('article.oc-new').first()).toContainText('New');
+  });
+
+  test('a walk through every screen and the demo controls stays in the browser', async ({ page }) => {
+    await signIn(page);
+    for (const [path, heading] of [
+      ['/services', 'Services & rates'],
+      ['/payouts', 'Payouts'],
+      ['/shop', 'Shop'],
+      ['/staff', 'Staff'],
+      ['/help', 'Help'],
+    ] as const) {
+      await page.goto(path);
+      await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
+      await page.waitForLoadState('networkidle');
+    }
+    await page.getByTestId('demo-controls').getByRole('button', { name: 'New order arrives' }).click();
+    await expect(page.getByText('A new order is on its way.')).toBeVisible();
+    await page.goto('/');
+    await expect(page.getByTestId('incoming')).toContainText('Incoming (3)', { timeout: 15_000 });
+    // The egress fixture checks every request on teardown.
   });
 
   test('the staff login is read-only for rates and the team', async ({ page }) => {

@@ -112,7 +112,7 @@ Everything belongs to one shop, "Wash & Go Demo Laundry".
 
 ## Standalone demo build
 
-This build needs no API, no database and no Firebase. Everything runs in the browser, and nothing is sent anywhere. Use it when the hosted API is down or there is no signal. It also works fully offline once the page has loaded.
+This build needs no API, no database and no Firebase. Everything runs in the browser, and nothing is sent anywhere apart from the OpenStreetMap tiles on the Shop page's map. Use it when the hosted API is down or there is no signal. It also works fully offline once the page has loaded.
 
 - **URL:** `<STANDALONE_DEMO_URL>` (placeholder until it is deployed).
 - **Build:** `pnpm --filter @wash-and-go/e2e build:portal-demo`. This sets `NEXT_PUBLIC_DEMO=1` and writes to `apps/laundry-portal/.next-e2e`.
@@ -140,4 +140,10 @@ This build needs no API, no database and no Firebase. Everything runs in the bro
 
 **Reset:** use **Reset demo** in the same controls. After a confirm, every order, rate and setting goes back to the start, and you stay signed in.
 
-**The "Demo data" chip** next to Verified in the header (shortened to "Demo" on a phone) tells the audience that the data is sample data. Build with `NEXT_PUBLIC_DEMO_BADGE=0` to hide it.
+**Before you present:**
+- **Use one browser tab.** The demo state lives in this browser's storage. A second tab works on the same data but does not see the other tab's changes until it reloads.
+- **Use dummy numbers** if you demo the payout account, e.g. GCash 0917 000 0000. Nothing leaves the browser, but the screen is being shown to an audience.
+- **Data older than 24 hours is reset automatically** on the next load, so order times read naturally on the day.
+- **The only outside request** is the OpenStreetMap tiles on the Shop page's location map.
+
+**The "Demo data" chip** next to Verified in the header (on a phone, a small tag under the shop name) tells the audience that the data is sample data. Build with `NEXT_PUBLIC_DEMO_BADGE=0` to hide it.

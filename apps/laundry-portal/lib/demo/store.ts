@@ -15,7 +15,10 @@ import {
 // every function takes the clock and the storage it needs.
 
 export const DEMO_STATE_KEY = 'wg-demo-state';
-export const DEMO_STATE_VERSION = 1;
+export const DEMO_STATE_VERSION = 2;
+// A seed older than this is replaced on load, so "booked 3 h ago" stays true
+// on presentation day.
+export const DEMO_STATE_MAX_AGE_MS = 24 * 3_600_000;
 
 export interface DemoEvent {
   status: OrderStatus;
@@ -63,6 +66,8 @@ export interface DemoPayout {
 
 export interface DemoState {
   version: number;
+  // When this state was seeded (ms): live-order ids and the 24 h refresh use it.
+  seededAt: number;
   seq: number;
   shop: {
     name: string;
@@ -219,6 +224,7 @@ export function seedState(now: number): DemoState {
   const joined = iso(now - 30 * 24 * HOUR);
   return {
     version: DEMO_STATE_VERSION,
+    seededAt: now,
     seq: 201 + DEMO_ORDERS.length,
     shop: {
       name: DEMO_SHOP.name,
@@ -248,13 +254,15 @@ type Reader = { getItem: (k: string) => string | null };
 type Writer = { setItem: (k: string, v: string) => void };
 
 // The stored state, or a fresh seed (saved) when there is none, it does not
-// parse, or it was written by another version of the demo.
+// parse, it was written by another version of the demo, or it was seeded
+// more than 24 h ago.
 export function loadState(storage: (Reader & Writer) | null, now: number): DemoState {
   try {
     const raw = storage?.getItem(DEMO_STATE_KEY);
     if (raw) {
       const s = JSON.parse(raw) as DemoState;
-      if (s && s.version === DEMO_STATE_VERSION && Array.isArray(s.orders)) return s;
+      const fresh = typeof s?.seededAt === 'number' && now - s.seededAt <= DEMO_STATE_MAX_AGE_MS;
+      if (s && s.version === DEMO_STATE_VERSION && Array.isArray(s.orders) && fresh) return s;
     }
   } catch {
     // fall through to a fresh seed

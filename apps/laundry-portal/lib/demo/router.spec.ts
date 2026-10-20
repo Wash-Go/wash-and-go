@@ -1,6 +1,6 @@
 import type { OrderView } from '@wash-and-go/domain';
 import { DEMO_EMAILS } from './fixture';
-import { addLiveOrder, demoRoleFor, route, type DemoRole } from './router';
+import { addLiveOrder, advanceOrderForTest, demoRoleFor, route, type DemoRole } from './router';
 import { seedState, type DemoState } from './store';
 
 const NOW = Date.parse('2026-10-20T06:00:00Z');
@@ -148,9 +148,9 @@ describe('remittance', () => {
   it('a newly delivered order joins pending', () => {
     let st = addLiveOrder(seedState(NOW), NOW);
     const ready = st.orders.find((o) => o.status === 'READY_FOR_RETURN')!;
-    st = route(st, { method: 'POST', path: `/demo/advance/${ready.id}`, role: 'owner', now: NOW }).state;
+    st = advanceOrderForTest(st, ready.id, NOW);
     expect(st.orders.find((o) => o.id === ready.id)!.status).toBe('OUT_FOR_RETURN');
-    st = route(st, { method: 'POST', path: `/demo/advance/${ready.id}`, role: 'owner', now: NOW }).state;
+    st = advanceOrderForTest(st, ready.id, NOW);
     const p = json<{ lineCount: number }>(call(st, 'GET', '/shop/remittance/pending'));
     expect(p.lineCount).toBe(3);
   });
@@ -242,5 +242,20 @@ describe('misc and the live order', () => {
     expect(at(30_000)).toBe('AT_SHOP');
     const codes = s.orders.map((o) => o.code);
     expect(new Set(codes).size).toBe(codes.length);
+  });
+
+  it('a live order booked after a reset never reuses an id the queue has seen', () => {
+    const first = addLiveOrder(seedState(NOW), NOW + 1_000);
+    const reset = seedState(NOW + 5_000);
+    const second = addLiveOrder(reset, NOW + 6_000);
+    const a = first.orders[first.orders.length - 1];
+    const b = second.orders[second.orders.length - 1];
+    expect(a.code).toBe(b.code); // the code sequence restarts with the seed
+    expect(a.id).not.toBe(b.id);
+  });
+
+  it('has no /demo route', () => {
+    const s = seedState(NOW);
+    expect(call(s, 'POST', `/demo/advance/${s.orders[0].id}`).res.status).toBe(404);
   });
 });

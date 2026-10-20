@@ -63,7 +63,9 @@ export function addLiveOrder(state: DemoState, now: number): DemoState {
   const svc = s.services.find((x) => x.serviceId === 'cat-wdf') ?? s.services[0];
   const est = 6;
   s.orders.push({
-    id: `ord-live-${n}`,
+    // Unique across resets: the seq (and the order code) restarts with every
+    // re-seed, and the queue's new-order ring remembers ids for the session.
+    id: `ord-live-${s.seededAt}-${now}-${n}`,
     code: codeFor(n),
     status: 'ASSIGNED',
     serviceType: 'EXPRESS',
@@ -461,20 +463,6 @@ function handle(s: DemoState, req: DemoRequest & { role: DemoRole }): DemoRespon
       return ok(orderView(s, o), 201);
     }
   }
-  // Demo helper: move an order one step along the happy path (the rider's
-  // steps the portal cannot drive), delivering it into pending payouts.
-  if (seg[0] === 'demo' && seg[1] === 'advance' && seg[2] && m === 'POST') {
-    const o = s.orders.find((x) => x.id === seg[2]);
-    if (!o) return err(404, 'Order not found');
-    const order: OrderStatus[] = ['BOOKED', 'ASSIGNED', 'PICKED_UP', 'AT_SHOP', 'PROCESSING', 'READY_FOR_RETURN', 'OUT_FOR_RETURN', 'DELIVERED'];
-    const i = order.indexOf(o.status);
-    if (i < 0 || i === order.length - 1) return err(409, 'Nothing to advance');
-    o.status = order[i + 1];
-    o.events.push({ status: o.status, at: iso(now) });
-    if (o.status === 'DELIVERED') deliver(s, o, now);
-    return ok(orderView(s, o), 201);
-  }
-
   // --- misc ---
   if (p === '/uploads/status' && m === 'GET') return ok({ configured: false });
   if (seg[0] === 'uploads') return err(503, 'Uploads are not available in the demo');
@@ -491,6 +479,21 @@ function handle(s: DemoState, req: DemoRequest & { role: DemoRole }): DemoRespon
     return ok({ label: near?.label ?? null });
   }
   return err(404, `Cannot ${m} ${p}`);
+}
+
+// TEST ONLY (jest): move an order one step along the happy path, booking the
+// payout line on delivery. Not reachable from the app or the router.
+export function advanceOrderForTest(state: DemoState, id: string, now: number): DemoState {
+  const s = structuredClone(state);
+  const o = s.orders.find((x) => x.id === id);
+  if (!o) return s;
+  const flow: OrderStatus[] = ['BOOKED', 'ASSIGNED', 'PICKED_UP', 'AT_SHOP', 'PROCESSING', 'READY_FOR_RETURN', 'OUT_FOR_RETURN', 'DELIVERED'];
+  const i = flow.indexOf(o.status);
+  if (i < 0 || i === flow.length - 1) return s;
+  o.status = flow[i + 1];
+  o.events.push({ status: o.status, at: iso(now) });
+  if (o.status === 'DELIVERED') deliver(s, o, now);
+  return s;
 }
 
 const READS = new Set(['GET', 'HEAD']);
