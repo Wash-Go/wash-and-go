@@ -7,9 +7,15 @@ import {
 import { Prisma, Shop, User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { assertOwnedKey } from '../uploads/object-key';
+import { UploadsService } from '../uploads/uploads.service';
 import type { UpdateOnboardingDto } from './dto/shop-onboarding.dto';
+import { NO_SHOP_MESSAGE, ShopAccessService } from './shop-access.service';
+import type { ShopHoursDay } from './shop-hours';
+import { profileFieldsData } from './shop-profile-fields';
+import { logoUrlFor } from './shop-logo';
 
-// Owner-facing view — NO margin fields (commission/slots stay server-side).
+// Owner-facing view — NO margin fields (commission stays server-side).
+// expressSlotsPerDay is the owner's own capacity setting (wizard step 4).
 export interface OwnerShopView {
   id: string;
   name: string;
@@ -22,6 +28,16 @@ export interface OwnerShopView {
   photoKeys: string[];
   submittedAt: string | null;
   verifiedAt: string | null;
+  contactPhone: string | null;
+  description: string | null;
+  hours: ShopHoursDay[] | null;
+  expressSlotsPerDay: number;
+  // Derived, not a column: in review (or live) without a business permit —
+  // submitted while uploads were unavailable, so the admin must chase proof.
+  documentsPending: boolean;
+  logoKey: string | null;
+  // Presigned GET (5 min) when R2 is configured and a logo is set; else null.
+  logoUrl: string | null;
 }
 
 /*
@@ -32,7 +48,11 @@ export interface OwnerShopView {
  */
 @Injectable()
 export class ShopOnboardingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly uploads: UploadsService,
+    private readonly access: ShopAccessService,
+  ) {}
 
   // The caller's owned shop, or null (portal decides: show wizard vs "start").
   async mine(user: User): Promise<OwnerShopView | null> {
@@ -49,7 +69,12 @@ export class ShopOnboardingService {
     const shop = await this.prisma.$transaction(async (tx) => {
       const created = await tx.shop.create({
         // Owner-set placeholders; the wizard fills real name/address/coords.
-        data: { name: 'My laundry', address: '', lat: new Prisma.Decimal(0), lng: new Prisma.Decimal(0) },
+        data: {
+          name: 'My laundry',
+          address: '',
+          lat: new Prisma.Decimal(0),
+          lng: new Prisma.Decimal(0),
+        },
       });
       await tx.shopMember.create({
         data: { shopId: created.id, userId: user.id, role: 'OWNER' },
@@ -67,7 +92,7 @@ export class ShopOnboardingService {
       throw new ConflictException(
         shop.status === 'SUBMITTED'
           ? 'Your application is under review and can’t be edited'
-          : 'A verified shop is edited from the admin console',
+          : 'A verified shop is edited from shop settings (PATCH /shop/me)',
       );
     }
     // Proof keys must live under the caller's own upload prefix — otherwise a
@@ -76,13 +101,12 @@ export class ShopOnboardingService {
     if (dto.permitKey != null) assertOwnedKey(user.id, dto.permitKey);
     (dto.photoKeys ?? []).forEach((k) => assertOwnedKey(user.id, k));
 
+    const fields = profileFieldsData(dto, user.id);
+
     const updated = await this.prisma.shop.update({
       where: { id: shop.id },
       data: {
-        ...(dto.name != null ? { name: dto.name } : {}),
-        ...(dto.address != null ? { address: dto.address } : {}),
-        ...(dto.lat != null ? { lat: new Prisma.Decimal(dto.lat) } : {}),
-        ...(dto.lng != null ? { lng: new Prisma.Decimal(dto.lng) } : {}),
+        ...fields,
         ...(dto.permitKey != null ? { permitKey: dto.permitKey } : {}),
         ...(dto.photoKeys != null ? { photoKeys: dto.photoKeys } : {}),
       },
@@ -99,30 +123,40 @@ export class ShopOnboardingService {
     if (!shop.name || shop.name === 'My laundry') missing.push('shop name');
     if (!shop.address) missing.push('address');
     if (Number(shop.lat) === 0 && Number(shop.lng) === 0) missing.push('map location');
-    if (!shop.permitKey) missing.push('business permit');
+    if (!shop.contactPhone) missing.push('contact phone');
+    // A shop with no active service can't take an order.
+    const services = await this.prisma.shopService.count({
+      where: { shopId: shop.id, active: true },
+    });
+    if (services === 0) missing.push('services');
+    // The permit is required only while uploads work; without R2 the shop is
+    // submitted documentsPending and the admin collects proof out of band.
+    if (!shop.permitKey && this.uploads.configured()) missing.push('business permit');
     if (missing.length) {
       throw new BadRequestException(`Please add: ${missing.join(', ')}`);
     }
     const updated = await this.prisma.shop.update({
       where: { id: shop.id },
-      data: { status: 'SUBMITTED', submittedAt: new Date(), rejectionReason: null },
+      data: {
+        status: 'SUBMITTED',
+        submittedAt: new Date(),
+        rejectionReason: null,
+      },
     });
     return this.shape(updated);
   }
 
   private ownedShop(userId: string): Promise<Shop | null> {
-    return this.prisma.shopMember
-      .findFirst({ where: { userId, role: 'OWNER' }, include: { shop: true } })
-      .then((m) => m?.shop ?? null);
+    return this.access.ownedShop(userId);
   }
 
   private async mustOwn(userId: string): Promise<Shop> {
     const shop = await this.ownedShop(userId);
-    if (!shop) throw new NotFoundException('You don’t have a shop yet — start onboarding first');
+    if (!shop) throw new NotFoundException(NO_SHOP_MESSAGE);
     return shop;
   }
 
-  private shape(s: Shop): OwnerShopView {
+  private async shape(s: Shop): Promise<OwnerShopView> {
     return {
       id: s.id,
       name: s.name,
@@ -135,6 +169,14 @@ export class ShopOnboardingService {
       photoKeys: s.photoKeys,
       submittedAt: s.submittedAt ? s.submittedAt.toISOString() : null,
       verifiedAt: s.verifiedAt ? s.verifiedAt.toISOString() : null,
+      contactPhone: s.contactPhone,
+      description: s.description,
+      // Written only through normalizeHours, so the stored JSON is the grid shape.
+      hours: (s.hours as unknown as ShopHoursDay[] | null) ?? null,
+      expressSlotsPerDay: s.expressSlotsPerDay,
+      documentsPending: (s.status === 'SUBMITTED' || s.status === 'VERIFIED') && !s.permitKey,
+      logoKey: s.logoKey ?? null,
+      logoUrl: await logoUrlFor(this.uploads, s.logoKey),
     };
   }
 }

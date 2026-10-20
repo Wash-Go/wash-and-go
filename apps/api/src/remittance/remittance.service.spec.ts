@@ -35,11 +35,12 @@ describe('RemittanceService', () => {
       // Default happy path: every requested line is claimed (count === ids.length).
       assignLinesToBatch: jest
         .fn()
-        .mockImplementation((_tx: unknown, ids: string[]) => Promise.resolve({ count: ids.length })),
+        .mockImplementation((_tx: unknown, ids: string[]) =>
+          Promise.resolve({ count: ids.length }),
+        ),
       findBatchById: jest.fn(),
       markBatchPaid: jest.fn(),
       listBatches: jest.fn(),
-      shopIdsForMember: jest.fn(),
       // Default: no shop rows found (shopName null). Tests that care override.
       shopNames: jest.fn().mockResolvedValue(new Map()),
       totalsByStatus: jest.fn(),
@@ -52,39 +53,12 @@ describe('RemittanceService', () => {
     service = new RemittanceService(prisma, repo);
   });
 
-  describe('listBatchesForMember', () => {
-    it('returns nothing when the user is a member of no shop', async () => {
-      repo.shopIdsForMember.mockResolvedValue([]);
-      expect(await service.listBatchesForMember('u1')).toEqual([]);
-      expect(repo.listBatches).not.toHaveBeenCalled();
-    });
-
-    it("scopes the query to the member's shops", async () => {
-      repo.shopIdsForMember.mockResolvedValue(['shopA', 'shopB']);
-      repo.listBatches.mockResolvedValue([{ id: 'b1' }] as never);
-      const out = await service.listBatchesForMember('u1');
-      expect(repo.listBatches).toHaveBeenCalledWith({
-        shopId: { in: ['shopA', 'shopB'] },
-      });
-      // paidByUid is stripped for the shop-facing response.
-      expect(out).toEqual([{ id: 'b1', paidByUid: null, shopName: null }]);
-    });
-
-    it('names the shop on each batch', async () => {
-      repo.shopIdsForMember.mockResolvedValue(['shopA']);
-      repo.listBatches.mockResolvedValue([{ id: 'b1', shopId: 'shopA' }] as never);
-      repo.shopNames.mockResolvedValue(new Map([['shopA', 'Suds & Co']]));
-      const out = await service.listBatchesForMember('u1');
-      expect(out[0].shopName).toBe('Suds & Co');
-    });
-  });
-
   describe('listBatches (admin)', () => {
     it('names each batch by its shop, looking every shop up once', async () => {
       repo.listBatches.mockResolvedValue([
-        { id: 'b1', shopId: 'shopA' },
-        { id: 'b2', shopId: 'shopB' },
-        { id: 'b3', shopId: 'shopA' },
+        { id: 'b1', shopId: 'shopA', totalPhp: D('264') },
+        { id: 'b2', shopId: 'shopB', totalPhp: D('12.5') },
+        { id: 'b3', shopId: 'shopA', totalPhp: D('0') },
       ] as never);
       repo.shopNames.mockResolvedValue(
         new Map([
@@ -98,17 +72,22 @@ describe('RemittanceService', () => {
       expect(repo.listBatches).toHaveBeenCalledWith({ status: 'PENDING' });
       expect(repo.shopNames).toHaveBeenCalledTimes(1);
       expect(repo.shopNames.mock.calls[0][0].sort()).toEqual(['shopA', 'shopB']);
-      expect(out.map((b) => b.shopName)).toEqual([
-        'Suds & Co',
-        'Bubble Wash',
-        'Suds & Co',
-      ]);
+      expect(out.map((b) => b.shopName)).toEqual(['Suds & Co', 'Bubble Wash', 'Suds & Co']);
+      // Every batch view carries totalPhp as a 2dp string (list, detail, admin).
+      expect(out.map((b) => b.totalPhp)).toEqual(['264.00', '12.50', '0.00']);
     });
 
     it('leaves shopName null when the shop row is gone (shopId has no FK)', async () => {
-      repo.listBatches.mockResolvedValue([{ id: 'b1', shopId: 'ghost' }] as never);
+      repo.listBatches.mockResolvedValue([
+        { id: 'b1', shopId: 'ghost', totalPhp: D('88') },
+      ] as never);
       const out = await service.listBatches({});
-      expect(out[0]).toEqual({ id: 'b1', shopId: 'ghost', shopName: null });
+      expect(out[0]).toEqual({
+        id: 'b1',
+        shopId: 'ghost',
+        totalPhp: '88.00',
+        shopName: null,
+      });
     });
 
     it('skips the shop lookup when there are no batches', async () => {
@@ -181,21 +160,17 @@ describe('RemittanceService', () => {
       const batch = await service.closeBatch('shop1', period);
 
       expect(batch?.shopName).toBe('Suds & Co');
+      expect(batch?.totalPhp).toBe('88.00');
     });
 
     it('throws (rolls back) when a concurrent close already claimed some lines', async () => {
-      repo.findUnbatchedLines.mockResolvedValue([
-        line('l1', '132'),
-        line('l2', '88'),
-      ] as never);
+      repo.findUnbatchedLines.mockResolvedValue([line('l1', '132'), line('l2', '88')] as never);
       repo.createBatch.mockImplementation((_tx, data) =>
         Promise.resolve({ id: 'b1', status: 'PENDING', ...data } as never),
       );
       // Only 1 of the 2 lines was still unbatched — the other lost the race.
       repo.assignLinesToBatch.mockResolvedValue({ count: 1 } as never);
-      await expect(service.closeBatch('shop1', period)).rejects.toBeInstanceOf(
-        ConflictException,
-      );
+      await expect(service.closeBatch('shop1', period)).rejects.toBeInstanceOf(ConflictException);
     });
 
     it('returns null and writes nothing when there are no unbatched lines', async () => {
@@ -238,6 +213,7 @@ describe('RemittanceService', () => {
       const shop2 = repo.createBatch.mock.calls.find((c) => c[1].shopId === 'shop2')![1];
       expect(new Prisma.Decimal(String(shop2.totalPhp)).toFixed(2)).toBe('100.00');
       expect(shop2.lineCount).toBe(2);
+      expect(batches.map((b) => b.totalPhp).sort()).toEqual(['100.00', '50.00']);
     });
 
     it('names the shop on every created batch', async () => {
@@ -256,11 +232,15 @@ describe('RemittanceService', () => {
 
   describe('markPaid', () => {
     it('sets PAID + reference on a pending batch', async () => {
-      repo.findBatchById.mockResolvedValue({ id: 'b1', status: 'PENDING' } as never);
+      repo.findBatchById.mockResolvedValue({
+        id: 'b1',
+        status: 'PENDING',
+      } as never);
       repo.markBatchPaid.mockResolvedValue({
         id: 'b1',
         shopId: 'shop1',
         status: 'PAID',
+        totalPhp: D('264'),
       } as never);
       repo.shopNames.mockResolvedValue(new Map([['shop1', 'Suds & Co']]));
 
@@ -272,23 +252,29 @@ describe('RemittanceService', () => {
       });
       expect(out.status).toBe('PAID');
       expect(out.shopName).toBe('Suds & Co');
+      expect(out.totalPhp).toBe('264.00');
     });
 
     it('is idempotent — an already-paid batch is returned without a second write', async () => {
-      const paid = { id: 'b1', status: 'PAID', reference: 'OLD' };
+      const paid = {
+        id: 'b1',
+        status: 'PAID',
+        reference: 'OLD',
+        totalPhp: D('264.5'),
+      };
       repo.findBatchById.mockResolvedValue(paid as never);
 
       const out = await service.markPaid('b1', 'NEW-REF', 'admin1');
 
-      expect(out).toEqual({ ...paid, shopName: null });
+      expect(out).toEqual({ ...paid, totalPhp: '264.50', shopName: null });
       expect(repo.markBatchPaid).not.toHaveBeenCalled();
     });
 
     it('404s a missing batch', async () => {
       repo.findBatchById.mockResolvedValue(null as never);
-      await expect(
-        service.markPaid('nope', 'ref', 'admin1'),
-      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.markPaid('nope', 'ref', 'admin1')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
 });

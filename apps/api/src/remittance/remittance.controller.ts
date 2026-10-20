@@ -1,23 +1,11 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User } from '@prisma/client';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
-import {
-  ClosePeriodDto,
-  ListBatchesQueryDto,
-  MarkPaidDto,
-} from './dto/remittance.dto';
+import { ClosePeriodDto, ListBatchesQueryDto, MarkPaidDto } from './dto/remittance.dto';
 import { RemittanceService } from './remittance.service';
 
 /*
@@ -41,9 +29,7 @@ export class RemittanceController {
       periodEnd: new Date(dto.periodEnd),
     };
     return dto.shopId
-      ? this.remittance
-          .closeBatch(dto.shopId, period)
-          .then((b) => (b ? [b] : []))
+      ? this.remittance.closeBatch(dto.shopId, period).then((b) => (b ? [b] : []))
       : this.remittance.closeAllShops(period);
   }
 
@@ -56,7 +42,9 @@ export class RemittanceController {
 
   @Get('summary')
   @Roles('ADMIN')
-  @ApiOperation({ summary: 'Payout count + total per status, over all batches' })
+  @ApiOperation({
+    summary: 'Payout count + total per status, over all batches',
+  })
   summary() {
     return this.remittance.summary();
   }
@@ -65,11 +53,7 @@ export class RemittanceController {
   @Post('batches/:id/mark-paid')
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Record the external payout transfer (idempotent)' })
-  markPaid(
-    @CurrentUser() user: User,
-    @Param('id') id: string,
-    @Body() dto: MarkPaidDto,
-  ) {
+  markPaid(@CurrentUser() user: User, @Param('id') id: string, @Body() dto: MarkPaidDto) {
     return this.remittance.markPaid(id, dto.reference, user.firebaseUid);
   }
 }

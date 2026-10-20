@@ -3,7 +3,8 @@ import {
   ForbiddenException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { UploadsService } from './uploads.service';
+import { IMAGE_KEY_EXTENSIONS, UploadsService } from './uploads.service';
+import { assertOwnedImageKey } from './object-key';
 
 // Mock only the signer — S3Client/command construction is pure + offline.
 jest.mock('@aws-sdk/s3-request-presigner', () => ({
@@ -82,5 +83,41 @@ describe('UploadsService', () => {
       roles: ['ADMIN'],
     });
     expect(url).toBe('https://r2.example/signed');
+  });
+
+  // presignGet is presignView minus the per-caller check; callers that have
+  // already authorized access (a shop member reading their shop's logo) use it.
+  it('presignGet signs a GET for the given key', async () => {
+    withEnv();
+    expect(await svc.presignGet('uploads/OTHER/x.png')).toEqual({
+      url: 'https://r2.example/signed',
+    });
+  });
+
+  it('presignGet 503s when R2 is not configured', async () => {
+    for (const k of Object.keys(R2_ENV)) delete process.env[k as keyof typeof R2_ENV];
+    await expect(svc.presignGet('uploads/u1/x.png')).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+  });
+});
+
+describe('image upload keys (B8 logo)', () => {
+  it('IMAGE_KEY_EXTENSIONS is the presign allowlist minus PDF', () => {
+    expect([...IMAGE_KEY_EXTENSIONS].sort()).toEqual(['jpg', 'png', 'webp']);
+  });
+
+  it.each([
+    ['uploads/u1/a.png', true],
+    ['uploads/u1/a.jpg', true],
+    ['uploads/u1/a.webp', true],
+    ['uploads/u1/a.pdf', false],
+    ['uploads/u1/a.svg', false],
+    ['uploads/u1/a', false],
+    ['uploads/u2/a.png', false],
+  ])('assertOwnedImageKey(u1, %s) ok=%p', (key, ok) => {
+    const run = () => assertOwnedImageKey('u1', key);
+    if (ok) expect(run).not.toThrow();
+    else expect(run).toThrow(BadRequestException);
   });
 });

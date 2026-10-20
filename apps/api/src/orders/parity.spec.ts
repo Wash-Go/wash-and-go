@@ -7,6 +7,7 @@ import {
   MAX_WEIGH_KG as API_MAX_WEIGH_KG,
 } from './load';
 import { OUTSIDE_COVERAGE_MESSAGE } from './orders.service';
+import { ACTIVE_ORDER_STATUSES, isTerminal } from './order-status';
 
 /*
  * Cross-package parity. The API hand-mirrors shared runtime constants because it
@@ -31,6 +32,18 @@ function domainOrderStatuses(): string[] {
   return [...block[1].matchAll(/'([A-Z_]+)'/g)].map((m) => m[1]);
 }
 
+// STATUS_META entries: `NAME: { ... terminal: true|false ... }` (single- or
+// multi-line), read as text.
+function domainTerminal(): Record<string, boolean> {
+  const block = orderStatusSrc.match(/STATUS_META[^=]*=\s*\{([\s\S]*?)\n\};/);
+  if (!block) throw new Error('STATUS_META not found in domain/order-status.ts');
+  const out: Record<string, boolean> = {};
+  for (const m of block[1].matchAll(/([A-Z_]+):\s*\{[^}]*?terminal:\s*(true|false)/g)) {
+    out[m[1]] = m[2] === 'true';
+  }
+  return out;
+}
+
 function domainLoads(): [string, number][] {
   return [...loadSrc.matchAll(/key:\s*'([SML])'[\s\S]*?estimateKg:\s*(\d+)/g)].map(
     (m) => [m[1], Number(m[2])],
@@ -40,6 +53,22 @@ function domainLoads(): [string, number][] {
 describe('cross-package parity', () => {
   it('domain ORDER_STATUSES matches the Prisma schema enum exactly', () => {
     expect(domainOrderStatuses().sort()).toEqual(Object.values(OrderStatus).sort());
+  });
+
+  // GET /orders?active=true lists every non-terminal status. The API derives
+  // terminal from its transition machine (no outgoing edges); the portal tabs
+  // read domain STATUS_META.terminal. They must name the same set.
+  it('API and domain agree on which order statuses are terminal', () => {
+    const domain = domainTerminal();
+    expect(Object.keys(domain).sort()).toEqual(Object.values(OrderStatus).sort());
+    for (const s of Object.values(OrderStatus)) expect([s, isTerminal(s)]).toEqual([s, domain[s]]);
+    expect(Object.entries(domain).filter(([, t]) => t).map(([s]) => s).sort()).toEqual([
+      'CANCELLED',
+      'DELIVERED',
+    ]);
+    expect([...ACTIVE_ORDER_STATUSES].sort()).toEqual(
+      Object.entries(domain).filter(([, t]) => !t).map(([s]) => s).sort(),
+    );
   });
 
   it('API and domain load categories agree on keys', () => {

@@ -1,18 +1,11 @@
-import {
-  BadRequestException,
-  Body,
-  Controller,
-  Get,
-  Post,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { BadRequestException, Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags, ApiOkResponse } from '@nestjs/swagger';
 import type { User } from '@prisma/client';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { PresignUploadDto } from './dto/uploads.dto';
 import { UploadsService } from './uploads.service';
+import { UploadsStatusDoc } from './dto/uploads-status.dto';
 
 /*
  * Direct-to-R2 upload brokering (onboarding B1). Any authenticated user can mint
@@ -26,6 +19,15 @@ import { UploadsService } from './uploads.service';
 export class UploadsController {
   constructor(private readonly uploads: UploadsService) {}
 
+  @Get('status')
+  @ApiOperation({
+    summary: 'Whether file uploads (R2) are configured on this server',
+  })
+  @ApiOkResponse({ type: UploadsStatusDoc })
+  status(): { configured: boolean } {
+    return { configured: this.uploads.configured() };
+  }
+
   @Post('presign')
   @ApiOperation({ summary: 'Presigned PUT to upload a file directly to R2' })
   presign(@CurrentUser() user: User, @Body() dto: PresignUploadDto) {
@@ -33,7 +35,9 @@ export class UploadsController {
   }
 
   @Get('url')
-  @ApiOperation({ summary: 'Presigned GET to view a private object (owner or admin)' })
+  @ApiOperation({
+    summary: 'Presigned GET to view a private object (owner or admin)',
+  })
   view(@CurrentUser() user: User, @Query('key') key?: string) {
     const k = (key ?? '').trim();
     if (!k) throw new BadRequestException('key is required');

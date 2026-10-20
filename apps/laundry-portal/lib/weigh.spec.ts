@@ -1,8 +1,12 @@
 import type { OrderView } from '@wash-and-go/domain';
 import {
+  confirmLabel,
+  estimateNote,
   formatKg,
   orderEstimateKg,
   readyBlockedReason,
+  scaleCheckHint,
+  washLine,
   weighCheck,
 } from './weigh';
 
@@ -90,5 +94,45 @@ describe('readyBlockedReason', () => {
   it('allows "ready" once weighed, and never blocks other actions', () => {
     expect(readyBlockedReason(o({ weightKg: '6.40' }), 'READY_FOR_RETURN')).toBeNull();
     expect(readyBlockedReason(o({ status: 'AT_SHOP', weightKg: null }), 'PROCESSING')).toBeNull();
+  });
+});
+
+describe('confirmLabel', () => {
+  it('names the outcome with the peso total, two decimals', () => {
+    expect(confirmLabel('149.5', false)).toBe('Confirm ₱149.50');
+    expect(confirmLabel('1537', true)).toBe('Yes, confirm ₱1,537.00');
+  });
+
+  it('never asks for approval', () => {
+    expect(confirmLabel('10', false)).not.toMatch(/approval/i);
+    expect(confirmLabel('10', true)).not.toMatch(/approval/i);
+  });
+});
+
+describe('washLine', () => {
+  it('shows kg × rate when the wash value divides evenly', () => {
+    expect(washLine(4.1, '102.5')).toBe('4.1 kg × ₱25.00');
+    expect(washLine(7, '175')).toBe('7 kg × ₱25.00');
+  });
+
+  it('drops the rate when it would not reproduce the wash value', () => {
+    expect(washLine(3, '100')).toBe('3 kg');
+  });
+});
+
+describe('estimateNote', () => {
+  it('tells the shop the customer will hear the new total', () => {
+    expect(estimateNote('Maria', '122')).toBe('Maria booked at ₱122.00 and will be told the new total.');
+    expect(estimateNote('', '122')).toBe('The customer booked at ₱122.00 and will be told the new total.');
+  });
+});
+
+describe('scaleCheckHint', () => {
+  it('suggests the likely decimal slip on a big number', () => {
+    expect(scaleCheckHint(19.6)).toBe('Check the scale shows 19.6 kg, not 1.96 kg, before you confirm.');
+  });
+
+  it('just asks for a check on a small number', () => {
+    expect(scaleCheckHint(7)).toBe('Check the scale shows 7 kg before you confirm.');
   });
 });

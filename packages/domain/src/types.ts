@@ -120,6 +120,27 @@ export interface OwnerShopView {
   photoKeys: string[];
   submittedAt: string | null;
   verifiedAt: string | null;
+  // Canonical "+639XXXXXXXXX" once set.
+  contactPhone: string | null;
+  description: string | null;
+  // Exactly 7 entries, day 0..6, once the owner sets hours.
+  hours: ShopHoursDay[] | null;
+  // The owner's own Express e-bike capacity (0..50).
+  expressSlotsPerDay: number;
+  // Derived: SUBMITTED or VERIFIED without a permit (uploads were off).
+  documentsPending: boolean;
+  // Shop logo (B8): the stored upload key, and a 5-minute presigned GET built
+  // by the API only when R2 is configured; null otherwise.
+  logoKey: string | null;
+  logoUrl: string | null;
+}
+
+// One weekday of opening hours. day 0 = Sunday … 6 = Saturday (JS getDay).
+// open/close are 24-hour "HH:MM", both null when closed; open < close.
+export interface ShopHoursDay {
+  day: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  open: string | null;
+  close: string | null;
 }
 
 export interface UpdateOnboardingBody {
@@ -129,6 +150,48 @@ export interface UpdateOnboardingBody {
   lng?: number;
   permitKey?: string;
   photoKeys?: string[];
+  // An image key under the caller's uploads/ prefix; null clears the logo.
+  logoKey?: string | null;
+  contactPhone?: string;
+  description?: string;
+  hours?: ShopHoursDay[];
+  expressSlotsPerDay?: number;
+}
+
+export type BillingUnit = 'PER_KG' | 'PER_PIECE' | 'FLAT';
+
+// Owner/staff view of the service catalog (GET /shop/catalog).
+export interface ShopCatalogItem {
+  id: string;
+  code: string;
+  name: string;
+  billingUnit: BillingUnit;
+}
+
+// The caller's shop's priced services (GET /shop/services). serviceId is the
+// catalog id (the PUT key); id is the ShopService row id.
+export interface ShopServiceRow {
+  id: string;
+  serviceId: string;
+  code: string;
+  name: string;
+  billingUnit: BillingUnit;
+  ratePhp: string;
+  turnaroundHours: number;
+  active: boolean;
+}
+
+// PUT /shop/services/:serviceId — full replace; active is required.
+// ratePhp > 0, <= 99999, at most 2 decimals; turnaroundHours 1..720.
+export interface PutShopServiceBody {
+  ratePhp: number;
+  turnaroundHours: number;
+  active: boolean;
+}
+
+// GET /uploads/status — true only when R2 is configured.
+export interface UploadsStatus {
+  configured: boolean;
 }
 
 export interface RejectShopBody {
@@ -251,6 +314,12 @@ export interface MeView {
   phone: string | null; // +639XXXXXXXXX, or null until they add one
   displayName: string; // '' until they add one
   roles: UserRole[];
+  // True only when the current token carries a trusted, verified email.
+  // Always false under the dev x-dev-uid stub. Optional: older APIs omit it.
+  emailVerified?: boolean;
+  // The account has a verified email stored, so GET /shop/invites/pending can
+  // match invites. The address itself is never returned. Optional, as above.
+  inviteEmailOnFile?: boolean;
 }
 
 // PATCH /auth/me. phone takes any PH mobile form (see normalizePhMobile); the
@@ -279,6 +348,9 @@ export interface OrderView {
   deliveryFeePhp: string;
   serviceFeePhp: string;
   customerTotalPhp: string;
+  // What the shop is paid for this order (wash value minus commission), as
+  // stored by the pricing engine. Recomputed at weigh-in.
+  shopRemittancePhp?: string; // optional: older APIs may leave it out
   paidCashAt: string | null;
   createdAt: string;
   deliveredAt: string | null;
@@ -394,6 +466,31 @@ export interface RemittanceBatchView {
   createdAt: string;
 }
 
+// The shop's unbatched payout (GET /shop/remittance/pending): the sum of
+// payoutPhp over delivered orders not yet in a batch. totalPhp is 2dp.
+export interface RemittancePendingView {
+  totalPhp: string;
+  lineCount: number;
+  oldestLineAt: string | null; // ISO, null when nothing is pending
+}
+
+// One delivered order inside a payout batch. Money is 2dp strings.
+export interface RemittanceLineView {
+  id: string;
+  orderId: string;
+  orderCode: string;
+  deliveredAt: string | null;
+  washValuePhp: string;
+  commissionPhp: string;
+  payoutPhp: string;
+  createdAt: string;
+}
+
+// GET /shop/remittance/batches/:id — the batch plus its lines (oldest first).
+export interface RemittanceBatchDetailView extends RemittanceBatchView {
+  lines: RemittanceLineView[];
+}
+
 // Payout count + total per status over ALL batches (GET /admin/remittance/
 // summary) — independent of the list's status filter and row cap.
 export interface RemittanceStatusTotal {
@@ -487,4 +584,91 @@ export interface ZoneView {
 export interface CreateZoneBody {
   name: string;
   polygon: ZoneVertex[];
+}
+
+// ---------- Shop self-management (portal, B4) ----------
+
+export type PayoutMethod = 'GCASH' | 'BANK';
+
+// GET /shop/me payout account. The full number is never returned.
+export interface PayoutAccountView {
+  method: PayoutMethod;
+  accountName: string;
+  accountNumberMasked: string; // "•••• 1234"
+  bankName: string | null;
+  updatedAt: string | null;
+}
+
+// PUT /shop/payout-account. GCASH: a PH mobile, no bankName. BANK: 6–20
+// digits (spaces/dashes ignored) and a bankName.
+export interface PutPayoutAccountBody {
+  method: PayoutMethod;
+  accountName: string;
+  accountNumber: string;
+  bankName?: string;
+}
+
+// GET /shop/me (OWNER or STAFF; payoutAccount is null for none).
+export interface ShopProfileView {
+  id: string;
+  name: string;
+  address: string;
+  lat: string;
+  lng: string;
+  contactPhone: string | null;
+  description: string | null;
+  hours: ShopHoursDay[] | null;
+  expressSlotsPerDay: number;
+  status: ShopStatus;
+  verifiedAt: string | null;
+  payoutAccount: PayoutAccountView | null;
+  myRole: 'OWNER' | 'STAFF';
+  logoKey: string | null;
+  logoUrl: string | null; // presigned GET (5 min) when R2 is configured, else null
+}
+
+// PATCH /shop/me (OWNER; VERIFIED or REJECTED shops — 409 while onboarding).
+export interface UpdateShopProfileBody {
+  name?: string;
+  address?: string;
+  lat?: number;
+  lng?: number;
+  contactPhone?: string;
+  description?: string;
+  hours?: ShopHoursDay[];
+  expressSlotsPerDay?: number;
+  logoKey?: string | null; // null clears the logo
+}
+
+// GET /shop/members. id is the ShopMember id; email is null until the user
+// signs in with a verified email. Never carries a phone number.
+export interface ShopMemberView {
+  id: string;
+  userId: string;
+  role: 'OWNER' | 'STAFF';
+  name: string;
+  email: string | null;
+  joinedAt: string;
+}
+
+// GET/POST /shop/invites (OWNER): open invites.
+export interface ShopInviteView {
+  id: string;
+  email: string;
+  createdAt: string;
+}
+
+// GET /shop/invites/pending: open invites for the caller's stored verified
+// email. The invitee's email is never echoed.
+export interface PendingInviteView {
+  id: string;
+  shopName: string;
+  invitedByName: string;
+  createdAt: string;
+}
+
+// POST /shop/invites/:id/accept (200, also on a repeat by the same member).
+export interface AcceptedMemberView extends ShopMemberView {
+  shopId: string;
+  shopName: string;
 }

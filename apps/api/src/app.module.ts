@@ -14,6 +14,7 @@ import { ZonesModule } from './zones/zones.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { HealthController } from './health.controller';
+import { devModules } from './dev/dev-routes';
 import { envValidationSchema, envValidationOptions } from './config/env.validation';
 
 /*
@@ -45,6 +46,10 @@ import { envValidationSchema, envValidationOptions } from './config/env.validati
     ZonesModule,
     NotificationsModule,
     UploadsModule,
+    // DEV ONLY: /dev/* e2e fixtures, imported solely with AUTH_DEV_BYPASS=1 in
+    // development/test (throws on bypass anywhere else). Read after
+    // ConfigModule.forRoot above has loaded .env into process.env.
+    ...devModules(process.env),
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

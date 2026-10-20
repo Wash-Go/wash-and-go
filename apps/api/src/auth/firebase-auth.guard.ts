@@ -26,11 +26,12 @@ export class FirebaseAuthGuard implements CanActivate {
     if (isPublic) return true;
 
     const req = ctx.switchToHttp().getRequest<FastifyRequest & AuthedRequest>();
-    const uid = await this.auth.resolveFirebaseUid({
+    const identity = await this.auth.resolveIdentity({
       bearer: this.bearer(req),
       devUid: this.header(req, 'x-dev-uid'),
     });
-    req.authUser = await this.auth.resolveAuthedUser(uid);
+    req.authUser = await this.auth.resolveAuthedUser(identity.firebaseUid);
+    req.authEmailVerified = identity.emailVerified;
     return true;
   }
 

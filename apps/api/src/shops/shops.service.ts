@@ -34,10 +34,7 @@ export class ShopsService {
   // Single query with a nested include — no N+1 (perf P2). When a pickup location
   // is passed, annotate each shop with haversine distanceKm and sort nearest-first
   // (powers the "change laundry" chooser).
-  async listActiveWithServices(loc?: {
-    lat: number;
-    lng: number;
-  }): Promise<ShopView[]> {
+  async listActiveWithServices(loc?: { lat: number; lng: number }): Promise<ShopView[]> {
     const shops = await this.prisma.shop.findMany({
       // VERIFIED + active only — customers never see a shop still in onboarding.
       where: { active: true, status: 'VERIFIED' },
@@ -68,9 +65,7 @@ export class ShopsService {
       ...(loc
         ? {
             distanceKm:
-              Math.round(
-                haversineKm(loc, { lat: Number(s.lat), lng: Number(s.lng) }) * 10,
-              ) / 10,
+              Math.round(haversineKm(loc, { lat: Number(s.lat), lng: Number(s.lng) }) * 10) / 10,
           }
         : {}),
     }));
