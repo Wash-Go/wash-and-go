@@ -6,7 +6,19 @@ import { monogram } from '../../lib/monogram';
 // The shop's own mark: its logo (presigned URL from GET /shop/me) or, without
 // one or if the image fails, an initials monogram. null when there is
 // nothing to show (no name yet, or the draft default "My laundry").
-export function ShopMark({ name, logoUrl, large }: { name: string | null; logoUrl: string | null; large?: boolean }) {
+// `decorative`: the shop name is already visible beside the mark (header,
+// rail), so the image takes alt="" there; the Logo card keeps the full alt.
+export function ShopMark({
+  name,
+  logoUrl,
+  large,
+  decorative,
+}: {
+  name: string | null;
+  logoUrl: string | null;
+  large?: boolean;
+  decorative?: boolean;
+}) {
   const [broken, setBroken] = useState(false);
   useEffect(() => setBroken(false), [logoUrl]);
   const letters = monogram(name);
@@ -14,7 +26,7 @@ export function ShopMark({ name, logoUrl, large }: { name: string | null; logoUr
   if (logoUrl && !broken) {
     return (
       <span className={cls} data-testid="shop-mark">
-        <img src={logoUrl} alt={`${name ?? 'Shop'} logo`} onError={() => setBroken(true)} />
+        <img src={logoUrl} alt={decorative ? '' : `${name ?? 'Shop'} logo`} onError={() => setBroken(true)} />
       </span>
     );
   }
@@ -48,7 +60,7 @@ export function ShopLockup({
     <span className={`shop-lockup${className ? ` ${className}` : ''}`} data-testid="shop-lockup">
       {hasMark ? (
         <>
-          <ShopMark name={name} logoUrl={logoUrl} />
+          <ShopMark name={name} logoUrl={logoUrl} decorative />
           <span className="lockup-x" aria-hidden="true">
             ×
           </span>

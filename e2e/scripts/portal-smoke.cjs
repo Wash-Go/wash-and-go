@@ -6,7 +6,8 @@
 //    answers /health; otherwise builds apps/api if dist is missing and starts
 //    it the documented way (cd apps/api, SENTRY_DSN= , the design DB,
 //    AUTH_DEV_BYPASS=1, NODE_ENV=development), and stops it at the end.
-// 2. Builds the portal for e2e (build:portal-e2e: dev stub + NEXT_PUBLIC_E2E=1)
+// 2. Builds the portal for e2e (build:portal-e2e: dev stub + NEXT_PUBLIC_E2E=1,
+//    into NEXT_DIST_DIR, default .next-e2e, never the dev server's .next)
 //    unless PORTAL_SMOKE_SKIP_BUILD=1, then serves it with `next start` on
 //    PORTAL_SMOKE_PORT (default 3012). A busy port aborts: the script never
 //    kills a server it did not start.
@@ -26,6 +27,9 @@ const PORTAL_DIR = path.join(ROOT, 'apps', 'laundry-portal')
 const API_URL = (process.env.API_URL || 'http://localhost:4000').replace(/\/$/, '')
 const PORT = Number(process.env.PORTAL_SMOKE_PORT || 3012)
 const PORTAL = `http://localhost:${PORT}`
+// The smoke build lives in its own dist dir so it never overwrites the .next a
+// running `next dev` uses; build:portal-e2e and `next start` read the same value.
+const DIST_DIR = process.env.NEXT_DIST_DIR || '.next-e2e'
 const DB = process.env.E2E_DATABASE_URL || 'postgresql://ban@localhost:5432/wash_and_go_design'
 
 const started = []
@@ -102,13 +106,13 @@ async function main() {
   if (await portBusy(PORT)) throw new Error(`Port ${PORT} is busy; stop that server or set PORTAL_SMOKE_PORT`)
   if (process.env.PORTAL_SMOKE_SKIP_BUILD !== '1') {
     console.log('[smoke] building the portal for e2e')
-    if (run('pnpm', ['--filter', '@wash-and-go/e2e', 'build:portal-e2e'], { cwd: ROOT, env: { API_URL } }) !== 0) {
+    if (run('pnpm', ['--filter', '@wash-and-go/e2e', 'build:portal-e2e'], { cwd: ROOT, env: { API_URL, NEXT_DIST_DIR: DIST_DIR } }) !== 0) {
       throw new Error('Portal build failed')
     }
   }
   const nextBin = require.resolve('next/dist/bin/next', { paths: [PORTAL_DIR] })
   console.log(`[smoke] serving the portal on :${PORT}`)
-  start(process.execPath, [nextBin, 'start', '-p', String(PORT)], { cwd: PORTAL_DIR, env: process.env })
+  start(process.execPath, [nextBin, 'start', '-p', String(PORT)], { cwd: PORTAL_DIR, env: { ...process.env, NEXT_DIST_DIR: DIST_DIR } })
   await waitFor(`${PORTAL}/login`, 60_000, 'The portal')
 
   // 3. Specs. The API throttles each client to 60 requests a minute and every

@@ -7,7 +7,7 @@
     "smoke": "playwright test",
     "smoke:portal": "node scripts/portal-smoke.cjs",
     "smoke:portal-pwa": "playwright test --config playwright.pwa.config.ts",
-    "build:portal-e2e": "cd .. && NEXT_PUBLIC_API_URL=${API_URL:-http://localhost:4000} NEXT_PUBLIC_DEV_UID=dev-shop-owner NEXT_PUBLIC_E2E=1 pnpm --filter @wash-and-go/laundry-portal build",
+    "build:portal-e2e": "cd .. && NEXT_PUBLIC_API_URL=${API_URL:-http://localhost:4000} NEXT_PUBLIC_DEV_UID=dev-shop-owner NEXT_PUBLIC_E2E=1 NEXT_DIST_DIR=${NEXT_DIST_DIR:-.next-e2e} pnpm --filter @wash-and-go/laundry-portal build",
     "smoke:landing": "node scripts/landing-smoke.cjs",
     "smoke:portal-specs": "playwright test laundry-portal"
   },

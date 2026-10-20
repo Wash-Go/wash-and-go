@@ -128,7 +128,8 @@ export interface OwnerShopView {
   // The owner's own Express e-bike capacity (0..50).
   expressSlotsPerDay: number;
   // Derived: SUBMITTED or VERIFIED without a permit (uploads were off).
-  documentsPending: boolean;  // Shop logo (B8): the stored upload key, and a 5-minute presigned GET built
+  documentsPending: boolean;
+  // Shop logo (B8): the stored upload key, and a 5-minute presigned GET built
   // by the API only when R2 is configured; null otherwise.
   logoKey: string | null;
   logoUrl: string | null;
