@@ -29,6 +29,7 @@ import {
   type Section,
 } from '../../lib/shop-profile';
 import { hoursSummary, type StepErrors, type WizardDraft } from '../../lib/wizard';
+import { LogoCard } from './LogoCard';
 import { PayoutCard } from './PayoutCard';
 
 // Which draft fields belong to each section, so saving one section never
@@ -87,6 +88,18 @@ function StatusCard({ view }: { view: ShopProfileView }) {
   );
 }
 
+// Whether logo upload is open (R2 configured). Not polled.
+function useUploadsConfigured(): boolean {
+  const { me } = useConsole();
+  const q = useQuery({
+    queryKey: ['uploads-status', me.id],
+    queryFn: () => api.uploadsStatus(),
+    refetchInterval: false,
+    staleTime: 5 * 60_000,
+  });
+  return !!q.data?.configured;
+}
+
 function OwnerView({ view }: { view: ShopProfileView }) {
   const { me } = useConsole();
   const qc = useQueryClient();
@@ -96,6 +109,7 @@ function OwnerView({ view }: { view: ShopProfileView }) {
   const [errors, setErrors] = useState<Partial<Record<Section, StepErrors>>>({});
   const [saving, setSaving] = useState<Section | null>(null);
   const [onboarding, setOnboarding] = useState<string | null>(null);
+  const uploadsConfigured = useUploadsConfigured();
 
   const set = (patch: Partial<WizardDraft>) => setDraft((d) => ({ ...d, ...patch }));
 
@@ -179,6 +193,16 @@ function OwnerView({ view }: { view: ShopProfileView }) {
   return (
     <div className="shop-page" data-testid="shop-page">
       <StatusCard view={view} />
+      <LogoCard
+        name={view.name}
+        logoUrl={view.logoUrl}
+        hasLogo={!!view.logoKey}
+        uploadsConfigured={uploadsConfigured}
+        onSave={async (logoKey) => {
+          const updated = await api.updateShopMe({ logoKey });
+          qc.setQueryData(shopMeKey(me.id), updated);
+        }}
+      />
       {onboarding ? (
         <div className="notice notice-warn" role="alert">
           {onboarding} <Link href="/onboarding">Open the registration form</Link>
@@ -210,6 +234,7 @@ function StaffView({ view }: { view: ShopProfileView }) {
   return (
     <div className="shop-page" data-testid="shop-page">
       <StatusCard view={view} />
+      <LogoCard name={view.name} logoUrl={view.logoUrl} hasLogo={!!view.logoKey} uploadsConfigured={false} readOnly />
       <Card className="shop-card">
         <div className="shop-card-head">
           <h2>{view.name}</h2>

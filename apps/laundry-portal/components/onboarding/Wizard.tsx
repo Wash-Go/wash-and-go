@@ -28,6 +28,7 @@ import {
   type StepErrors,
   type WizardDraft,
 } from '../../lib/wizard';
+import { LogoCard } from '../shop/LogoCard';
 import { DetailsStep } from './DetailsStep';
 import { DocumentsStep } from './DocumentsStep';
 import { CheckRow, FieldError } from './fields';
@@ -252,7 +253,21 @@ export function Wizard({ startAt, onSaved }: { startAt?: number; onSaved?: (at: 
         {HEADLINES[step]}
       </h1>
 
-      {step === STEP.details ? <DetailsStep {...props} /> : null}
+      {step === STEP.details ? (
+        <>
+          <DetailsStep {...props} />
+          <LogoCard
+            name={draft.name || data.shop.name}
+            logoUrl={data.shop.logoUrl}
+            hasLogo={!!data.shop.logoKey}
+            uploadsConfigured={data.uploads.configured}
+            onSave={async (logoKey) => {
+              const shop = await api.updateShopOnboarding({ logoKey });
+              writeCache({ shop });
+            }}
+          />
+        </>
+      ) : null}
       {step === STEP.location ? <LocationStep {...props} /> : null}
       {step === STEP.services ? <ServicesStep {...props} /> : null}
       {step === STEP.hours ? <HoursStep {...props} /> : null}

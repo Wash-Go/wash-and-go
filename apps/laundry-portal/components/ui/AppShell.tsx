@@ -15,7 +15,9 @@ import { api } from '../../lib/api';
 import { ShopChip } from './Chip';
 import { NAV_ICONS } from './icons';
 import { Sheet } from './Sheet';
+import { ShopLockup } from './ShopLockup';
 import { StaleBanner } from './StaleBanner';
+import { ThemeSwitch } from './ThemeSwitch';
 
 // Portal frame (plan A2, preview B2/C1). Header: whale mark + shop name +
 // verification chip + "updated N s ago". Under 1024px a bottom tab bar
@@ -51,14 +53,19 @@ function Frame({ children }: { children: ReactNode }) {
   const now = useNow();
   const qc = useQueryClient();
 
-  // Staff have no owner onboarding view (OWNER-scoped), so their shop's name
-  // comes from GET /shop/me (OWNER or STAFF), the Shop page's own query.
+  // GET /shop/me (OWNER or STAFF), the Shop page's own query: the staff's shop
+  // name, and the logo for the identity lockup (B8). logoUrl is a 5-minute
+  // presigned link, so it is refetched on mount and focus and treated as stale
+  // after 4 minutes; the mark falls back to the monogram if the image fails.
   const profile = useQuery({
     queryKey: shopMeKey(me.id),
     queryFn: () => api.shopMe(),
-    enabled: !shop,
     refetchInterval: false,
+    staleTime: 4 * 60_000,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
+  const logoUrl = profile.data?.logoUrl ?? null;
   const shopName = shop?.name || profile.data?.name || 'Your shop';
   const role = me.roles.includes('SHOP_OWNER') ? 'Owner' : 'Staff';
   const who = me.displayName ? `${role} · ${me.displayName}` : role;
@@ -68,7 +75,7 @@ function Frame({ children }: { children: ReactNode }) {
     <div className="shell">
       <nav className="rail" aria-label="Main">
         <div className="rail-who">
-          <img src="/brand/logo-mark-96.webp" alt="" width={44} height={23} />
+          <ShopLockup name={shopName} logoUrl={logoUrl} whaleClassName="rail-whale" whaleWidth={44} whaleHeight={23} />
           <div>
             {shopName}
             <small>{who}</small>
@@ -86,6 +93,7 @@ function Frame({ children }: { children: ReactNode }) {
           );
         })}
         <div className="rail-foot">
+          <ThemeSwitch />
           <button type="button" onClick={() => void signOut()}>
             <LogOut aria-hidden="true" />
             Sign out
@@ -95,7 +103,14 @@ function Frame({ children }: { children: ReactNode }) {
 
       <div className="shell-main">
         <header className="hd" data-testid="shell-header">
-          <img className="hd-mark" src="/brand/logo-mark-96.webp" alt="" width={34} height={18} />
+          <ShopLockup
+            className="hd-lockup"
+            name={shopName}
+            logoUrl={logoUrl}
+            whaleClassName="hd-mark"
+            whaleWidth={34}
+            whaleHeight={18}
+          />
           <div className="hd-name">
             <span>{shopName}</span>
             <small aria-live="off" data-testid="updated-ago">
@@ -158,6 +173,7 @@ function Frame({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
+          <ThemeSwitch />
           <button type="button" onClick={() => void signOut()}>
             <LogOut aria-hidden="true" />
             Sign out
