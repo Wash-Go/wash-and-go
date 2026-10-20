@@ -62,6 +62,13 @@ test.describe('shop and staff (phone)', () => {
     await page.goto('/shop');
     await expect(page.getByRole('heading', { name: 'Shop', exact: true })).toBeVisible();
     await expect(page.getByTestId('shop-status')).toContainText('Verified partner');
+    // B8: the header lockup shows the shop's initials, and logo upload is gated
+    // while document upload (R2) is not configured locally.
+    await expect(page.getByTestId('shell-header').getByTestId('shop-mark')).toHaveText('TL');
+    const logo = page.getByTestId('logo-card');
+    await expect(logo).toContainText('Logo upload opens with document upload; until then your shop shows its initials.');
+    await expect(logo.getByTestId('shop-mark')).toHaveText('TL');
+    await expect(logo.getByRole('button', { name: /logo/i })).toHaveCount(0);
     const profile = page.getByTestId('shop-profile');
     await expect(profile.getByLabel('Laundry name')).toHaveValue('Tetuan Laundry Hub');
 

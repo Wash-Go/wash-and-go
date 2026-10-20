@@ -129,6 +129,48 @@ test.describe('laundry-portal shell (phone)', () => {
   });
 });
 
+test.describe('theme (B8: light by default)', () => {
+  // The OS asks for dark: the portal still opens light until dark is chosen.
+  test.use({ viewport: PHONE, colorScheme: 'dark' });
+
+  test('light is the default with no stored choice, and the switch persists across reload', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByTestId('shell-header')).toBeVisible();
+    const html = page.locator('html');
+    await expect(html).not.toHaveAttribute('data-theme', 'dark');
+    const ground = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    expect(await ground()).toBe('rgb(245, 248, 250)'); // ground #F5F8FA
+
+    await page.locator('nav.tb').getByRole('button', { name: 'More' }).click();
+    const sw = page.getByRole('dialog', { name: 'More' }).getByRole('switch', { name: /Dark mode/ });
+    await expect(sw).toHaveAttribute('aria-checked', 'false');
+    await sw.click();
+    await expect(sw).toHaveAttribute('aria-checked', 'true');
+    await expect(html).toHaveAttribute('data-theme', 'dark');
+    expect(await page.evaluate(() => localStorage.getItem('wg-portal-theme'))).toBe('dark');
+
+    await page.reload();
+    await expect(html).toHaveAttribute('data-theme', 'dark');
+    expect(await ground()).toBe('rgb(14, 26, 36)'); // dark-ground #0E1A24
+
+    // Back to light: the choice is cleared, not stored as "light".
+    await page.goto('/help');
+    const helpSwitch = page.locator('main').getByRole('switch', { name: /Dark mode/ });
+    await expect(helpSwitch).toHaveAttribute('aria-checked', 'true');
+    await helpSwitch.click();
+    await expect(html).not.toHaveAttribute('data-theme', 'dark');
+    expect(await page.evaluate(() => localStorage.getItem('wg-portal-theme'))).toBeNull();
+  });
+
+  test('the header shows the shop monogram × the whale', async ({ page }) => {
+    await page.goto('/');
+    const lockup = page.getByTestId('shell-header').getByTestId('shop-lockup');
+    await expect(lockup.getByTestId('shop-mark')).toHaveText('TL');
+    await expect(lockup.getByText('×')).toBeVisible();
+    await expect(lockup.locator('img.hd-mark')).toBeVisible();
+  });
+});
+
 test.describe('laundry-portal shell (desktop)', () => {
   test.use({ viewport: DESKTOP });
 
@@ -141,6 +183,8 @@ test.describe('laundry-portal shell (desktop)', () => {
     }
     await expect(rail.getByRole('link', { name: 'Payouts' })).toHaveAttribute('aria-current', 'page');
     await expect(rail.getByRole('button', { name: 'Sign out' })).toBeVisible();
+    await expect(rail.getByRole('switch', { name: /Dark mode/ })).toHaveAttribute('aria-checked', 'false');
+    await expect(rail.getByTestId('shop-mark')).toHaveText('TL');
     await expect(page.locator('nav.tb')).toBeHidden();
     await rail.getByRole('link', { name: 'Staff' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Staff' })).toBeVisible();

@@ -77,6 +77,8 @@ async function main() {
     for (const scheme of ['light', 'dark']) {
       for (const width of [390, 1280]) {
         const ctx = await browser.newContext({ viewport: { width, height: width === 390 ? 844 : 800 }, colorScheme: scheme, serviceWorkers: 'block' })
+        // Light is the default regardless of the OS (B8); dark is the stored choice.
+        if (scheme === 'dark') await ctx.addInitScript(() => { try { localStorage.setItem('wg-portal-theme', 'dark') } catch {} })
         for (const [name, url, uid] of routes) {
           const page = await ctx.newPage()
           if (uid) await page.route(`${API}/**`, (r) => r.continue({ headers: { ...r.request().headers(), 'x-dev-uid': uid } }))
