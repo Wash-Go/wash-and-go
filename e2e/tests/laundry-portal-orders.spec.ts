@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { seedAtShopOrder } from '../lib/seed';
+import { cancelOrder, seedAtShopOrder } from '../lib/seed';
 import { deleteSeededOrders } from '../fixtures/orders';
 
 /*
@@ -72,8 +72,15 @@ test.describe('orders queue (phone)', () => {
   test('Load more on Done pages older orders with the before cursor', async ({ page }) => {
     // ?donePage=3 shrinks the Done page (a test hook, only in builds made with
     // NEXT_PUBLIC_E2E=1: `build:portal-e2e` or the dev webServer) so the design DB's
-    // cancelled orders, including those this spec cancels, fill more than one
-    // page without seeding 100+ delivered orders.
+    // done orders fill more than one page without seeding 100+ of them.
+    // Four cancelled orders of its own (deleted in afterAll with the rest), so
+    // the cancelled list alone spans more than one 3-order page even on a
+    // freshly cleaned DB (Done pages DELIVERED and CANCELLED separately).
+    for (let i = 0; i < 4; i++) {
+      const o = await seedAtShopOrder(); // at the owner's shop (Tetuan)
+      seeded.push(o);
+      await cancelOrder(o.id);
+    }
     const before: string[] = [];
     page.on('request', (r) => {
       if (r.url().includes('before=')) before.push(r.url());
