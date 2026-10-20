@@ -13,7 +13,10 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:seed": "ts-node prisma/seed.ts"
+    "prisma:seed": "ts-node prisma/seed.ts",
+    "demo:seed": "ts-node scripts/demo/seed.ts",
+    "demo:reset": "ts-node scripts/demo/reset.ts",
+    "demo:order": "ts-node scripts/demo/order.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1095.0",
