@@ -10,6 +10,11 @@ marked.
 Date 2026-10-25. Branch for the build: new `feat/pilot-ready` off `main` after PR #13 merges
 (this plan rides on `feat/portal-full` until then). PRs per slice, target `main`.
 
+## Dependency: which side first (2026-10-25)
+The council decision in `docs/decisions/2026-10-25-focus-side/README.md` (working pick Option 1, customer-side
+concierge, reversal gate = week 1 shop survey) changes T3, T4 and T5 pricing copy and the portal's weigh sheet.
+T0, T1, T2 and T6 are side-neutral and proceed. No side-specific pricing code before the week 2 gate.
+
 ## Decisions (Ban, 2026-10-25)
 
 - **D1 Pilot shape: closed pilot.** 1 to 2 partner laundries, 2 to 4 riders, invited customers.
