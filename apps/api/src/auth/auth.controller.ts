@@ -5,10 +5,12 @@ import { IsString, MaxLength, MinLength, ValidateIf } from 'class-validator';
 import type { User } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { Public } from './public.decorator';
-import { CurrentUser } from './current-user.decorator';
+import { CurrentUser, EmailVerified } from './current-user.decorator';
 import { visiblePhone } from '../users/phone';
 
-class SessionDto {
+// Only the token: User.email (which staff invites match on) is read from the
+// verified token, so any extra body field (email, roles) is refused.
+export class SessionDto {
   @IsString()
   @MinLength(1)
   idToken!: string;
@@ -32,20 +34,29 @@ export class UpdateMeDto {
   phone?: string;
 }
 
-type MeResponse = {
+export type MeResponse = {
   id: string;
   // null until the user adds a mobile number (the placeholder is never shown).
   phone: string | null;
   displayName: string;
   roles: string[];
+  // The current token's email is verified by a trusted provider (password,
+  // google.com, emailLink). False for the dev stub. The portal prompts for
+  // verification when false, since staff invites match only verified emails.
+  emailVerified: boolean;
+  // A verified email is stored on the account (User.email) — what staff
+  // invites match on. The address itself is never returned here.
+  inviteEmailOnFile: boolean;
 };
 
-export function toMe(user: User): MeResponse {
+export function toMe(user: User, emailVerified: boolean): MeResponse {
   return {
     id: user.id,
     phone: visiblePhone(user.phone),
     displayName: user.displayName,
     roles: user.roles,
+    emailVerified,
+    inviteEmailOnFile: user.email != null,
   };
 }
 
@@ -62,14 +73,16 @@ export class AuthController {
   @Public()
   @Post('session')
   async session(@Body() dto: SessionDto): Promise<MeResponse> {
-    const user = await this.auth.sessionUpsert({ bearer: dto.idToken });
-    return toMe(user);
+    const { user, emailVerified } = await this.auth.startSession({
+      bearer: dto.idToken,
+    });
+    return toMe(user, emailVerified);
   }
 
   @ApiBearerAuth()
   @Get('me')
-  me(@CurrentUser() user: User): MeResponse {
-    return toMe(user);
+  me(@CurrentUser() user: User, @EmailVerified() emailVerified: boolean): MeResponse {
+    return toMe(user, emailVerified);
   }
 
   // Any signed-in role edits their OWN name / mobile number (U0 T4). 400 on a
@@ -78,8 +91,9 @@ export class AuthController {
   @Patch('me')
   async updateMe(
     @CurrentUser() user: User,
+    @EmailVerified() emailVerified: boolean,
     @Body() dto: UpdateMeDto,
   ): Promise<MeResponse> {
-    return toMe(await this.auth.updateMe(user, dto));
+    return toMe(await this.auth.updateMe(user, dto), emailVerified);
   }
 }

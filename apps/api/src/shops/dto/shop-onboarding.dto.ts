@@ -1,24 +1,19 @@
-import {
-  ArrayMaxSize,
-  IsArray,
-  IsLatitude,
-  IsLongitude,
-  IsOptional,
-  IsString,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
+import { ArrayMaxSize, IsArray, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { ShopProfileFieldsDto } from './shop-profile.dto';
+
+export { HHMM, ShopHoursDayDto } from '../shop-hours';
 
 // Self-serve shop onboarding (owner-driven). All fields optional on update — the
 // owner fills the wizard incrementally; submit() enforces the required set.
-export class UpdateOnboardingDto {
-  @IsOptional() @IsString() @MinLength(1) @MaxLength(120) name?: string;
-  @IsOptional() @IsString() @MinLength(1) @MaxLength(200) address?: string;
-  @IsOptional() @IsLatitude() lat?: number;
-  @IsOptional() @IsLongitude() lng?: number;
+// Profile fields come from the shared base; proof keys are onboarding-only.
+export class UpdateOnboardingDto extends ShopProfileFieldsDto {
   // R2 object keys returned by POST /uploads/presign.
   @IsOptional() @IsString() @MaxLength(300) permitKey?: string;
-  @IsOptional() @IsArray() @ArrayMaxSize(8) @IsString({ each: true }) photoKeys?: string[];
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(8)
+  @IsString({ each: true })
+  photoKeys?: string[];
 }
 
 export class RejectShopDto {

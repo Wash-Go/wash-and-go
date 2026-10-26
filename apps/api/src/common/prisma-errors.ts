@@ -12,3 +12,8 @@ export function isUniqueViolation(e: unknown, field: string): boolean {
     )
   );
 }
+
+// Any unique-constraint violation (P2002), whatever the index.
+export function isP2002(e: unknown): boolean {
+  return e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002';
+}

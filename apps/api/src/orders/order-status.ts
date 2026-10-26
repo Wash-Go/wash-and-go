@@ -68,3 +68,9 @@ export function canRoleDrive(
 export function isTerminal(status: OrderStatus): boolean {
   return Object.keys(TRANSITIONS[status]).length === 0;
 }
+
+// Every status with outgoing edges — what GET /orders?active=true lists (the
+// shop queue). parity.spec.ts pins this to domain STATUS_META.terminal.
+export const ACTIVE_ORDER_STATUSES: readonly OrderStatus[] = Object.values(OrderStatus).filter(
+  (s) => !isTerminal(s),
+);

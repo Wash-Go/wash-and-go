@@ -17,11 +17,16 @@ export class ShopsController {
   @Get()
   @ApiQuery({ name: 'lat', required: false })
   @ApiQuery({ name: 'lng', required: false })
-  @ApiOperation({ summary: 'Active shops + services; nearest-first when lat/lng given' })
+  @ApiOperation({
+    summary: 'Active shops + services; nearest-first when lat/lng given',
+  })
   list(@Query('lat') lat?: string, @Query('lng') lng?: string) {
     const loc =
       lat != null && lng != null && lat !== '' && lng !== ''
-        ? { lat: parseFiniteNumber(lat, 'lat'), lng: parseFiniteNumber(lng, 'lng') }
+        ? {
+            lat: parseFiniteNumber(lat, 'lat'),
+            lng: parseFiniteNumber(lng, 'lng'),
+          }
         : undefined;
     return this.shops.listActiveWithServices(loc);
   }

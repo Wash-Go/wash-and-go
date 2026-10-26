@@ -48,7 +48,12 @@ describe('AdminShopsService', () => {
   it('create shapes decimals to strings, defaults counts to 0, and is VERIFIED (admin-trusted)', async () => {
     const create = jest.fn().mockResolvedValue(rawShop);
     const { svc } = makeService({ shop: { create } });
-    const view = await svc.create({ name: 'Suds', address: 'Tetuan', lat: 6.9, lng: 122.07 });
+    const view = await svc.create({
+      name: 'Suds',
+      address: 'Tetuan',
+      lat: 6.9,
+      lng: 122.07,
+    });
     expect(view.commissionPct).toBe('12.00');
     expect(view.lat).toBe('6.9');
     expect(view.serviceCount).toBe(0);
@@ -61,13 +66,17 @@ describe('AdminShopsService', () => {
   it('list shapes each shop with service + member counts', async () => {
     const { svc } = makeService({
       shop: {
-        findMany: jest.fn().mockResolvedValue([
-          { ...rawShop, _count: { services: 2, members: 3 } },
-        ]),
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ ...rawShop, _count: { services: 2, members: 3 } }]),
       },
     });
     const [view] = await svc.list();
-    expect(view).toMatchObject({ status: 'VERIFIED', serviceCount: 2, memberCount: 3 });
+    expect(view).toMatchObject({
+      status: 'VERIFIED',
+      serviceCount: 2,
+      memberCount: 3,
+    });
     expect(view.commissionPct).toBe('12.00');
   });
 
@@ -77,11 +86,28 @@ describe('AdminShopsService', () => {
         findUnique: jest.fn().mockResolvedValue({
           ...rawShop,
           services: [
-            { id: 'ss1', serviceId: 'wdf', ratePhp: D(25), turnaroundHours: 24, active: true, service: { code: 'WDF', name: 'Wash & Fold' } },
+            {
+              id: 'ss1',
+              serviceId: 'wdf',
+              ratePhp: D(25),
+              turnaroundHours: 24,
+              active: true,
+              service: { code: 'WDF', name: 'Wash & Fold' },
+            },
           ],
           members: [
-            { id: 'm1', userId: 'u1', role: 'OWNER', user: { displayName: 'Owner', phone: '+63917' } },
-            { id: 'm2', userId: 'u2', role: 'STAFF', user: { displayName: '', phone: 'pending:fb-u2' } },
+            {
+              id: 'm1',
+              userId: 'u1',
+              role: 'OWNER',
+              user: { displayName: 'Owner', phone: '+63917' },
+            },
+            {
+              id: 'm2',
+              userId: 'u2',
+              role: 'STAFF',
+              user: { displayName: '', phone: 'pending:fb-u2' },
+            },
           ],
         }),
       },
@@ -89,13 +115,19 @@ describe('AdminShopsService', () => {
     const detail = await svc.get('s1');
     expect(detail.services).toHaveLength(1);
     expect(detail.services[0]).toMatchObject({ code: 'WDF', ratePhp: '25.00' });
-    expect(detail.members[0]).toMatchObject({ role: 'OWNER', displayName: 'Owner', phone: '+63917' });
+    expect(detail.members[0]).toMatchObject({
+      role: 'OWNER',
+      displayName: 'Owner',
+      phone: '+63917',
+    });
     // U0 T4: a member still on the placeholder phone shows as null.
     expect(detail.members[1].phone).toBeNull();
   });
 
   it('get 404s a missing shop', async () => {
-    const { svc } = makeService({ shop: { findUnique: jest.fn().mockResolvedValue(null) } });
+    const { svc } = makeService({
+      shop: { findUnique: jest.fn().mockResolvedValue(null) },
+    });
     await expect(svc.get('nope')).rejects.toBeInstanceOf(NotFoundException);
   });
 
@@ -110,14 +142,16 @@ describe('AdminShopsService', () => {
     });
     const view = await svc.update('s1', { expressSlotsPerDay: 9 });
     expect(view.expressSlotsPerDay).toBe(9);
-    expect(update.mock.calls[0][0].data).toMatchObject({ expressSlotsPerDay: 9 });
+    expect(update.mock.calls[0][0].data).toMatchObject({
+      expressSlotsPerDay: 9,
+    });
   });
 
   it('update 404s a missing shop', async () => {
-    const { svc } = makeService({ shop: { findUnique: jest.fn().mockResolvedValue(null) } });
-    await expect(svc.update('nope', { active: false })).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    const { svc } = makeService({
+      shop: { findUnique: jest.fn().mockResolvedValue(null) },
+    });
+    await expect(svc.update('nope', { active: false })).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('addService rejects an unknown catalog id', async () => {
@@ -126,18 +160,30 @@ describe('AdminShopsService', () => {
       serviceCatalogItem: { findUnique: jest.fn().mockResolvedValue(null) },
     });
     await expect(
-      svc.addService('s1', { serviceId: 'nope', ratePhp: 100, turnaroundHours: 24 }),
+      svc.addService('s1', {
+        serviceId: 'nope',
+        ratePhp: 100,
+        turnaroundHours: 24,
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('addService 409s when the shop already offers the service', async () => {
     const { svc } = makeService({
       shop: { findUnique: jest.fn().mockResolvedValue({ id: 's1' }) },
-      serviceCatalogItem: { findUnique: jest.fn().mockResolvedValue({ id: 'wdf' }) },
-      shopService: { findUnique: jest.fn().mockResolvedValue({ id: 'existing' }) },
+      serviceCatalogItem: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'wdf' }),
+      },
+      shopService: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'existing' }),
+      },
     });
     await expect(
-      svc.addService('s1', { serviceId: 'wdf', ratePhp: 100, turnaroundHours: 24 }),
+      svc.addService('s1', {
+        serviceId: 'wdf',
+        ratePhp: 100,
+        turnaroundHours: 24,
+      }),
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
@@ -147,9 +193,9 @@ describe('AdminShopsService', () => {
         findUnique: jest.fn().mockResolvedValue({ id: 'ss1', shopId: 'OTHER', service: {} }),
       },
     });
-    await expect(
-      svc.updateService('s1', 'ss1', { active: false }),
-    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(svc.updateService('s1', 'ss1', { active: false })).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 
   it('addMember rejects an unknown user', async () => {
@@ -157,18 +203,20 @@ describe('AdminShopsService', () => {
       shop: { findUnique: jest.fn().mockResolvedValue({ id: 's1' }) },
       user: { findUnique: jest.fn().mockResolvedValue(null) },
     });
-    await expect(
-      svc.addMember('s1', { userId: 'ghost', role: 'STAFF' }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(svc.addMember('s1', { userId: 'ghost', role: 'STAFF' })).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 
   it('addMember reports a member still on the placeholder phone as null', async () => {
     const { svc } = makeService({
       shop: { findUnique: jest.fn().mockResolvedValue({ id: 's1' }) },
       user: {
-        findUnique: jest
-          .fn()
-          .mockResolvedValue({ id: 'u2', displayName: '', phone: 'pending:fb-u2' }),
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'u2',
+          displayName: '',
+          phone: 'pending:fb-u2',
+        }),
       },
       shopMember: {
         findUnique: jest.fn().mockResolvedValue(null),
@@ -210,7 +258,9 @@ describe('AdminShopsService', () => {
         findUnique: jest.fn().mockResolvedValue({ status: 'SUBMITTED' }),
         update: jest.fn().mockResolvedValue(verifiedRow('VERIFIED')),
       },
-      shopMember: { findFirst: jest.fn().mockResolvedValue({ userId: 'owner1' }) },
+      shopMember: {
+        findFirst: jest.fn().mockResolvedValue({ userId: 'owner1' }),
+      },
     });
     const view = await svc.verify('s1');
     expect(view.status).toBe('VERIFIED');
@@ -223,8 +273,13 @@ describe('AdminShopsService', () => {
   it('reject sets REJECTED + reason and notifies the owner', async () => {
     const update = jest.fn().mockResolvedValue(verifiedRow('REJECTED'));
     const { svc, notifications } = makeService({
-      shop: { findUnique: jest.fn().mockResolvedValue({ status: 'SUBMITTED' }), update },
-      shopMember: { findFirst: jest.fn().mockResolvedValue({ userId: 'owner1' }) },
+      shop: {
+        findUnique: jest.fn().mockResolvedValue({ status: 'SUBMITTED' }),
+        update,
+      },
+      shopMember: {
+        findFirst: jest.fn().mockResolvedValue({ userId: 'owner1' }),
+      },
     });
     await svc.reject('s1', 'blurry permit');
     expect(update.mock.calls[0][0].data).toMatchObject({

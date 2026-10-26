@@ -7,6 +7,7 @@ import { Prisma, type User } from '@prisma/client';
 import { AuthService } from './auth.service';
 import type { FirebaseService } from './firebase.service';
 import type { UsersRepository } from '../users/users.repository';
+import type { VerifiedEmailService } from './verified-email.service';
 
 function makeUser(overrides: Partial<User> = {}): User {
   return {
@@ -27,6 +28,7 @@ describe('AuthService', () => {
     Pick<UsersRepository, 'findByFirebaseUid' | 'upsertByFirebaseUid' | 'updateProfile'>
   >;
   let service: AuthService;
+  let emailSync: { sync: jest.Mock };
 
   beforeEach(() => {
     firebase = {
@@ -42,9 +44,12 @@ describe('AuthService', () => {
     } as unknown as jest.Mocked<
       Pick<UsersRepository, 'findByFirebaseUid' | 'upsertByFirebaseUid' | 'updateProfile'>
     >;
+    // Pass-through by default; specific tests assert what it is handed.
+    emailSync = { sync: jest.fn((u: User) => Promise.resolve(u)) };
     service = new AuthService(
       firebase as unknown as FirebaseService,
       users as unknown as UsersRepository,
+      emailSync as unknown as VerifiedEmailService,
     );
   });
 
@@ -90,6 +95,39 @@ describe('AuthService', () => {
       await expect(
         service.resolveFirebaseUid({ bearer: null, devUid: null }),
       ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+  });
+
+  // GET /auth/me reports emailVerified so the portal can prompt for
+  // verification before showing pending staff invites.
+  describe('resolveIdentity', () => {
+    it('a bearer with a verified password-provider email → emailVerified true', async () => {
+      firebase.verifyIdToken.mockResolvedValue({
+        firebaseUid: 'fb-x',
+        email: 'a@example.com',
+        emailVerified: true,
+        signInProvider: 'password',
+      });
+      await expect(service.resolveIdentity({ bearer: 'tok', devUid: null })).resolves.toEqual({
+        firebaseUid: 'fb-x',
+        emailVerified: true,
+      });
+    });
+
+    it.each([
+      ['unverified', { emailVerified: false, signInProvider: 'password' }],
+      ['phone provider', { emailVerified: true, signInProvider: 'phone' }],
+    ])('a bearer with %s email → emailVerified false', async (_l, over) => {
+      firebase.verifyIdToken.mockResolvedValue({ firebaseUid: 'fb-x', email: 'a@example.com', ...over });
+      expect((await service.resolveIdentity({ bearer: 'tok', devUid: null })).emailVerified).toBe(false);
+    });
+
+    it('the dev stub is never email-verified', async () => {
+      (firebase as { devBypass: boolean }).devBypass = true;
+      await expect(service.resolveIdentity({ bearer: null, devUid: 'dev-abc' })).resolves.toEqual({
+        firebaseUid: 'dev-abc',
+        emailVerified: false,
+      });
     });
   });
 
@@ -139,6 +177,53 @@ describe('AuthService', () => {
       await expect(service.sessionUpsert({ bearer: null })).rejects.toBeInstanceOf(
         UnauthorizedException,
       );
+      expect(emailSync.sync).not.toHaveBeenCalled();
+    });
+
+    // The session hook only syncs User.email from the VERIFIED token; invites
+    // are accepted explicitly via POST /shop/invites/:id/accept.
+    it('hands the upserted user and the VERIFIED identity to the email sync, returning its result', async () => {
+      const identity = {
+        firebaseUid: 'fb-new',
+        email: 'staff@example.com',
+        emailVerified: true,
+        signInProvider: 'google.com',
+      };
+      firebase.verifyIdToken.mockResolvedValue(identity);
+      const u = makeUser({ firebaseUid: 'fb-new' });
+      const synced = makeUser({ firebaseUid: 'fb-new', email: 'staff@example.com' } as Partial<User>);
+      users.upsertByFirebaseUid.mockResolvedValue(u);
+      emailSync.sync.mockResolvedValue(synced);
+
+      const result = await service.startSession({ bearer: 'tok' });
+
+      expect(firebase.verifyIdToken).toHaveBeenCalledWith('tok');
+      expect(emailSync.sync).toHaveBeenCalledWith(u, identity);
+      expect(result).toEqual({ user: synced, emailVerified: true });
+      // The synced user keeps the roles it had: nothing is granted at sign-in.
+      expect(result.user.roles).toEqual(['CUSTOMER']);
+    });
+
+    it.each([
+      ['unverified', { emailVerified: false, signInProvider: 'password' }],
+      ['custom-token provider', { emailVerified: true, signInProvider: 'custom' }],
+      ['no email', { email: undefined, emailVerified: true, signInProvider: 'password' }],
+    ])('startSession reports emailVerified false for %s', async (_l, over) => {
+      firebase.verifyIdToken.mockResolvedValue({ firebaseUid: 'fb-new', email: 'a@example.com', ...over });
+      users.upsertByFirebaseUid.mockResolvedValue(makeUser());
+      expect((await service.startSession({ bearer: 'tok' })).emailVerified).toBe(false);
+    });
+
+    it('a token that fails verification never reaches the email sync', async () => {
+      firebase.verifyIdToken.mockRejectedValue(new Error('bad token'));
+      await expect(service.sessionUpsert({ bearer: 'forged' })).rejects.toThrow('bad token');
+      expect(emailSync.sync).not.toHaveBeenCalled();
+    });
+
+    it('sessionUpsert accepts only a bearer — there is no email input to forge', () => {
+      // Compile-time guard made explicit: the signature has one field.
+      const call: Parameters<AuthService['sessionUpsert']>[0] = { bearer: 'x' };
+      expect(Object.keys(call)).toEqual(['bearer']);
     });
   });
 
