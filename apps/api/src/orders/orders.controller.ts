@@ -4,6 +4,7 @@ import {
   Get,
   Headers,
   Param,
+  ParseBoolPipe,
   ParseEnumPipe,
   Post,
   Query,
@@ -134,9 +135,16 @@ export class OrdersController {
   @Get()
   @ApiQuery({ name: 'status', enum: OrderStatus, required: false })
   @ApiQuery({ name: 'q', required: false, description: 'search by order code' })
-  @ApiQuery({ name: 'limit', required: false, description: 'page size (default 50, max 100)' })
-  @ApiQuery({ name: 'before', required: false, description: 'order id cursor for the next page' })
-  @ApiOperation({ summary: 'List orders visible to the caller (paged, newest first)' })
+  @ApiQuery({
+    name: 'active',
+    required: false,
+    type: Boolean,
+    description:
+      'true = every non-terminal order (not DELIVERED/CANCELLED), oldest first, one page (default 200, max 500); not with status or before',
+  })
+  @ApiQuery({ name: 'limit', required: false, description: 'page size (default 50, max 100; active: default 200, max 500)' })
+  @ApiQuery({ name: 'before', required: false, description: 'order id cursor for the next page (not with active)' })
+  @ApiOperation({ summary: 'List orders visible to the caller (paged, newest first; ?active=true for the open queue)' })
   list(
     @CurrentUser() user: User,
     // Validate the enum so a garbage ?status=foo is a 400, not a Prisma 500.
@@ -145,8 +153,11 @@ export class OrdersController {
     @Query('q') q?: string,
     @Query('limit') limit?: string,
     @Query('before') before?: string,
+    // 'true'/'false' only; anything else is a 400.
+    @Query('active', new ParseBoolPipe({ optional: true })) active?: boolean,
   ) {
     return this.orders.listOrders(user, {
+      active: active === true,
       status,
       q,
       limit: limit != null && limit !== '' ? Number(limit) : undefined,

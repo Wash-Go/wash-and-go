@@ -1,6 +1,7 @@
 import {
   loadCategory,
   MAX_WEIGH_KG,
+  peso,
   type OrderStatus,
   type OrderView,
 } from '@wash-and-go/domain';
@@ -72,4 +73,33 @@ export function readyBlockedReason(
   to: OrderStatus,
 ): string | null {
   return to === 'READY_FOR_RETURN' && o.weightKg == null ? READY_NEEDS_WEIGHT : null;
+}
+
+// Weigh sheet copy (preview B3/B3b). The shop confirms the weight and the
+// customer is told the new total; there is no approval step in this slice
+// (plan Decisions), so the button names the outcome: "Confirm ₱149.50".
+export function confirmLabel(totalPhp: string, second: boolean): string {
+  return `${second ? 'Yes, confirm' : 'Confirm'} ${peso(totalPhp)}`;
+}
+
+// "4.1 kg × ₱25.00": the rate is derived from the priced wash value, so it is
+// shown only when it reproduces that value to the centavo.
+export function washLine(kg: number, washValuePhp: string): string {
+  const wash = Number(washValuePhp);
+  const base = `${formatKg(kg)} kg`;
+  if (!(kg > 0) || !Number.isFinite(wash)) return base;
+  const rate = Math.round((wash / kg) * 100) / 100;
+  return Math.round(rate * kg * 100) === Math.round(wash * 100) ? `${base} × ${peso(rate)}` : base;
+}
+
+export function estimateNote(firstName: string, bookedTotalPhp: string): string {
+  return `${firstName || 'The customer'} booked at ${peso(bookedTotalPhp)} and will be told the new total.`;
+}
+
+// Second-confirm hint: from 10 kg up, name the likely slipped decimal.
+export function scaleCheckHint(kg: number): string {
+  const shown = `${formatKg(kg)} kg`;
+  return kg >= 10
+    ? `Check the scale shows ${shown}, not ${formatKg(kg / 10)} kg, before you confirm.`
+    : `Check the scale shows ${shown} before you confirm.`;
 }

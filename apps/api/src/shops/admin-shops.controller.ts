@@ -36,7 +36,9 @@ export class AdminShopsController {
 
   @Get()
   @Roles('ADMIN')
-  @ApiOperation({ summary: 'List all shops (incl. inactive) with margin fields' })
+  @ApiOperation({
+    summary: 'List all shops (incl. inactive) with margin fields',
+  })
   list() {
     return this.shops.list();
   }

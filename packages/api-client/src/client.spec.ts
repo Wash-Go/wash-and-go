@@ -320,4 +320,198 @@ describe('ApiClient', () => {
     expect(url).toBe('http://api.test/admin/remittance/summary');
     expect(init.method).toBe('GET');
   });
+
+  describe('shop wizard endpoints', () => {
+    const make = (body: unknown) => {
+      const fetchFn = jest.fn().mockResolvedValue(res(200, body));
+      const client = new ApiClient({ baseUrl: 'http://api.test', tokens: tokensFrom(['t']), fetchFn });
+      return { client, fetchFn };
+    };
+
+    it('reads GET /uploads/status', async () => {
+      const { client, fetchFn } = make({ configured: false });
+      await expect(client.uploadsStatus()).resolves.toEqual({ configured: false });
+      const [url, init] = fetchFn.mock.calls[0];
+      expect(url).toBe('http://api.test/uploads/status');
+      expect(init.method).toBe('GET');
+    });
+
+    it('reads the catalog from GET /shop/catalog', async () => {
+      const items = [{ id: 'c1', code: 'WDF', name: 'Wash, dry & fold', billingUnit: 'PER_KG' }];
+      const { client, fetchFn } = make(items);
+      await expect(client.shopCatalog()).resolves.toEqual(items);
+      const [url, init] = fetchFn.mock.calls[0];
+      expect(url).toBe('http://api.test/shop/catalog');
+      expect(init.method).toBe('GET');
+    });
+
+    it('reads the shop rates from GET /shop/services', async () => {
+      const { client, fetchFn } = make([]);
+      await client.shopServices();
+      const [url, init] = fetchFn.mock.calls[0];
+      expect(url).toBe('http://api.test/shop/services');
+      expect(init.method).toBe('GET');
+    });
+
+    it('puts a rate to PUT /shop/services/:serviceId with active always in the body', async () => {
+      const { client, fetchFn } = make({ id: 's1' });
+      await client.putShopService('cat/1', { ratePhp: 25, turnaroundHours: 24, active: false });
+      const [url, init] = fetchFn.mock.calls[0];
+      expect(url).toBe('http://api.test/shop/services/cat%2F1');
+      expect(init.method).toBe('PUT');
+      expect(JSON.parse(init.body)).toEqual({ ratePhp: 25, turnaroundHours: 24, active: false });
+    });
+
+    it('patches the wizard fields on PATCH /shop/onboarding', async () => {
+      const { client, fetchFn } = make({ id: 'shop1' });
+      const hours = ([0, 1, 2, 3, 4, 5, 6] as const).map((day) => ({ day, open: null, close: null }));
+      await client.updateShopOnboarding({
+        contactPhone: '09171234567',
+        description: 'Near the plaza',
+        hours,
+        expressSlotsPerDay: 6,
+      });
+      const [url, init] = fetchFn.mock.calls[0];
+      expect(url).toBe('http://api.test/shop/onboarding');
+      expect(init.method).toBe('PATCH');
+      expect(JSON.parse(init.body)).toEqual({
+        contactPhone: '09171234567',
+        description: 'Near the plaza',
+        hours,
+        expressSlotsPerDay: 6,
+      });
+    });
+  });
+
+  it('reads the shop pending payout total', async () => {
+    const body = { totalPhp: '264.00', lineCount: 2, oldestLineAt: null };
+    const fetchFn = jest.fn().mockResolvedValue(res(200, body));
+    const client = new ApiClient({ baseUrl: 'http://api.test', tokens: tokensFrom(['t']), fetchFn });
+    await expect(client.shopRemittancePending()).resolves.toEqual(body);
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe('http://api.test/shop/remittance/pending');
+    expect(init.method).toBe('GET');
+  });
+
+  it('reads one shop payout batch with its lines, id encoded', async () => {
+    const fetchFn = jest.fn().mockResolvedValue(res(200, { id: 'b/1', lines: [] }));
+    const client = new ApiClient({ baseUrl: 'http://api.test', tokens: tokensFrom(['t']), fetchFn });
+    const out = await client.shopRemittanceBatch('b/1');
+    expect(out.lines).toEqual([]);
+    expect(fetchFn.mock.calls[0][0]).toBe('http://api.test/shop/remittance/batches/b%2F1');
+  });
+
+  describe('shop self-management endpoints', () => {
+    const make = (status: number, body?: unknown) => {
+      const fetchFn = jest.fn().mockResolvedValue(res(status, body));
+      const client = new ApiClient({ baseUrl: 'http://api.test', tokens: tokensFrom(['t']), fetchFn });
+      return { client, fetchFn };
+    };
+    const call = (fetchFn: jest.Mock) => {
+      const [url, init] = fetchFn.mock.calls[0];
+      return { url, method: init.method, body: init.body ? JSON.parse(init.body) : undefined };
+    };
+
+    it('reads and patches the profile on /shop/me', async () => {
+      const a = make(200, { id: 's1', myRole: 'OWNER' });
+      await expect(a.client.shopMe()).resolves.toEqual({ id: 's1', myRole: 'OWNER' });
+      expect(call(a.fetchFn)).toEqual({ url: 'http://api.test/shop/me', method: 'GET', body: undefined });
+      const b = make(200, { id: 's1' });
+      await b.client.updateShopMe({ contactPhone: '09171234567', expressSlotsPerDay: 8 });
+      expect(call(b.fetchFn)).toEqual({
+        url: 'http://api.test/shop/me',
+        method: 'PATCH',
+        body: { contactPhone: '09171234567', expressSlotsPerDay: 8 },
+      });
+    });
+
+    it('puts and deletes the payout account', async () => {
+      const a = make(200, { method: 'GCASH', accountNumberMasked: '•••• 4567' });
+      await a.client.putPayoutAccount({ method: 'GCASH', accountName: 'R. Fernandez', accountNumber: '09171234567' });
+      expect(call(a.fetchFn)).toEqual({
+        url: 'http://api.test/shop/payout-account',
+        method: 'PUT',
+        body: { method: 'GCASH', accountName: 'R. Fernandez', accountNumber: '09171234567' },
+      });
+      const b = make(204);
+      await expect(b.client.deletePayoutAccount()).resolves.toBeUndefined();
+      expect(call(b.fetchFn)).toMatchObject({ url: 'http://api.test/shop/payout-account', method: 'DELETE' });
+    });
+
+    it('lists and removes members', async () => {
+      const a = make(200, []);
+      await a.client.shopMembers();
+      expect(call(a.fetchFn)).toMatchObject({ url: 'http://api.test/shop/members', method: 'GET' });
+      const b = make(204);
+      await b.client.removeStaffMember('m/1');
+      expect(call(b.fetchFn)).toMatchObject({ url: 'http://api.test/shop/members/m%2F1', method: 'DELETE' });
+    });
+
+    it('lists, creates and revokes invites', async () => {
+      const a = make(200, []);
+      await a.client.shopInvites();
+      expect(call(a.fetchFn)).toMatchObject({ url: 'http://api.test/shop/invites', method: 'GET' });
+      const b = make(201, { id: 'i1', email: 'ana@example.ph', createdAt: 'x' });
+      await b.client.createShopInvite('ana@example.ph');
+      expect(call(b.fetchFn)).toEqual({ url: 'http://api.test/shop/invites', method: 'POST', body: { email: 'ana@example.ph' } });
+      const c = make(204);
+      await c.client.revokeShopInvite('i1');
+      expect(call(c.fetchFn)).toMatchObject({ url: 'http://api.test/shop/invites/i1', method: 'DELETE' });
+    });
+
+    it('surfaces the invite 409 with its status', async () => {
+      const { client } = make(409, { message: 'That email already has an open invite' });
+      await expect(client.createShopInvite('ana@example.ph')).rejects.toMatchObject({ status: 409 });
+    });
+
+    it('reads pending invites and accepts one with no body', async () => {
+      const a = make(200, [{ id: 'i1', shopName: 'Hub', invitedByName: 'Lorna', createdAt: 'x' }]);
+      await a.client.pendingInvites();
+      expect(call(a.fetchFn)).toMatchObject({ url: 'http://api.test/shop/invites/pending', method: 'GET' });
+      const b = make(200, { id: 'm1', shopId: 's1', shopName: 'Hub', role: 'STAFF' });
+      await expect(b.client.acceptInvite('i1')).resolves.toMatchObject({ shopId: 's1' });
+      expect(call(b.fetchFn)).toEqual({ url: 'http://api.test/shop/invites/i1/accept', method: 'POST', body: undefined });
+      expect(b.fetchFn.mock.calls[0][1].headers['content-type']).toBeUndefined();
+    });
+  });
+
+  it('lists every active order in one page, with search and a limit', async () => {
+    const fetchFn = jest.fn().mockResolvedValue(res(200, []));
+    const client = new ApiClient({ baseUrl: 'http://api.test', tokens: tokensFrom(['t']), fetchFn });
+    await client.listActiveOrders();
+    expect(fetchFn.mock.calls[0][0]).toBe('http://api.test/orders?active=true');
+    await client.listActiveOrders('0147', 200);
+    expect(fetchFn.mock.calls[1][0]).toBe('http://api.test/orders?active=true&q=0147&limit=200');
+  });
+
+  describe('shop logo fields (B8)', () => {
+    const make = () => {
+      const fetchFn = jest.fn().mockResolvedValue(res(200, { id: 's1', logoKey: null, logoUrl: null }));
+      const client = new ApiClient({ baseUrl: 'http://api.test', tokens: tokensFrom(['t']), fetchFn });
+      return { client, fetchFn };
+    };
+
+    it('sets a logo key on PATCH /shop/me', async () => {
+      const { client, fetchFn } = make();
+      await client.updateShopMe({ logoKey: 'uploads/u1/logo.png' });
+      const [url, init] = fetchFn.mock.calls[0];
+      expect(url).toBe('http://api.test/shop/me');
+      expect(init.method).toBe('PATCH');
+      expect(JSON.parse(init.body)).toEqual({ logoKey: 'uploads/u1/logo.png' });
+    });
+
+    it('clears the logo with an explicit null (not an omitted key)', async () => {
+      const { client, fetchFn } = make();
+      await client.updateShopMe({ logoKey: null });
+      expect(JSON.parse(fetchFn.mock.calls[0][1].body)).toEqual({ logoKey: null });
+    });
+
+    it('sends the logo key on PATCH /shop/onboarding during the wizard', async () => {
+      const { client, fetchFn } = make();
+      await client.updateShopOnboarding({ logoKey: 'uploads/u1/logo.webp' });
+      const [url, init] = fetchFn.mock.calls[0];
+      expect(url).toBe('http://api.test/shop/onboarding');
+      expect(JSON.parse(init.body)).toEqual({ logoKey: 'uploads/u1/logo.webp' });
+    });
+  });
 });

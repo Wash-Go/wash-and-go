@@ -27,17 +27,18 @@ describe('Remittance integration (Docker Postgres)', () => {
   let SHOP: string;
   const orderIds: string[] = [];
   const batchIds: string[] = [];
-  // Platform-wide totals before this suite adds its batch (the test DB is shared,
-  // so the summary is asserted as a delta).
-  let before: Awaited<ReturnType<RemittanceService['summary']>>;
 
   beforeAll(async () => {
     await prisma.$connect();
     const shop = await prisma.shop.create({
-      data: { name: SHOP_NAME, address: 'Test', lat: D('6.9'), lng: D('122.07') },
+      data: {
+        name: SHOP_NAME,
+        address: 'Test',
+        lat: D('6.9'),
+        lng: D('122.07'),
+      },
     });
     SHOP = shop.id;
-    before = await service.summary();
     const customer = await prisma.user.create({
       data: {
         firebaseUid: `rem-cust-${SUFFIX}`,
@@ -80,7 +81,9 @@ describe('Remittance integration (Docker Postgres)', () => {
   afterAll(async () => {
     await prisma.remittanceLine.deleteMany({ where: { shopId: SHOP } });
     if (batchIds.length) {
-      await prisma.remittanceBatch.deleteMany({ where: { id: { in: batchIds } } });
+      await prisma.remittanceBatch.deleteMany({
+        where: { id: { in: batchIds } },
+      });
     }
     await prisma.order.deleteMany({ where: { id: { in: orderIds } } });
     await prisma.user.deleteMany({ where: { id: customerId } });
@@ -94,11 +97,13 @@ describe('Remittance integration (Docker Postgres)', () => {
     batchIds.push(batch!.id);
 
     // 88.00 + 57.50 = 145.50
-    expect(batch!.totalPhp.toFixed(2)).toBe('145.50');
+    expect(batch!.totalPhp).toBe('145.50');
     expect(batch!.lineCount).toBe(2);
     expect(batch!.status).toBe('PENDING');
 
-    const lines = await prisma.remittanceLine.findMany({ where: { shopId: SHOP } });
+    const lines = await prisma.remittanceLine.findMany({
+      where: { shopId: SHOP },
+    });
     expect(lines.every((l) => l.batchId === batch!.id)).toBe(true);
   });
 
@@ -108,11 +113,17 @@ describe('Remittance integration (Docker Postgres)', () => {
     expect(rows[0].shopName).toBe(SHOP_NAME);
   });
 
+  // summary() is platform-wide, and other integration suites create and
+  // delete their own batches on the same database. So assert only what this
+  // suite's rows guarantee: its batch is in the right bucket (filtered by its
+  // own shop) and the global totals can't be below its contribution. A delta
+  // against a "before" snapshot races any concurrent suite.
   it('summary counts the new batch as pending (sum over all batches)', async () => {
+    const mine = await service.listBatches({ shopId: SHOP, status: 'PENDING' });
+    expect(mine.map((b) => b.id)).toEqual([batchIds[0]]);
     const now = await service.summary();
-    expect(now.pending.count).toBe(before.pending.count + 1);
-    expect(D(now.pending.totalPhp).sub(before.pending.totalPhp).toFixed(2)).toBe('145.50');
-    expect(now.paid).toEqual(before.paid);
+    expect(now.pending.count).toBeGreaterThanOrEqual(1);
+    expect(D(now.pending.totalPhp).gte(D('145.50'))).toBe(true);
   });
 
   it('does not re-batch already-batched lines (empty second close)', async () => {
@@ -133,9 +144,11 @@ describe('Remittance integration (Docker Postgres)', () => {
   });
 
   it('summary moves the batch from pending to paid once marked', async () => {
+    expect(await service.listBatches({ shopId: SHOP, status: 'PENDING' })).toEqual([]);
+    const paid = await service.listBatches({ shopId: SHOP, status: 'PAID' });
+    expect(paid.map((b) => [b.id, b.totalPhp])).toEqual([[batchIds[0], '145.50']]);
     const now = await service.summary();
-    expect(now.pending).toEqual(before.pending);
-    expect(now.paid.count).toBe(before.paid.count + 1);
-    expect(D(now.paid.totalPhp).sub(before.paid.totalPhp).toFixed(2)).toBe('145.50');
+    expect(now.paid.count).toBeGreaterThanOrEqual(1);
+    expect(D(now.paid.totalPhp).gte(D('145.50'))).toBe(true);
   });
 });

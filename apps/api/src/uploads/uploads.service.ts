@@ -17,12 +17,18 @@ import { randomUUID } from 'crypto';
  * Ships INERT: with no R2_* env the module still loads; the endpoints 503 until
  * configured (same posture as Sentry).
  */
-const ALLOWED_TYPES: Record<string, string> = {
+export const ALLOWED_TYPES: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
   'image/webp': 'webp',
   'application/pdf': 'pdf',
 };
+
+// Extensions of the image types in the allowlist (no PDF) — what a key must
+// end in to be used as a picture (shop logo).
+export const IMAGE_KEY_EXTENSIONS: readonly string[] = Object.entries(ALLOWED_TYPES)
+  .filter(([type]) => type.startsWith('image/'))
+  .map(([, ext]) => ext);
 
 const EXPIRY_S = 300; // presigned URLs live 5 minutes
 
@@ -33,9 +39,9 @@ export class UploadsService {
   configured(): boolean {
     return Boolean(
       process.env.R2_ENDPOINT &&
-        process.env.R2_ACCESS_KEY_ID &&
-        process.env.R2_SECRET_ACCESS_KEY &&
-        process.env.R2_BUCKET,
+      process.env.R2_ACCESS_KEY_ID &&
+      process.env.R2_SECRET_ACCESS_KEY &&
+      process.env.R2_BUCKET,
     );
   }
 
@@ -88,12 +94,17 @@ export class UploadsService {
     if (!owns && !isAdmin) {
       throw new ForbiddenException('Not allowed to view this file');
     }
+    return this.presignGet(key);
+  }
+
+  // Presigned GET with NO caller check — only for callers that have already
+  // authorized access themselves (a shop member viewing their shop's logo,
+  // whose key lives under the owner's prefix). 503 when R2 is unconfigured.
+  async presignGet(key: string): Promise<{ url: string }> {
     const { client, bucket } = this.s3();
-    const url = await getSignedUrl(
-      client,
-      new GetObjectCommand({ Bucket: bucket, Key: key }),
-      { expiresIn: EXPIRY_S },
-    );
+    const url = await getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: key }), {
+      expiresIn: EXPIRY_S,
+    });
     return { url };
   }
 }

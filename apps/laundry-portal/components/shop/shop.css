@@ -1,0 +1,35 @@
+/* Shop profile, payout account and staff (plan A4, preview B8). Tokens only. */
+.shop-page { max-width: 640px; display: flex; flex-direction: column; gap: 16px; }
+.shop-card { display: flex; flex-direction: column; gap: 12px; }
+.shop-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.shop-card-head h2 { font-size: 18px; }
+.shop-card fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.shop-card .field:last-child { margin-bottom: 0; }
+.shop-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.shop-status { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.kv { display: grid; grid-template-columns: minmax(96px, auto) 1fr; gap: 8px 12px; margin: 0; font-size: 15px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; overflow-wrap: anywhere; }
+.payout-line { font-weight: 700; font-size: 16px; }
+
+/* Segmented control (payout method) */
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 2px solid var(--navy); border-radius: var(--r-md); overflow: hidden; }
+.seg button {
+  min-height: 44px; border: 0; background: var(--surface); color: var(--navy); font: 700 16px var(--font-body);
+}
+.seg button + button { border-left: 2px solid var(--navy); }
+.seg button[aria-checked='true'] { background: var(--navy); color: var(--on-navy); }
+.sheet-form { display: flex; flex-direction: column; gap: 4px; }
+.sheet-form .btn.full { margin-top: 8px; }
+
+/* Lists (members, invites) */
+.list { list-style: none; margin: 0; padding: 0; }
+.list li { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 0; }
+.list li + li { border-top: 1px solid var(--line); }
+.list .li-main { flex: 1; min-width: 0; }
+.list .li-main b, .list .li-main span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list .li-main span { font-size: 14px; color: var(--muted); }
+
+/* The shared hours grid is its own card in the wizard; inside a Shop card it
+   flattens to rows (DESIGN.md: a card never contains a card). */
+.shop-card .wiz-hours { border: 0; border-radius: 0; padding: 0; background: none; }

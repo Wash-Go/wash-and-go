@@ -2,10 +2,18 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as admin from 'firebase-admin';
 import { assertAuthConfigSafe } from './auth-config';
+import { apiRoot, credentialsFileProblem, resolveCredentialsPath } from './credentials-path';
 
 export type VerifiedIdentity = {
   firebaseUid: string;
   phone?: string;
+  // From the verified token. `emailVerified` is the token's email_verified
+  // claim; only a true value lets the email drive a privilege (staff invites).
+  email?: string;
+  emailVerified?: boolean;
+  // decoded.firebase.sign_in_provider ('password', 'google.com', 'phone', …).
+  // Only some providers prove the user owns the email (see trustedEmail).
+  signInProvider?: string;
 };
 
 /*
@@ -53,13 +61,30 @@ export class FirebaseService implements OnModuleInit {
       );
     }
 
+    // File credentials: resolve a relative path against apps/api (the .env's
+    // home), not process.cwd(), and check it NOW — google-auth-library only
+    // reads it lazily on the first token verify, long after boot.
+    if (!inlineJson && credFile) {
+      const abs = resolveCredentialsPath(credFile, apiRoot());
+      const problem = credentialsFileProblem(abs);
+      if (problem) {
+        if (this.devBypass) {
+          this.logger.warn(
+            `${problem} — Firebase Admin not initialized; x-dev-uid only. DEV ONLY.`,
+          );
+          return;
+        }
+        throw new Error(problem);
+      }
+      // applicationDefault() reads the env var itself; hand it the absolute path.
+      process.env.GOOGLE_APPLICATION_CREDENTIALS = abs;
+    }
+
     try {
       const credential = inlineJson
         ? admin.credential.cert(JSON.parse(inlineJson) as admin.ServiceAccount)
         : admin.credential.applicationDefault();
-      this.app = admin.apps.length
-        ? admin.app()
-        : admin.initializeApp({ credential });
+      this.app = admin.apps.length ? admin.app() : admin.initializeApp({ credential });
       if (this.devBypass) {
         this.logger.warn(
           'AUTH_DEV_BYPASS is ON — real Firebase tokens are still verified; x-dev-uid is the fallback. DEV ONLY.',
@@ -81,6 +106,15 @@ export class FirebaseService implements OnModuleInit {
       throw new Error('Firebase not initialized (set credentials or dev bypass)');
     }
     const decoded = await this.app.auth().verifyIdToken(idToken);
-    return { firebaseUid: decoded.uid, phone: decoded.phone_number };
+    return {
+      firebaseUid: decoded.uid,
+      phone: decoded.phone_number,
+      email: decoded.email,
+      emailVerified: decoded.email_verified === true,
+      signInProvider:
+        typeof decoded.firebase?.sign_in_provider === 'string'
+          ? decoded.firebase.sign_in_provider
+          : undefined,
+    };
   }
 }

@@ -1,0 +1,169 @@
+/*
+ * Brand foundation (DESIGN.md "Claim Ticket"). The @font-face blocks and the
+ * --color-* brand tokens are copied from the landing page
+ * (apps/landing-page/src/styles/globals.css) so both surfaces render the same
+ * faces and blues; lib/tokens.spec.ts fails if the two drift.
+ * Fonts: self-hosted woff2 subsets (latin + latin-ext), public/fonts/ (served
+ * as /fonts/* so the root layout can preload the latin files).
+ */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 800;
+  font-stretch: 125%;
+  font-display: swap;
+  src: url('/fonts/archivo-expanded-800-latin-ext.woff2')
+    format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 800;
+  font-stretch: 125%;
+  font-display: swap;
+  src: url('/fonts/archivo-expanded-800-latin.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url('/fonts/atkinson-hyperlegible-next-latin-ext.woff2')
+    format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url('/fonts/atkinson-hyperlegible-next-latin.woff2')
+    format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Atkinson Hyperlegible Mono';
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url('/fonts/atkinson-hyperlegible-mono-latin-ext.woff2')
+    format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Atkinson Hyperlegible Mono';
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url('/fonts/atkinson-hyperlegible-mono-latin.woff2')
+    format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+
+/* Mirror of the landing page @theme colour tokens (keep in sync; parity-tested). */
+:root {
+  --color-brand-navy: #0b3773;
+  --color-brand-navy-deep: #082a58;
+  --color-brand-sky: #4ebbe6;
+  --color-brand-sky-tint: #eef8fd;
+  --color-ink: #14202b;
+  --color-muted: #4a5968;
+  --color-line: #d9dee3;
+  --color-ground: #f5f8fa;
+  --color-accent: #a64b16;
+}
+
+/* Portal semantic tokens, light (DESIGN.md colors). */
+:root {
+  --navy: #0b3773;
+  --navy-deep: #082a58;
+  --on-navy: #ffffff;
+  --sky: #4ebbe6;
+  --sky-tint: #eef8fd;
+  --accent: #a64b16;
+  --peach: #ffe3cc;
+  --peach-ink: #8a4012;
+  --text: #14202b;
+  --muted: #4a5968;
+  --line: #d9dee3;
+  --line-strong: #b9c2cb;
+  --ground: #f5f8fa;
+  --surface: #ffffff;
+  --sunken: #eef0f2;
+  --success: #1f7a4d;
+  --success-tint: #ddf1e6;
+  --success-ink: #155c39;
+  --danger: #b3261e;
+  --danger-tint: #fbe4e2;
+  --warn-tint: #fff1cc;
+  --warn-ink: #7a5200;
+  --shop-tint: #efe7dc;
+  --shop-ink: #5b4631;
+  --neutral-tint: #eceef0;
+  --neutral-ink: #475563;
+  --rail: #0b3773;
+  --scrim: rgba(20, 32, 43, 0.45);
+  --shadow: 0 8px 24px -12px rgba(20, 32, 43, 0.35);
+
+  --font-display: 'Archivo', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'Atkinson Hyperlegible Next', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Atkinson Hyperlegible Mono', ui-monospace, monospace;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  color-scheme: light;
+}
+
+/* Dark: the dark-* surface ladder (DESIGN.md), not an inversion. Light is
+   the default on every device (B8); dark applies only when chosen in the
+   portal (lib/theme.ts sets data-theme before the first paint). */
+:root[data-theme='dark'] {
+  --navy: #8cb8e0;
+  --navy-deep: #b7d3ee;
+  --on-navy: #0e1a24;
+  --sky-tint: #15283a;
+  --accent: #e07a3a;
+  --peach: #3a2416;
+  --peach-ink: #ffc9a3;
+  --text: #e8eef4;
+  --muted: #9fb3c8;
+  --line: #253545;
+  --line-strong: #34495d;
+  --ground: #0e1a24;
+  --surface: #142331;
+  --sunken: #0b151e;
+  --success: #5fc08f;
+  --success-tint: #12301f;
+  --success-ink: #5fc08f;
+  --danger: #f08a82;
+  --danger-tint: #3a1715;
+  --warn-tint: #33280a;
+  --warn-ink: #f2c45a;
+  --shop-tint: #2e251b;
+  --shop-ink: #e2cdb4;
+  --neutral-tint: #1c2a37;
+  --neutral-ink: #b4c0cc;
+  --rail: #0b151e;
+  --scrim: rgba(0, 0, 0, 0.6);
+  color-scheme: dark;
+}

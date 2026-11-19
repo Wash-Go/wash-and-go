@@ -1437,6 +1437,78 @@ describe('OrdersService', () => {
     });
   });
 
+  // ── B2 follow-up: ?active=true — the shop queue in one page ─────────────
+  describe('listOrders active', () => {
+    async function callFor(user: User, filter: Record<string, unknown>) {
+      repo.findManyWithRelations.mockResolvedValue([] as never);
+      await service.listOrders(user, filter as never);
+      return repo.findManyWithRelations.mock.calls[0];
+    }
+
+    it('lists only non-terminal statuses (pre-shop, at-shop and return legs)', async () => {
+      const [where] = await callFor(makeUser(['SHOP_OWNER'], 'owner1'), { active: true });
+      const statuses = (where.status as { in: string[] }).in;
+      expect(statuses).toEqual(
+        expect.arrayContaining([
+          'BOOKED',
+          'ASSIGNED',
+          'PICKED_UP',
+          'AT_SHOP',
+          'PROCESSING',
+          'READY_FOR_RETURN',
+          'OUT_FOR_RETURN',
+        ]),
+      );
+      expect(statuses).not.toContain('DELIVERED');
+      expect(statuses).not.toContain('CANCELLED');
+      expect(statuses).toHaveLength(7);
+    });
+
+    it('keeps the caller scoping unchanged', async () => {
+      const [where] = await callFor(makeUser(['SHOP_STAFF'], 'staff1'), { active: true });
+      expect(where.OR).toEqual([{ shop: { members: { some: { userId: 'staff1' } } } }]);
+    });
+
+    it('sorts oldest-first, default page 200, no cursor', async () => {
+      const [, opts] = await callFor(makeUser(['SHOP_OWNER'], 'o'), { active: true });
+      expect(opts).toEqual({ take: 200, cursorId: undefined, order: 'asc' });
+    });
+
+    it.each([
+      [999, 500],
+      [500, 500],
+      [0, 1],
+      [150, 150],
+    ])('clamps limit %p to %p', async (limit, take) => {
+      const [, opts] = await callFor(makeUser(['SHOP_OWNER'], 'o'), { active: true, limit });
+      expect(opts?.take).toBe(take);
+    });
+
+    it('still searches the order code', async () => {
+      const [where] = await callFor(makeUser(['SHOP_OWNER'], 'o'), { active: true, q: ' WG-2026 ' });
+      expect(where.code).toEqual({ contains: 'WG-2026', mode: 'insensitive' });
+    });
+
+    it('active + status → 400', async () => {
+      await expect(
+        service.listOrders(makeUser(['SHOP_OWNER'], 'o'), { active: true, status: 'AT_SHOP' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(repo.findManyWithRelations).not.toHaveBeenCalled();
+    });
+
+    it('active + before cursor → 400 (one page, no cursor)', async () => {
+      await expect(
+        service.listOrders(makeUser(['SHOP_OWNER'], 'o'), { active: true, before: 'ord-1' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('without active the list is unchanged (newest first, default 50)', async () => {
+      const [where, opts] = await callFor(makeUser(['ADMIN']), {});
+      expect(where.status).toBeUndefined();
+      expect(opts).toEqual({ take: 50, cursorId: undefined });
+    });
+  });
+
   // ── previously-untested gate branches (B7) ───────────────────────────────
   describe('gate branches', () => {
     it('assignRider rejects assigning from a non-BOOKED state', async () => {

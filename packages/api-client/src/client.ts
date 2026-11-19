@@ -11,7 +11,19 @@ import type {
   CloseRemittanceBody,
   CreateShopBody,
   OwnerShopView,
+  AcceptedMemberView,
+  PayoutAccountView,
+  PendingInviteView,
   PresignUploadResult,
+  PutPayoutAccountBody,
+  ShopInviteView,
+  ShopMemberView,
+  ShopProfileView,
+  UpdateShopProfileBody,
+  PutShopServiceBody,
+  ShopCatalogItem,
+  ShopServiceRow,
+  UploadsStatus,
   RiderApplicationView,
   RiderProfileView,
   ServiceCatalogView,
@@ -41,7 +53,9 @@ import type {
   PricingBreakdown,
   QuoteOrderBody,
   RateOrderBody,
+  RemittanceBatchDetailView,
   RemittanceBatchView,
+  RemittancePendingView,
   RemittanceSummaryView,
   Rider,
   ShopView,
@@ -196,6 +210,17 @@ export class ApiClient {
     return this.request('GET', '/shop/remittance/batches');
   }
 
+  // The caller's shop: payout not yet batched (sum of delivered orders).
+  shopRemittancePending(): Promise<RemittancePendingView> {
+    return this.request('GET', '/shop/remittance/pending');
+  }
+
+  // One of the caller's shop's payout batches with its per-order lines.
+  // 404 "Batch not found" for a missing or another shop's batch.
+  shopRemittanceBatch(id: string): Promise<RemittanceBatchDetailView> {
+    return this.request('GET', `/shop/remittance/batches/${encodeURIComponent(id)}`);
+  }
+
   // Resolve nearest shop (or the override) + a priced quote for checkout.
   quoteOrder(body: QuoteOrderBody): Promise<OrderQuote> {
     return this.request('POST', '/orders/quote', body);
@@ -250,6 +275,15 @@ export class ApiClient {
     if (before) p.set('before', before);
     const s = p.toString();
     return this.request('GET', `/orders${s ? `?${s}` : ''}`);
+  }
+
+  // Every non-terminal order the caller can see, oldest first, in one page
+  // (no cursor; API default 200, max 500). Shops use it for the open queue.
+  listActiveOrders(q?: string, limit?: number): Promise<OrderView[]> {
+    const p = new URLSearchParams({ active: 'true' });
+    if (q) p.set('q', q);
+    if (limit != null) p.set('limit', String(limit));
+    return this.request('GET', `/orders?${p.toString()}`);
   }
 
   // Drive a legal status transition (rider/shop/admin). Server enforces legality
@@ -502,6 +536,75 @@ export class ApiClient {
 
   uploadViewUrl(key: string): Promise<{ url: string }> {
     return this.request('GET', `/uploads/url?key=${encodeURIComponent(key)}`);
+  }
+
+  // Whether document upload (R2) is configured; the wizard gates step 5 on it.
+  uploadsStatus(): Promise<UploadsStatus> {
+    return this.request('GET', '/uploads/status');
+  }
+
+  // --- Shop self-management (portal; the shop always comes from the caller) ---
+
+  shopMe(): Promise<ShopProfileView> {
+    return this.request('GET', '/shop/me');
+  }
+
+  updateShopMe(body: UpdateShopProfileBody): Promise<ShopProfileView> {
+    return this.request('PATCH', '/shop/me', body);
+  }
+
+  // Returns the masked view only; the full number is never echoed back.
+  putPayoutAccount(body: PutPayoutAccountBody): Promise<PayoutAccountView> {
+    return this.request('PUT', '/shop/payout-account', body);
+  }
+
+  deletePayoutAccount(): Promise<void> {
+    return this.request('DELETE', '/shop/payout-account');
+  }
+
+  shopMembers(): Promise<ShopMemberView[]> {
+    return this.request('GET', '/shop/members');
+  }
+
+  // Named apart from the admin removeShopMember(shopId, memberId).
+  removeStaffMember(memberId: string): Promise<void> {
+    return this.request('DELETE', `/shop/members/${encodeURIComponent(memberId)}`);
+  }
+
+  shopInvites(): Promise<ShopInviteView[]> {
+    return this.request('GET', '/shop/invites');
+  }
+
+  createShopInvite(email: string): Promise<ShopInviteView> {
+    return this.request('POST', '/shop/invites', { email });
+  }
+
+  revokeShopInvite(id: string): Promise<void> {
+    return this.request('DELETE', `/shop/invites/${encodeURIComponent(id)}`);
+  }
+
+  // Invites for the caller's stored verified email (any signed-in user).
+  pendingInvites(): Promise<PendingInviteView[]> {
+    return this.request('GET', '/shop/invites/pending');
+  }
+
+  acceptInvite(id: string): Promise<AcceptedMemberView> {
+    return this.request('POST', `/shop/invites/${encodeURIComponent(id)}/accept`);
+  }
+
+  // --- Shop services and rates (portal owner/staff; shop derived server-side) ---
+
+  shopCatalog(): Promise<ShopCatalogItem[]> {
+    return this.request('GET', '/shop/catalog');
+  }
+
+  shopServices(): Promise<ShopServiceRow[]> {
+    return this.request('GET', '/shop/services');
+  }
+
+  // Upsert the caller's rate for a catalog item (serviceId = catalog id).
+  putShopService(serviceId: string, body: PutShopServiceBody): Promise<ShopServiceRow> {
+    return this.request('PUT', `/shop/services/${encodeURIComponent(serviceId)}`, body);
   }
 
   // --- Self-serve rider onboarding (rider app) ---

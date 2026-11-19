@@ -25,6 +25,10 @@ jobs:
         run: pnpm --filter @wash-and-go/api prisma:generate
       - name: Type-check
         run: pnpm -r type-check
+      # The laundry-portal jest suite (pure lib/*.spec.ts) runs here. Its
+      # Playwright smokes (pnpm smoke:portal) are not in CI yet: they need
+      # Postgres with the seeded design data, a running API with
+      # AUTH_DEV_BYPASS=1 and psql for cleanup. Follow-up.
       - name: Unit tests (no DB)
         run: >-
           pnpm

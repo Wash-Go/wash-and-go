@@ -1,0 +1,15 @@
+/* Shop identity lockup (B8): [shop mark] × [whale]. Tokens only; the
+   monogram is navy on sky-tint (DESIGN.md, no per-shop colours). */
+.shop-lockup { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.shop-mark {
+  width: 32px; height: 32px; border-radius: 8px; flex: none; display: grid; place-items: center;
+  background: var(--sky-tint); color: var(--navy); overflow: hidden;
+  font-family: var(--font-display); font-weight: 800; font-stretch: 118%; font-size: 13px; line-height: 1; letter-spacing: 0.02em;
+}
+.shop-mark img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.shop-mark-lg { width: 64px; height: 64px; border-radius: 12px; font-size: 24px; }
+.lockup-x { color: var(--muted); font: 400 14px var(--font-body); }
+.rail .shop-mark { background: var(--sky-tint); color: var(--navy); }
+.rail .lockup-x { color: inherit; opacity: 0.8; }
+/* The rail is 232px: the lockup sits above the shop name instead of beside it. */
+.rail .rail-who { flex-direction: column; align-items: flex-start; gap: 8px; }

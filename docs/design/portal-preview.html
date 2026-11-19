@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laundry Portal Preview</title>
+<!--
+  Wash & Go partner-laundry portal: UX preview (plan B0, docs/plans/2026-10-19-laundry-portal-full.md Part A).
+  Design authority: DESIGN.md. Fonts and logo are the landing page's self-hosted files, referenced relatively,
+  so open this file from the repo (docs/design/). Status labels mirror packages/domain/src/order-status.ts.
+  Money: ₱25/kg wash, ₱40 delivery, ₱7 service fee; shop payout = 88% of wash value.
+-->
+<script>
+  (function () {
+    var t = 'light';
+    try { t = localStorage.getItem('wg-portal-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); } catch (e) {}
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<style>
+@font-face{font-family:'Archivo';font-weight:800;font-stretch:125%;font-display:swap;src:url('../../apps/landing-page/src/assets/fonts/archivo-expanded-800-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:'Archivo';font-weight:800;font-stretch:125%;font-display:swap;src:url('../../apps/landing-page/src/assets/fonts/archivo-expanded-800-latin.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Atkinson Hyperlegible Next';font-weight:200 800;font-display:swap;src:url('../../apps/landing-page/src/assets/fonts/atkinson-hyperlegible-next-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:'Atkinson Hyperlegible Next';font-weight:200 800;font-display:swap;src:url('../../apps/landing-page/src/assets/fonts/atkinson-hyperlegible-next-latin.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Atkinson Hyperlegible Mono';font-weight:200 800;font-display:swap;src:url('../../apps/landing-page/src/assets/fonts/atkinson-hyperlegible-mono-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:'Atkinson Hyperlegible Mono';font-weight:200 800;font-display:swap;src:url('../../apps/landing-page/src/assets/fonts/atkinson-hyperlegible-mono-latin.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+
+/* DESIGN.md tokens (light). Dark = the dark-* ladder, set on [data-theme="dark"]. */
+:root{
+  --navy:#0B3773; --navy-deep:#082A58; --on-navy:#FFFFFF; --sky:#4EBBE6; --sky-tint:#EEF8FD;
+  --accent:#A64B16; --peach:#FFE3CC; --peach-ink:#8A4012;
+  --text:#14202B; --muted:#4A5968; --line:#D9DEE3; --line-strong:#B9C2CB;
+  --ground:#F5F8FA; --surface:#FFFFFF; --sunken:#EEF0F2;
+  --success:#1F7A4D; --success-tint:#DDF1E6; --success-ink:#155C39;
+  --danger:#B3261E; --danger-tint:#FBE4E2; --warn-tint:#FFF1CC; --warn-ink:#7A5200;
+  --shop-tint:#EFE7DC; --shop-ink:#5B4631; --neutral-tint:#ECEEF0; --neutral-ink:#475563;
+  --rail:#0B3773; --bezel:#14202B; --scrim:rgba(20,32,43,.45);
+  --shadow:0 8px 24px -12px rgba(20,32,43,.35);
+  --display:'Archivo',ui-sans-serif,system-ui,sans-serif;
+  --body:'Atkinson Hyperlegible Next',ui-sans-serif,system-ui,sans-serif;
+  --mono:'Atkinson Hyperlegible Mono',ui-monospace,monospace;
+  --r-sm:6px; --r-md:10px; --r-lg:16px;
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --navy:#8CB8E0; --navy-deep:#B7D3EE; --on-navy:#0E1A24; --sky-tint:#15283A;
+  --accent:#E07A3A; --peach:#3A2416; --peach-ink:#FFC9A3;
+  --text:#E8EEF4; --muted:#9FB3C8; --line:#253545; --line-strong:#34495D;
+  --ground:#0E1A24; --surface:#142331; --sunken:#0B151E;
+  --success:#5FC08F; --success-tint:#12301F; --success-ink:#5FC08F;
+  --danger:#F08A82; --danger-tint:#3A1715; --warn-tint:#33280A; --warn-ink:#F2C45A;
+  --shop-tint:#2E251B; --shop-ink:#E2CDB4; --neutral-tint:#1C2A37; --neutral-ink:#B4C0CC;
+  --rail:#0B151E; --bezel:#000; --scrim:rgba(0,0,0,.6);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--ground);color:var(--text)}
+body{font:400 16px/1.5 var(--body);-webkit-font-smoothing:antialiased}
+:focus-visible{outline:3px solid var(--navy);outline-offset:2px}
+svg.i{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:500}
+.disp{font-family:var(--display);font-weight:800;font-stretch:118%;font-size:26px;line-height:1.05;margin:0}
+.lbl{font:700 12px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)} .small{font-size:14px;line-height:1.45}
+.wrap{max-width:1312px;margin:0 auto;padding:0 16px}
+
+/* page chrome */
+.top{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:64px}
+.lockup{height:40px;width:auto;display:block}
+:root[data-theme="dark"] .lockup{background:#fff;border-radius:var(--r-sm);padding:2px 6px}
+.intro{padding-top:56px;padding-bottom:32px;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.7fr);gap:40px;align-items:end}
+.intro h1{font-family:var(--display);font-weight:800;font-stretch:125%;font-size:clamp(2.1rem,5vw,3.6rem);line-height:.98;letter-spacing:-.01em;margin:0;color:var(--navy)}
+.intro p{font-size:18px;color:var(--muted);max-width:56ch;margin:16px 0 0}
+.intro aside{border-top:3px solid var(--text);padding-top:12px;font-size:15px;color:var(--muted)}
+.intro aside b{color:var(--text)}
+section.part{padding:48px 0;border-top:1px solid var(--line)}
+.part h2{font-family:var(--display);font-weight:800;font-stretch:112%;font-size:24px;line-height:1.1;margin:0 0 6px}
+.part > .wrap > p{color:var(--muted);margin:0 0 28px;max-width:72ch}
+.cap{margin:0 0 12px;max-width:390px}
+.cap b{display:block;font:700 12px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--text)}
+.cap span{font-size:14px;color:var(--muted)}
+
+/* components */
+.btn{font:700 16px var(--body);min-height:48px;padding:0 18px;border-radius:var(--r-md);border:2px solid transparent;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;text-decoration:none;transition:background-color .1s ease-out}
+.btn-primary{background:var(--navy);color:var(--on-navy)} .btn-primary:hover{background:var(--navy-deep)}
+.btn-secondary{background:var(--surface);color:var(--navy);border-color:var(--navy)}
+.btn-text{background:none;color:var(--navy);padding:0 4px;text-decoration:underline;text-underline-offset:4px;min-height:44px}
+.btn-danger{background:var(--surface);color:var(--danger);border-color:var(--danger)}
+.btn:disabled{background:var(--sunken);color:var(--muted);border-color:transparent;cursor:not-allowed}
+.btn.full{width:100%}
+.chip{display:inline-flex;align-items:center;gap:6px;font:700 13px/1 var(--body);padding:6px 10px 6px 8px;border-radius:999px;white-space:nowrap}
+.chip svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.c-needs{background:var(--peach);color:var(--peach-ink);box-shadow:inset 0 0 0 1.5px var(--accent)}
+.c-move{background:var(--sky-tint);color:var(--navy)}
+.c-shop{background:var(--shop-tint);color:var(--shop-ink)}
+.c-done{background:var(--success-tint);color:var(--success-ink)}
+.c-cancel{background:var(--neutral-tint);color:var(--neutral-ink)}
+.c-warn{background:var(--warn-tint);color:var(--warn-ink)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px}
+.field{display:block;margin-bottom:14px}
+.field > span{display:block;font:700 14px var(--body);margin-bottom:6px}
+.input{width:100%;min-height:48px;font:400 16px var(--body);color:var(--text);background:var(--surface);border:1.5px solid var(--line-strong);border-radius:var(--r-md);padding:0 14px}
+.input:focus{border-color:var(--navy);outline:none}
+.err{font-size:14px;color:var(--danger);margin-top:6px}
+.money{display:flex;align-items:center;min-height:56px;border:2px solid var(--navy);border-radius:var(--r-md);background:var(--surface);padding:0 14px}
+.money input{flex:1;min-width:0;border:0;background:none;color:var(--text);font:700 26px var(--mono);font-variant-numeric:tabular-nums;outline:none;padding:0}
+.money em{font:700 16px var(--body);font-style:normal;color:var(--muted)}
+.bd{margin:12px 0 0;border-top:1px solid var(--line)}
+.bd div{display:flex;justify-content:space-between;gap:12px;padding:6px 0;font-size:15px}
+.bd div span:last-child{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.bd .tot{border-top:2px solid var(--text);margin-top:4px;padding-top:10px;font-weight:700}
+.bd .tot span:last-child{font-size:22px;font-weight:700}
+.warnbox{display:flex;gap:10px;background:var(--warn-tint);color:var(--warn-ink);border-radius:var(--r-md);padding:12px;font-size:14px;line-height:1.45;margin-top:12px}
+.warnbox b{display:block;font-size:15px}
+.toast{display:flex;gap:10px;align-items:flex-start;background:var(--surface);border:1px solid var(--line-strong);border-left:4px solid var(--success);border-radius:var(--r-md);padding:12px 14px;box-shadow:var(--shadow);font-size:15px;max-width:360px}
+.toast svg{color:var(--success)}
+.stale{display:flex;align-items:center;gap:10px;background:var(--warn-tint);color:var(--warn-ink);padding:4px 8px 4px 14px;font-size:14px;font-weight:700}
+.stale span{flex:1} .stale .btn-text{color:var(--warn-ink)}
+.empty h4{margin:0 0 4px;font:700 16px var(--body)} .empty p{margin:0 0 12px;color:var(--muted);font-size:14px}
+.sk{background:var(--sunken);border-radius:var(--r-sm);height:14px;margin-bottom:10px;animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.5}}
+@media (prefers-reduced-motion:reduce){.sk{animation:none}}
+.stepper{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin:6px 0 4px}
+.stepper i{height:6px;border-radius:3px;background:var(--line)}
+.stepper i.done{background:var(--navy)} .stepper i.now{background:var(--sky)}
+.kit{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:16px}
+.kit .card > .lbl{display:block;margin-bottom:12px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.reason{font-size:14px;color:var(--muted)}
+
+/* phone frames */
+.phones{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(390px,100%),390px));gap:40px 32px;justify-content:start}
+.phone{width:100%;max-width:390px;border:8px solid var(--bezel);border-radius:36px;overflow:hidden;background:var(--ground);box-shadow:var(--shadow)}
+.scr{height:800px;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.sb{height:26px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 20px;font:700 12px var(--mono);background:var(--surface)}
+.hd{flex:none;display:flex;align-items:center;gap:10px;padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--line)}
+.hd img{width:34px;height:auto}
+.hd .nm{flex:1;min-width:0;font:700 15px/1.2 var(--body)}
+.hd .nm small{display:block;font:500 12px var(--mono);color:var(--muted)}
+.pb{flex:1;overflow:hidden;padding:16px;display:flex;flex-direction:column;gap:12px}
+.pb > .disp{margin-bottom:2px}
+.tb{flex:none;display:grid;grid-template-columns:repeat(5,1fr);background:var(--surface);border-top:1px solid var(--line);padding-bottom:10px}
+.tb a{min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font:700 12px var(--body);color:var(--muted);text-decoration:none;border-top:3px solid transparent}
+.tb a.on{color:var(--navy);border-top-color:var(--sky)}
+.tabs{display:flex;border-bottom:1px solid var(--line);margin:0 -16px;padding:0 8px;overflow:hidden}
+.tabs a{min-height:44px;display:flex;align-items:center;gap:6px;padding:0 9px;font:700 14px var(--body);color:var(--muted);text-decoration:none;border-bottom:3px solid transparent;white-space:nowrap}
+.tabs a.on{color:var(--navy);border-bottom-color:var(--sky)}
+.tabs em{font:700 12px var(--mono);font-style:normal;background:var(--sunken);color:var(--text);border-radius:var(--r-sm);padding:2px 6px}
+.tabs a.needs em{background:var(--peach);color:var(--peach-ink)}
+.oc{display:flex;flex-direction:column;gap:6px}
+.oc.new{box-shadow:0 0 0 3px var(--sky);border-color:var(--sky)}
+.oc .h{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.code{font:700 28px/1 var(--mono);font-variant-numeric:tabular-nums}
+.code small{display:block;font:500 12px var(--mono);color:var(--muted);margin-top:4px}
+.newtag{font:700 11px var(--body);letter-spacing:.08em;text-transform:uppercase;background:var(--navy);color:var(--on-navy);border-radius:var(--r-sm);padding:3px 6px;vertical-align:middle;margin-left:6px}
+.oc .m{font-size:15px} .oc .t{font:500 13px var(--mono);color:var(--muted)}
+.oc .btn{margin-top:6px}
+.scrim{position:absolute;inset:0;background:var(--scrim);z-index:2}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:3;background:var(--surface);border-radius:var(--r-lg) var(--r-lg) 0 0;box-shadow:var(--shadow);padding:10px 16px 18px;max-height:88%;overflow:hidden}
+.sheet .grab{width:40px;height:4px;border-radius:2px;background:var(--line-strong);margin:0 auto 12px}
+.sheet h3{margin:0;font:700 20px/1.3 var(--body)}
+.stack{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.sticky{flex:none;background:var(--surface);border-top:1px solid var(--line);padding:12px 16px;display:flex;gap:10px;box-shadow:var(--shadow)}
+.sticky .btn{flex:1}
+.tl{list-style:none;margin:0;padding:0}
+.tl li{display:grid;grid-template-columns:18px 1fr auto;gap:10px;padding:4px 0;font-size:14px}
+.tl li::before{content:"";width:10px;height:10px;border-radius:50%;margin:5px 0 0 4px;background:var(--navy)}
+.tl li.now::before{background:var(--sky);box-shadow:0 0 0 3px var(--sky-tint)}
+.tl li.next{color:var(--muted)} .tl li.next::before{background:none;border:2px solid var(--line-strong);width:6px;height:6px}
+.tl time{font:500 13px var(--mono);color:var(--muted)}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);font-size:15px}
+.kv:last-child{border-bottom:0} .kv span:first-child{color:var(--muted)} .kv span:last-child{text-align:right;font-weight:700}
+.svc{display:grid;grid-template-columns:44px 1fr;gap:4px 6px;padding:10px 0;border-bottom:1px solid var(--line)}
+.svc:last-child{border-bottom:0}
+.cb{width:44px;height:44px;display:grid;place-items:center}
+.cb i{width:24px;height:24px;border-radius:var(--r-sm);border:2px solid var(--line-strong);display:grid;place-items:center;color:var(--on-navy)}
+.cb i.on{background:var(--navy);border-color:var(--navy)}
+.cb svg{width:16px;height:16px;stroke-width:3}
+.svc .n{align-self:center;font-weight:700} .svc .n small{display:block;font-weight:400;color:var(--muted);font-size:13px}
+.svc .f{grid-column:2;display:grid;grid-template-columns:1.1fr 1fr .8fr;gap:6px}
+.svc .f .input{padding:0 10px}
+.svc .f label{font:700 11px var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.preview{background:var(--sky-tint);border-radius:var(--r-md);padding:12px;font-size:14px}
+.preview b{font:700 18px var(--mono)}
+.status-block{background:var(--navy);color:var(--on-navy);border-radius:var(--r-lg);padding:16px}
+:root[data-theme="dark"] .status-block{background:var(--sky-tint);color:var(--text);border:1px solid var(--line-strong)}
+.status-block .lbl{color:inherit;opacity:.85}
+.hero{font:700 44px/1.1 var(--mono);font-variant-numeric:tabular-nums;margin:4px 0}
+.batch{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center}
+.batch .p{font-weight:700} .batch .r{grid-column:1/-1;border-top:1px solid var(--line);padding-top:8px;margin-top:4px} .batch .a{font:700 20px var(--mono);text-align:right}
+.ol{margin:0;padding-left:22px;font-size:15px} .ol li{margin-bottom:8px}
+.gate{padding:28px 20px;display:flex;flex-direction:column;gap:16px;flex:1}
+.gate .lockup{height:56px}
+
+/* desktop frames */
+.deskscroll{overflow-x:auto;padding-bottom:8px;margin-bottom:40px}
+.desk{width:1280px;height:760px;display:grid;grid-template-columns:232px 1fr;border:1px solid var(--line-strong);border-radius:var(--r-lg);overflow:hidden;background:var(--ground);box-shadow:var(--shadow)}
+.rail{background:var(--rail);color:#fff;padding:16px 12px;display:flex;flex-direction:column;gap:2px}
+:root[data-theme="dark"] .rail{border-right:1px solid var(--line);color:var(--text)}
+.rail .who{display:flex;gap:10px;align-items:center;padding:4px 6px 18px;font:700 14px/1.25 var(--body)}
+.rail .who img{width:44px;background:#fff;border-radius:var(--r-sm);padding:4px}
+.rail .who small{display:block;font:500 12px var(--mono);opacity:.8}
+.rail a{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 10px;border-radius:var(--r-sm);color:inherit;text-decoration:none;font-size:15px;opacity:.85}
+.rail a.on{background:rgba(255,255,255,.14);opacity:1;font-weight:700;box-shadow:inset 3px 0 0 var(--sky)}
+.rail a em{margin-left:auto;font:700 12px var(--mono);font-style:normal;background:var(--peach);color:var(--peach-ink);border-radius:var(--r-sm);padding:2px 7px}
+.rail .foot{margin-top:auto}
+.dmain{padding:24px 32px;min-width:0;overflow:hidden;display:flex;flex-direction:column;gap:16px}
+.dhead{display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
+.dhead .sub{font:500 13px var(--mono);color:var(--muted);margin-top:6px}
+.split{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:24px;min-height:0;flex:1}
+.list{display:flex;flex-direction:column;gap:12px;overflow:hidden}
+.side{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px;box-shadow:var(--shadow);overflow:hidden}
+.tbl{width:100%;border-collapse:collapse;font-size:15px;background:var(--surface)}
+.tbl th{font:700 12px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left;padding:10px 14px;border-bottom:2px solid var(--text)}
+.tbl td{padding:0 14px;height:48px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl .num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.tbl tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--text)}
+.tablecard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:4px 8px 8px}
+.summ{display:grid;grid-template-columns:repeat(4,auto) 1fr;gap:32px;align-items:end}
+.summ .v{font:700 22px var(--mono);font-variant-numeric:tabular-nums}
+
+/* rules */
+.rules{list-style:none;counter-reset:r;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(360px,100%),1fr));gap:0 32px}
+.rules li{counter-increment:r;display:grid;grid-template-columns:44px 1fr;padding:14px 0;border-top:1px solid var(--line)}
+.rules li::before{content:counter(r,decimal-leading-zero);font:700 15px var(--mono);color:var(--muted)}
+.rules b{display:block}
+.rules span{color:var(--muted);font-size:15px}
+footer{padding:24px 0 48px;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
+
+@media (max-width:820px){
+  .intro{grid-template-columns:1fr;gap:20px;padding-top:32px}
+  .batch .r{grid-column:1/-1}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-bike" viewBox="0 0 24 24"><circle cx="5.5" cy="17" r="3.5"/><circle cx="18.5" cy="17" r="3.5"/><path d="M5.5 17 9 10h6l3.5 7M12 17l3-7M14 5h3l1.5 5M7 10h4"/></symbol>
+  <symbol id="i-store" viewBox="0 0 24 24"><path d="M3 9 4.5 4h15L21 9M3 9h18a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0M5 12v8h14v-8M10 20v-5h4v5"/></symbol>
+  <symbol id="i-shirt" viewBox="0 0 24 24"><path d="M20.4 3.5 16 2a4 4 0 0 1-8 0L3.6 3.5a2 2 0 0 0-1.3 2.2l.6 3.5a1 1 0 0 0 1 .8H6v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V10h2.1a1 1 0 0 0 1-.8l.6-3.5a2 2 0 0 0-1.3-2.2z"/></symbol>
+  <symbol id="i-package" viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8M7.5 5.5l9 5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-scale" viewBox="0 0 24 24"><path d="M12 3v18M7 21h10M4 7h16M7 7l-3 7a3 3 0 0 0 6 0zM17 7l-3 7a3 3 0 0 0 6 0z"/></symbol>
+  <symbol id="i-wifioff" viewBox="0 0 24 24"><path d="M2 2l20 20M8.5 16.4a5 5 0 0 1 7 0M2 8.8a15 15 0 0 1 4.2-2.6M10.7 5.1A15 15 0 0 1 22 8.8M5 12.9a10 10 0 0 1 5.2-2.7M17.5 11.6a10 10 0 0 1 1.5 1.3M12 20h.01"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h14a2 2 0 0 1 2 2v3h-4a2 2 0 0 0 0 4h4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+</svg>
+
+<header class="top"><div class="wrap">
+  <img class="lockup" src="../../apps/landing-page/src/assets/brand/logo-lockup-320.webp" alt="Wash &amp; Go">
+  <button class="btn btn-secondary" id="theme" type="button" aria-pressed="false">Dark theme</button>
+</div></header>
+
+<main>
+<div class="wrap intro">
+  <div>
+    <div class="lbl">Partner laundry portal · UX preview</div>
+    <h1>The shop's side of the claim ticket.</h1>
+    <p>Every screen a partner laundry touches during a shift, drawn in the Claim Ticket system before any app code moves. Phone first, because the scale is next to the counter and the laptop usually isn't.</p>
+  </div>
+  <aside><b>Sample shop:</b> Tetuan Laundry Hub, Don Alfaro St., Tetuan, Zamboanga City. Rates: ₱25/kg wash, dry &amp; fold, ₱40 delivery, ₱7 service fee. The shop keeps 88% of the wash value.</aside>
+</div>
+
+<!-- A. Design kit -->
+<section class="part" id="kit"><div class="wrap">
+  <h2>A. Portal design kit</h2>
+  <p>The parts every screen is built from. Status chips use the labels in <span class="mono">packages/domain</span> and the phase colours in DESIGN.md: moving in sky tint, at the shop in shop tint, delivered in green, cancelled in neutral. "Needs you" overrides the phase for whoever must act.</p>
+  <div class="kit">
+    <div class="card" style="grid-column:1/-1">
+      <span class="lbl">Chip · every order status, then portal-only states</span>
+      <div class="row">
+        <span data-s="BOOKED"></span><span data-s="ASSIGNED"></span><span data-s="PICKED_UP"></span><span data-s="AT_SHOP"></span><span data-s="PROCESSING"></span><span data-s="READY_FOR_RETURN"></span><span data-s="OUT_FOR_RETURN"></span><span data-s="DELIVERED"></span><span data-s="CANCELLED"></span>
+      </div>
+      <div class="row" style="margin-top:10px"><span data-s="NEEDS"></span><span data-s="REVIEW"></span><span data-s="VERIFIED"></span><span data-s="PENDING_T"></span><span data-s="PAID"></span></div>
+    </div>
+    <div class="card">
+      <span class="lbl">ShopLockup · header and rail (B8)</span>
+      <div class="row" style="align-items:center;gap:6px">
+        <span style="width:32px;height:32px;border-radius:8px;display:grid;place-items:center;background:var(--sky-tint);color:var(--navy);font:800 13px/1 var(--display);font-stretch:118%">TL</span>
+        <span class="muted" aria-hidden="true">&times;</span>
+        <img src="../../apps/landing-page/src/assets/brand/logo-mark.webp" alt="" style="width:34px;height:auto">
+        <b style="margin-left:6px">Tetuan Laundry Hub</b>
+      </div>
+      <p class="small muted" style="margin:10px 0 0">The shop's logo (32px, 8px radius) or its initials in navy on sky tint, &times; the whale. The whale alone before verification.</p>
+    </div>
+    <div class="card">
+      <span class="lbl">Buttons · 48px, one primary per card</span>
+      <div class="row">
+        <button class="btn btn-primary" type="button"><svg class="i"><use href="#i-scale"/></svg>Weigh</button>
+        <button class="btn btn-secondary" type="button">Change weight</button>
+        <button class="btn btn-text" type="button">Re-weigh</button>
+        <button class="btn btn-danger" type="button">Remove staff</button>
+      </div>
+      <div class="row" style="margin-top:12px"><button class="btn btn-primary" type="button" disabled>Mark washing</button><span class="reason">Weigh first</span></div>
+    </div>
+    <div class="card">
+      <span class="lbl">MoneyInput · 56px, mono, unit suffix</span>
+      <label class="field" style="margin:0"><span>Weight on the scale</span>
+        <div class="money"><input inputmode="decimal" value="4.1" aria-label="Weight in kilograms"><em>kg</em></div></label>
+      <label class="field" style="margin:12px 0 0"><span>Rate</span>
+        <div class="money"><em style="margin-right:6px">₱</em><input inputmode="decimal" value="25.00" aria-label="Rate in pesos"><em>/ kg</em></div></label>
+    </div>
+    <div class="card oc">
+      <span class="lbl">Card · order</span>
+      <div class="h"><div class="code">0139<small>WG-2026-000139</small></div><span data-s="PROCESSING"></span></div>
+      <div class="m">Carmela · Scheduled · weighed <span class="mono">8.0 kg</span></div>
+      <div class="t">washing since 11:20am</div>
+      <button class="btn btn-primary full" type="button"><svg class="i"><use href="#i-package"/></svg>Ready for pickup</button>
+    </div>
+    <div class="card">
+      <span class="lbl">Toast · role=status</span>
+      <div class="toast" role="status"><svg class="i"><use href="#i-check"/></svg><div><b>Confirmed ₱149.50.</b><br><span class="small muted">Maria gets a text with the new total.</span></div></div>
+      <span class="lbl" style="margin:20px 0 10px;display:block">StaleBanner</span>
+      <div class="stale" style="border-radius:var(--r-md)"><svg class="i"><use href="#i-wifioff"/></svg><span>Offline. Orders from 4 min ago.</span><button class="btn btn-text" type="button">Retry</button></div>
+    </div>
+    <div class="card">
+      <span class="lbl">EmptyState · honest, with a next step</span>
+      <div class="empty"><h4>Nothing needs you right now.</h4><p>New orders land at the top of this tab with a chime and a blue ring for 60 seconds.</p><button class="btn btn-secondary" type="button">Turn on the chime</button></div>
+    </div>
+    <div class="card">
+      <span class="lbl">Skeleton · loading a card</span>
+      <div class="sk" style="width:38%;height:28px"></div><div class="sk" style="width:72%"></div><div class="sk" style="width:46%"></div><div class="sk" style="height:48px;border-radius:var(--r-md);margin:0"></div>
+    </div>
+    <div class="card">
+      <span class="lbl">Stepper · wizard, 6 steps</span>
+      <div class="small"><b>Step 3 of 6</b> · Services &amp; rates</div>
+      <div class="stepper" aria-hidden="true"><i class="done"></i><i class="done"></i><i class="now"></i><i></i><i></i><i></i></div>
+      <div class="small muted">Details · Location · <b style="color:var(--text)">Services</b> · Hours · Documents · Review</div>
+    </div>
+  </div>
+</div></section>
+
+<!-- B. Phone frames -->
+<section class="part" id="phone"><div class="wrap">
+  <h2>B. On the phone · 390 wide</h2>
+  <p>Bottom tabs (Orders, Services, Payouts, Shop, More), the shop name and "updated" age in the header, one headline per screen in Archivo. Money, weights, codes and times are mono everywhere.</p>
+  <div class="phones">
+
+    <figure style="margin:0">
+      <figcaption class="cap"><b>B1 · Login</b><span>Left-aligned, two fields, an inline human error, and the way in for a new laundry.</span></figcaption>
+      <div class="phone"><div class="scr"><div class="sb"><span>9:41</span><span>4G</span></div>
+        <div class="gate" style="background:var(--surface)">
+          <img class="lockup" src="../../apps/landing-page/src/assets/brand/logo-lockup-320.webp" alt="Wash &amp; Go">
+          <div><div class="lbl">Partner laundries</div><h1 class="disp" style="margin-top:6px">Sign in to your shop</h1></div>
+          <div>
+            <label class="field"><span>Email</span><input class="input" type="email" value="lorna@tetuanhub.ph"></label>
+            <label class="field" style="margin:0"><span>Password</span>
+              <div style="display:flex;gap:6px"><input class="input" type="password" value="wrongpass1" style="border-color:var(--danger)"><button class="btn btn-text" type="button">Show</button></div></label>
+            <div class="err">That password doesn't match this email. Try again, or reset it below.</div>
+          </div>
+          <button class="btn btn-primary full" type="button">Sign in</button>
+          <button class="btn btn-text" type="button" style="align-self:flex-start">Forgot password?</button>
+          <div style="margin-top:auto;border-top:1px solid var(--line);padding-top:16px"><div class="small muted" style="margin-bottom:8px">New partner laundry?</div><button class="btn btn-secondary full" type="button">Register your laundry</button></div>
+        </div>
+      </div></div>
+    </figure>
+
+    <figure style="margin:0">
+      <figcaption class="cap"><b>B2 · Orders queue</b><span>Tabs with counts; a new order arrives with a sky ring; one primary per card.</span></figcaption>
+      <div class="phone"><div class="scr"><div class="sb"><span>9:41</span><span>4G</span></div><div data-hd="updated 12 s ago"></div>
+        <div class="pb">
+          <h1 class="disp">Orders</h1>
+          <input class="input" type="search" placeholder="Search by order code" aria-label="Search by order code">
+          <nav class="tabs"><a class="on needs" href="#">Needs you <em>3</em></a><a href="#">Washing <em>2</em></a><a href="#">Ready <em>1</em></a><a href="#">Done <em>14</em></a></nav>
+          <div class="card oc new"><div class="h"><div class="code">0147<span class="newtag">New</span><small>WG-2026-000147</small></div><span data-s="NEEDS"></span></div>
+            <div class="m">Maria · Express · Small (~3 kg)</div><div class="t">arrived 2 min ago · rider Ana R.</div>
+            <button class="btn btn-primary full" type="button"><svg class="i"><use href="#i-scale"/></svg>Weigh</button></div>
+          <div class="card oc"><div class="h"><div class="code">0145<small>WG-2026-000145</small></div><span data-s="NEEDS"></span></div>
+            <div class="m">Jun · Scheduled · Large (~9 kg)</div><div class="t">arrived 38 min ago</div>
+            <button class="btn btn-primary full" type="button"><svg class="i"><use href="#i-scale"/></svg>Weigh</button></div>
+          <div class="card oc"><div class="h"><div class="code">0141<small>WG-2026-000141</small></div><span data-s="NEEDS"></span></div>
+            <div class="m">Rhea · Express · weighed <span class="mono">7.2 kg</span> · confirmed</div>
+            <button class="btn btn-primary full" type="button"><svg class="i"><use href="#i-shirt"/></svg>Mark washing</button></div>
+        </div>
+        <nav class="tb" data-tb="orders"></nav>
+      </div></div>
+    </figure>
+
+    <figure style="margin:0">
+      <figcaption class="cap"><b>B3 · Weigh sheet</b><span>Bottom sheet over the queue. Live breakdown; the delta against the booking estimate sits in a warning box.</span></figcaption>
+      <div class="phone"><div class="scr"><div class="sb"><span>9:41</span><span>4G</span></div><div data-hd="updated 3 s ago"></div>
+        <div class="pb"><h1 class="disp">Orders</h1></div><div class="scrim"></div>
+        <div class="sheet" role="dialog" aria-label="Weigh order 0147">
+          <div class="grab"></div>
+          <div class="lbl">Weigh · Express · Small (~3 kg)</div>
+          <h3 style="margin:2px 0 14px">Order <span class="mono">0147</span> · Maria</h3>
+          <label class="field" style="margin:0"><span>Weight on the scale</span>
+            <div class="money"><input inputmode="decimal" value="4.1" aria-label="Weight in kilograms"><em>kg</em></div></label>
+          <div class="bd">
+            <div><span>Wash · <span class="mono">4.1 kg × ₱25.00</span></span><span>₱102.50</span></div>
+            <div><span>Delivery</span><span>₱40.00</span></div>
+            <div><span>Service fee</span><span>₱7.00</span></div>
+            <div class="tot"><span>Customer pays</span><span>₱149.50</span></div>
+          </div>
+          <div class="warnbox"><svg class="i"><use href="#i-alert"/></svg><div><b>1.1 kg over the 3 kg estimate</b>Maria booked at ₱122.00; she'll be told the new total.</div></div>
+          <div class="stack"><button class="btn btn-primary full" type="button">Confirm ₱149.50</button><button class="btn btn-text" type="button">Cancel</button></div>
+        </div>
+      </div></div>
+    </figure>
+
+    <figure style="margin:0">
+      <figcaption class="cap"><b>B3b · Weigh, second confirm</b><span>Over 2× the estimate or more than +5 kg: the scale reading is checked once more before it becomes a bill.</span></figcaption>
+      <div class="phone"><div class="scr"><div class="sb"><span>9:41</span><span>4G</span></div><div data-hd="updated 3 s ago"></div>
+        <div class="pb"><h1 class="disp">Orders</h1></div><div class="scrim"></div>
+        <div class="sheet" role="dialog" aria-label="Confirm weight for order 0145">
+          <div class="grab"></div>
+          <div class="lbl">Weigh · Scheduled · Large (~9 kg)</div>
+          <h3 style="margin:2px 0 14px">Order <span class="mono">0145</span> · Jun</h3>
+          <div class="money" style="border-color:var(--warn-ink)"><input inputmode="decimal" value="19.6" aria-label="Weight in kilograms" readonly><em>kg</em></div>
+          <div class="warnbox"><svg class="i"><use href="#i-alert"/></svg><div><b>That's more than double the estimate.</b>Jun booked about 9 kg (₱272.00). Check the scale shows 19.6 kg, not 1.96 kg, before you send.</div></div>
+          <div class="bd">
+            <div><span>Wash · <span class="mono">19.6 kg × ₱25.00</span></span><span>₱490.00</span></div>
+            <div><span>Delivery</span><span>₱40.00</span></div>
+            <div><span>Service fee</span><span>₱7.00</span></div>
+            <div class="tot"><span>Customer pays</span><span>₱537.00</span></div>
+          </div>
+          <div class="stack"><button class="btn btn-primary full" type="button">Yes, confirm ₱537.00</button><button class="btn btn-secondary full" type="button">Change the weight</button></div>
+        </div>
+      </div></div>
+    </figure>
+
+    <figure style="margin:0">
+      <figcaption class="cap"><b>B4 · Order detail</b><span>Who has it, the trail, the money with the shop's 88% line, weigh history; the same single action as the card.</span></figcaption>
+      <div class="phone"><div class="scr"><div class="sb"><span>9:41</span><span>4G</span></div><div data-hd="updated 8 s ago"></div>
+        <div class="pb" style="gap:10px">
+          <div class="h" style="display:flex;justify-content:space-between;align-items:flex-start"><div class="code">0141<small>WG-2026-000141 · Rhea · Express</small></div><span data-s="AT_SHOP"></span></div>
+          <div class="card" style="padding:12px 14px">
+            <ol class="tl">
+              <li><span>Booked</span><time>9:58am</time></li>
+              <li><span>Picked up · Ana R., e-bike</span><time>10:21am</time></li>
+              <li class="now"><span><b>At your shop</b> · weighed <span class="mono">7.2 kg</span></span><time>10:42am</time></li>
+              <li class="next"><span>Washing</span><time></time></li>
+                            <li class="next"><span>Delivered</span><time></time></li>
+            </ol>
+          </div>
+          <div class="card" style="padding:4px 14px 12px">
+            <div class="bd" style="border:0">
+              <div><span>Wash · <span class="mono">7.2 kg × ₱25.00</span></span><span>₱180.00</span></div>
+              <div><span>Delivery</span><span>₱40.00</span></div>
+              <div><span>Service fee</span><span>₱7.00</span></div>
+              <div class="tot"><span>Customer pays</span><span>₱227.00</span></div>
+              <div style="color:var(--success-ink);font-weight:700"><span>Your payout (88% of wash)</span><span>₱158.40</span></div>
+            </div>
+          </div>
+          <div class="small muted"><b style="color:var(--text)">Weighed</b> <span class="mono">7.2 kg</span> by Lorna <span class="mono">10:47am</span> · confirmed <span class="mono">10:52am</span></div>
+        </div>
+        <div class="sticky"><button class="btn btn-primary" type="button"><svg class="i"><use href="#i-shirt"/></svg>Mark washing</button></div>
+        <nav class="tb" data-tb="orders"></nav>
+      </div></div>
+    </figure>
+
+    <figure style="margin:0">
+      <figcaption class="cap"><b>B5 · Wizard step 3 · Services &amp; rates</b><span>Tick what the shop offers, set ₱, unit and turnaround; the preview shows what a customer will see.</span></figcaption>
+      <div class="phone"><div class="scr"><div class="sb"><span>9:41</span><span>4G</span></div>
+        <div class="hd"><img src="../../apps/landing-page/src/assets/brand/logo-mark.webp" alt=""><div class="nm">Register your laundry<small>saved 4 s ago</small></div></div>
+        <div class="pb" style="gap:8px">
+          <div class="small"><b>Step 3 of 6</b> · Services &amp; rates</div>
+          <div class="stepper" aria-hidden="true"><i class="done"></i><i class="done"></i><i class="now"></i><i></i><i></i><i></i></div>
+          <h1 class="disp" style="margin-top:6px">What do you offer?</h1>
+          <div class="card" style="padding:4px 12px">
+            <div class="svc"><span class="cb"><i class="on"><svg class="i"><use href="#i-check"/></svg></i></span><span class="n">Wash, dry &amp; fold</span>
+              <div class="f"><label>Rate<input class="input mono" value="₱25.00"></label><label>Per<select class="input"><option>kg</option></select></label><label>Hours<input class="input mono" value="24"></label></div></div>
+            <div class="svc"><span class="cb"><i class="on"><svg class="i"><use href="#i-check"/></svg></i></span><span class="n">Press only</span>
+              <div class="f"><label>Rate<input class="input mono" value="₱15.00"></label><label>Per<select class="input"><option>piece</option></select></label><label>Hours<input class="input mono" value="24"></label></div></div>
+            <div class="svc"><span class="cb"><i></i></span><span class="n">Comforter or blanket<small>Not offered · tick to set a rate</small></span></div>
+          </div>
+          <div class="preview">Customers see: 6 kg wash, dry &amp; fold = <b>₱150.00</b> + delivery</div>
+        </div>
+        <div class="sticky"><button class="btn btn-secondary" type="button">Back</button><button class="btn btn-primary" type="button">Next: Hours</button></div>
+      </div></div>
+    </figure>
+
+    <figure style="margin:0">
+      <figcaption class="cap"><b>B6 · Wizard · Under review</b><span>After Submit: what happens next, in order, and who to call. No dead end.</span></figcaption>
+      <div class="phone"><div class="scr"><div class="sb"><span>9:41</span><span>4G</span></div>
+        <div class="hd"><img src="../../apps/landing-page/src/assets/brand/logo-mark.webp" alt=""><div class="nm">Tetuan Laundry Hub<small>submitted Oct 19, 3:12pm</small></div><span data-s="REVIEW"></span></div>
+        <div class="pb" style="gap:16px">
+          <h1 class="disp">We're checking your shop</h1>
+          <p style="margin:0">Thanks, Lorna. Your details, rates and hours are in. Orders open once our team has verified Tetuan Laundry Hub.</p>
+          <div class="card"><div class="lbl" style="margin-bottom:10px">What happens next</div>
+            <ol class="ol"><li>Ops calls <span class="mono">0917 000 4821</span> within 2 working days.</li><li>We visit Don Alfaro St. to see the storefront and check the scale.</li><li>You get a text, and Orders opens on your next sign-in.</li></ol></div>
+          <div class="card"><div class="lbl" style="margin-bottom:6px">Questions</div><p class="small" style="margin:0 0 10px">Wash &amp; Go partner ops · phone and Messenger details coming soon.</p><button class="btn btn-secondary full" type="button">Contact partner ops</button></div>
+          <button class="btn btn-text" type="button" style="align-self:flex-start">See what you submitted</button>
+        </div>
+      </div></div>
+    </figure>
+
+    <figure style="margin:0">
+      <figcaption class="cap"><b>B7 · Payouts</b><span>What's owed and not yet batched, then weekly batches as cards (the desktop table becomes these under 560px).</span></figcaption>
+      <div class="phone"><div class="scr"><div class="sb"><span>9:41</span><span>4G</span></div><div data-hd="updated 1 min ago"></div>
+        <div class="pb">
+          <h1 class="disp">Payouts</h1>
+          <div class="status-block"><div class="lbl">Pending · not yet batched</div><div class="hero">₱2,417.80</div><div class="small">11 delivered orders since Oct 13. Batched Monday, Oct 20.</div></div>
+          <div class="lbl" style="margin-top:6px">Batches</div>
+          <div class="card batch"><span class="p">Oct 6 – 12</span><span data-s="PENDING_T"></span><span class="small muted">9 orders</span><span class="a">₱1,377.20</span><span class="r small muted">Reference added when ops sends it</span></div>
+          <div class="card batch"><span class="p">Sep 29 – Oct 5</span><span data-s="PAID"></span><span class="small muted">12 orders</span><span class="a">₱1,929.40</span><span class="r small muted">Ref <span class="mono">GC-7740913526</span></span></div>
+          <div class="card batch"><span class="p">Sep 22 – 28</span><span data-s="PAID"></span><span class="small muted">8 orders</span><span class="a">₱1,172.60</span><span class="r small muted">Ref <span class="mono">GC-7739802241</span></span></div>
+        </div>
+        <nav class="tb" data-tb="payouts"></nav>
+      </div></div>
+    </figure>
+
+    <figure style="margin:0">
+      <figcaption class="cap"><b>B8 · Shop profile</b><span>Verification, details, hours and capacity; the payout account is masked and owner-only, with a confirm on change.</span></figcaption>
+      <div class="phone"><div class="scr"><div class="sb"><span>9:41</span><span>4G</span></div><div data-hd="updated 1 min ago"></div>
+        <div class="pb">
+          <h1 class="disp">Shop</h1>
+          <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><b>Verified partner</b><div class="small muted">since Oct 3 · visited by ops</div></div><span data-s="VERIFIED"></span></div>
+          <div class="card" style="padding:4px 16px">
+            <div class="kv"><span>Phone</span><span class="mono">0917 000 4821</span></div>
+            <div class="kv"><span>Address</span><span>Don Alfaro St., Tetuan<br><span class="small muted" style="font-weight:400">beside the barangay hall</span></span></div>
+            <div class="kv"><span>Hours</span><span class="mono">Mon–Sat 7am–7pm</span></div>
+            <div class="kv"><span>Express slots</span><span class="mono">8 / day</span></div>
+          </div>
+          <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lbl">Payout account</span><span class="small muted">Owner only</span></div>
+            <div style="margin:8px 0 2px;font-weight:700">GCash · <span class="mono">0917 ••• 4821</span></div><div class="small muted" style="margin-bottom:12px">R. Fernandez · we text you before any change applies</div>
+            <button class="btn btn-secondary full" type="button">Change payout account</button></div>
+        </div>
+        <nav class="tb" data-tb="shop"></nav>
+      </div></div>
+    </figure>
+
+    <figure style="margin:0">
+      <figcaption class="cap"><b>B9 · Not a shop account</b><span>A customer account that signs in here gets a clear way out, mirroring the rider gate.</span></figcaption>
+      <div class="phone"><div class="scr"><div class="sb"><span>9:41</span><span>4G</span></div>
+        <div class="gate" style="background:var(--surface)">
+          <img class="lockup" src="../../apps/landing-page/src/assets/brand/logo-lockup-320.webp" alt="Wash &amp; Go">
+          <h1 class="disp" style="margin-top:12px">This console is for partner laundries</h1>
+          <p style="margin:0">You're signed in as <b>maria.s@gmail.com</b>, a customer account. To book laundry, use the Wash &amp; Go app.</p>
+          <p class="small muted" style="margin:0">Own a laundry in Zamboanga City? Register it and our team will verify it in person.</p>
+          <button class="btn btn-primary full" type="button">Register your laundry</button>
+          <button class="btn btn-secondary full" type="button">Sign out</button>
+        </div>
+      </div></div>
+    </figure>
+
+  </div>
+</div></section>
+
+<!-- C. Desktop frames -->
+<section class="part" id="desktop"><div class="wrap">
+  <h2>C. At the counter · 1280 wide</h2>
+  <p>From 1024px the tab bar becomes a navy left rail and sheets open from the side, so the queue stays visible while you weigh. On a phone these frames scroll sideways inside their box.</p>
+
+  <div class="cap" style="max-width:none"><b>C1 · Orders queue with left rail</b><span>Weigh sheet open on the right; while it is open, card actions drop to secondary so the sheet holds the one primary.</span></div>
+  <div class="deskscroll"><div class="desk">
+    <nav class="rail" data-rail="orders"></nav>
+    <div class="dmain">
+      <div class="dhead"><div><h1 class="disp">Orders</h1><div class="sub">updated 12 s ago · chime on</div></div><input class="input" type="search" placeholder="Search by order code" aria-label="Search by order code" style="max-width:320px"></div>
+      <nav class="tabs" style="margin:0;padding:0"><a class="on needs" href="#">Needs you <em>3</em></a><a href="#">Washing <em>2</em></a><a href="#">Ready <em>1</em></a><a href="#">Done <em>14</em></a></nav>
+      <div class="split">
+        <div class="list">
+          <div class="card oc new"><div class="h"><div class="code">0147<span class="newtag">New</span><small>WG-2026-000147</small></div><span data-s="NEEDS"></span></div><div class="m">Maria · Express · Small (~3 kg) · <span class="t">arrived 2 min ago</span></div><div class="small muted">Weighing now, in the panel on the right.</div></div>
+          <div class="card oc"><div class="h"><div class="code">0145<small>WG-2026-000145</small></div><span data-s="NEEDS"></span></div><div class="m">Jun · Scheduled · Large (~9 kg) · <span class="t">arrived 38 min ago</span></div><button class="btn btn-secondary" type="button" style="align-self:flex-start"><svg class="i"><use href="#i-scale"/></svg>Weigh</button></div>
+          <div class="card oc"><div class="h"><div class="code">0141<small>WG-2026-000141</small></div><span data-s="NEEDS"></span></div><div class="m">Rhea · Express · weighed <span class="mono">7.2 kg</span> · confirmed <span class="t">10:52am</span></div><button class="btn btn-secondary" type="button" style="align-self:flex-start"><svg class="i"><use href="#i-shirt"/></svg>Mark washing</button></div>
+        </div>
+        <aside class="side" aria-label="Weigh order 0147">
+          <div class="lbl">Weigh · Express · Small (~3 kg)</div>
+          <h3 style="margin:2px 0 14px;font:700 20px var(--body)">Order <span class="mono">0147</span> · Maria</h3>
+          <label class="field" style="margin:0"><span>Weight on the scale</span><div class="money"><input inputmode="decimal" value="4.1" aria-label="Weight in kilograms"><em>kg</em></div></label>
+          <div class="bd"><div><span>Wash · <span class="mono">4.1 kg × ₱25.00</span></span><span>₱102.50</span></div><div><span>Delivery</span><span>₱40.00</span></div><div><span>Service fee</span><span>₱7.00</span></div><div class="tot"><span>Customer pays</span><span>₱149.50</span></div></div>
+          <div class="warnbox"><svg class="i"><use href="#i-alert"/></svg><div><b>1.1 kg over the 3 kg estimate</b>Maria will be told the new total.</div></div>
+          <div class="stack"><button class="btn btn-primary full" type="button">Confirm ₱149.50</button><button class="btn btn-text" type="button" style="align-self:flex-start">Cancel</button></div>
+        </aside>
+      </div>
+    </div>
+  </div></div>
+
+  <div class="cap" style="max-width:none"><b>C2 · Payout batch detail</b><span>One line per delivered order. Money right-aligned in mono; commission is the platform's 12%.</span></div>
+  <div class="deskscroll"><div class="desk">
+    <nav class="rail" data-rail="payouts"></nav>
+    <div class="dmain">
+      <div class="dhead"><div><div class="small muted"><a href="#" class="btn-text" style="padding:0">Payouts</a> / Oct 6 – 12</div><h1 class="disp" style="margin-top:6px">Batch Oct 6 – 12</h1></div><button class="btn btn-secondary" type="button">Export CSV</button></div>
+      <div class="summ">
+        <div><div class="lbl">Orders</div><div class="v">9</div></div>
+        <div><div class="lbl">Wash value</div><div class="v">₱1,565.00</div></div>
+        <div><div class="lbl">Commission 12%</div><div class="v">₱187.80</div></div>
+        <div><div class="lbl">Your payout</div><div class="v">₱1,377.20</div></div>
+        <div style="justify-self:end;text-align:right"><span data-s="PENDING_T"></span><div class="small muted" style="margin-top:6px">Closed Oct 13 · reference appears once ops sends it</div></div>
+      </div>
+      <div class="tablecard"><table class="tbl">
+        <thead><tr><th>Order</th><th>Customer</th><th>Delivered</th><th class="num">Weighed</th><th class="num">Wash value</th><th class="num">Commission</th><th class="num">Payout</th></tr></thead>
+        <tbody id="lines"></tbody>
+        <tfoot><tr><td colspan="3">9 orders</td><td class="num">62.6 kg</td><td class="num">₱1,565.00</td><td class="num">₱187.80</td><td class="num">₱1,377.20</td></tr></tfoot>
+      </table></div>
+    </div>
+  </div></div>
+
+  <div class="cap" style="max-width:none"><b>C3 · Services &amp; rates</b><span>Owner edits; staff see the same table read-only with "Ask the owner to change rates".</span></div>
+  <div class="deskscroll"><div class="desk">
+    <nav class="rail" data-rail="services"></nav>
+    <div class="dmain">
+      <div class="dhead"><div><h1 class="disp">Services &amp; rates</h1><div class="sub">last changed Oct 14, 9:05am by Lorna</div></div><button class="btn btn-primary" type="button">Add a service</button></div>
+      <div class="preview" style="max-width:720px">Customers see these rates when they book. A change applies to new bookings only; orders already booked keep their price.</div>
+      <div class="tablecard"><table class="tbl">
+        <thead><tr><th>Service</th><th>Unit</th><th class="num">Your rate</th><th class="num">Turnaround</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          <tr><td><b>Wash, dry &amp; fold</b></td><td>per kg</td><td class="num">₱25.00</td><td class="num">24 h</td><td><span data-s="ON"></span></td><td style="text-align:right"><button class="btn btn-text" type="button">Edit</button></td></tr>
+          <tr><td><b>Press only</b></td><td>per piece</td><td class="num">₱15.00</td><td class="num">24 h</td><td><span data-s="ON"></span></td><td style="text-align:right"><button class="btn btn-text" type="button">Edit</button></td></tr>
+          <tr><td><b>Wash &amp; press</b></td><td>per kg</td><td class="num">₱45.00</td><td class="num">48 h</td><td><span data-s="ON"></span></td><td style="text-align:right"><button class="btn btn-text" type="button">Edit</button></td></tr>
+          <tr><td><b>Comforter or blanket</b></td><td>flat</td><td class="num">₱180.00</td><td class="num">48 h</td><td><span data-s="OFF"></span></td><td style="text-align:right"><button class="btn btn-text" type="button">Edit</button></td></tr>
+          <tr><td><b>Curtains</b></td><td>per kg</td><td class="num muted">not set</td><td class="num muted">–</td><td><span data-s="OFF"></span></td><td style="text-align:right"><button class="btn btn-text" type="button">Set a rate</button></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div></div>
+</div></section>
+
+<!-- D. Rules -->
+<section class="part" id="rules"><div class="wrap">
+  <h2>D. Portal rules</h2>
+  <p>From DESIGN.md and the plan. Every screen above follows them; QA flags any build that doesn't.</p>
+  <ol class="rules">
+    <li><div><b>44px targets, 48px buttons</b><span>Wet hands, one thumb. Nothing tappable smaller than 44px; primary money actions on a 56px input.</span></div></li>
+    <li><div><b>16px inputs</b><span>Every input, select and textarea at 16px or more, so iOS never zooms the page.</span></div></li>
+    <li><div><b>One primary action per card</b><span>One navy button per card and per screen; everything else is secondary, text, or inside the detail.</span></div></li>
+    <li><div><b>Tables become cards under 560px</b><span>Batches, lines and services read as cards on a phone; the desktop table keeps the same order of facts.</span></div></li>
+    <li><div><b>Money, weights, codes and times in mono</b><span>Atkinson Hyperlegible Mono, tabular, right-aligned in tables, in the same place on list and detail.</span></div></li>
+    <li><div><b>Status is icon + word + colour</b><span>Labels from packages/domain; phase colours, never a rainbow; "Needs you" overrides the phase for the shop.</span></div></li>
+    <li><div><b>Human errors with a next step</b><span>No server text. Every error says what happened and offers retry, back, or contact ops.</span></div></li>
+    <li><div><b>Nothing destructive without a confirm</b><span>Removing staff and changing the payout account confirm first; heavy weigh-ins confirm twice.</span></div></li>
+  </ol>
+</div></section>
+</main>
+
+<footer><div class="wrap">Wash &amp; Go · laundry portal UX preview · plan B0, 2026-10-19 · sample data only.</div></footer>
+
+<script>
+  // Mirrors packages/domain/src/order-status.ts labels; tone -> DESIGN.md phase colours.
+  var S = {
+    BOOKED: ['Booked', 'move', 'clock'], ASSIGNED: ['Rider assigned', 'move', 'bike'], PICKED_UP: ['Picked up', 'move', 'bike'],
+    AT_SHOP: ['At the shop', 'shop', 'store'], PROCESSING: ['Washing', 'shop', 'shirt'], READY_FOR_RETURN: ['Ready for return', 'shop', 'package'],
+    OUT_FOR_RETURN: ['Out for delivery', 'move', 'bike'], DELIVERED: ['Delivered', 'done', 'check'], CANCELLED: ['Cancelled', 'cancel', 'x'],
+    NEEDS: ['Needs you', 'needs', 'alert'], AWAIT: ['Awaiting customer', 'warn', 'clock'], REVIEW: ['Under review', 'warn', 'clock'],
+    VERIFIED: ['Verified', 'done', 'check'], PENDING_T: ['Transfer pending', 'move', 'clock'], PAID: ['Paid', 'done', 'check'],
+    ON: ['Offered', 'done', 'check'], OFF: ['Off', 'cancel', 'x']
+  };
+  var ic = function (n, cls) { return '<svg class="' + (cls || 'i') + '" aria-hidden="true"><use href="#i-' + n + '"/></svg>'; };
+  document.querySelectorAll('[data-s]').forEach(function (el) {
+    var s = S[el.dataset.s]; el.className = 'chip c-' + s[1]; el.innerHTML = ic(s[2], '') + s[0];
+  });
+  document.querySelectorAll('[data-hd]').forEach(function (el) {
+    el.className = 'hd';
+    el.innerHTML = '<img src="../../apps/landing-page/src/assets/brand/logo-mark.webp" alt=""><div class="nm">Tetuan Laundry Hub<small>' + el.dataset.hd + '</small></div><span class="chip c-done">' + ic('check', '') + 'Verified</span>';
+  });
+  var tabs = [['orders', 'Orders', 'package'], ['services', 'Services', 'shirt'], ['payouts', 'Payouts', 'wallet'], ['shop', 'Shop', 'store'], ['more', 'More', 'menu']];
+  document.querySelectorAll('[data-tb]').forEach(function (el) {
+    el.innerHTML = tabs.map(function (t) { return '<a href="#"' + (t[0] === el.dataset.tb ? ' class="on" aria-current="page"' : '') + '>' + ic(t[2]) + t[1] + '</a>'; }).join('');
+  });
+  var rail = tabs.slice(0, 4).concat([['staff', 'Staff', 'menu'], ['help', 'Help', 'alert']]);
+  document.querySelectorAll('[data-rail]').forEach(function (el) {
+    el.innerHTML = '<div class="who"><img src="../../apps/landing-page/src/assets/brand/logo-mark.webp" alt=""><div>Tetuan Laundry Hub<small>Owner · Lorna</small></div></div>' +
+      rail.map(function (t) { return '<a href="#"' + (t[0] === el.dataset.rail ? ' class="on"' : '') + '>' + ic(t[2]) + t[1] + (t[0] === 'orders' ? '<em>3</em>' : '') + '</a>'; }).join('') +
+      '<a class="foot" href="#">' + ic('x') + 'Sign out</a>';
+  });
+  // Batch Oct 6-12: kg -> wash ₱25/kg, commission 12%, payout 88%.
+  var L = [['0102', 'Ana', 'Oct 6', 6.0], ['0104', 'Ben', 'Oct 6', 7.2], ['0107', 'Joy', 'Oct 7', 4.5], ['0109', 'Mark', 'Oct 8', 9.4], ['0111', 'Liza', 'Oct 9', 3.1], ['0114', 'Rico', 'Oct 10', 12.0], ['0116', 'Grace', 'Oct 10', 5.6], ['0119', 'Paolo', 'Oct 11', 8.0], ['0121', 'Nida', 'Oct 12', 6.8]];
+  var peso = function (n) { return '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+  document.getElementById('lines').innerHTML = L.map(function (r) {
+    var w = r[3] * 25; return '<tr><td class="mono"><b>' + r[0] + '</b> <span class="muted">WG-2026-00' + r[0] + '</span></td><td>' + r[1] + '</td><td class="mono">' + r[2] + '</td><td class="num">' + r[3].toFixed(1) + ' kg</td><td class="num">' + peso(w) + '</td><td class="num">' + peso(w * .12) + '</td><td class="num">' + peso(w * .88) + '</td></tr>';
+  }).join('');
+  var btn = document.getElementById('theme');
+  var sync = function () { var d = document.documentElement.dataset.theme === 'dark'; btn.textContent = d ? 'Light theme' : 'Dark theme'; btn.setAttribute('aria-pressed', String(d)); };
+  btn.addEventListener('click', function () {
+    var t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = t; try { localStorage.setItem('wg-portal-theme', t); } catch (e) {} sync();
+  });
+  sync();
+</script>
+</body>
+</html>
